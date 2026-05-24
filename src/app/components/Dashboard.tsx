@@ -27,6 +27,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [payouts, setPayouts] = useState([]);
   const [tracking, setTracking] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   // Helper to build headers with impersonation support
   const buildHeaders = () => {
@@ -42,6 +43,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   };
 
   const fetchData = async () => {
+    setError('');
     try {
       console.log('Dashboard: Starting data fetch with access token:', accessToken?.substring(0, 10) + '...');
       console.log('Dashboard: Token type:', accessToken?.startsWith('imp_') ? 'impersonation' : 'regular');
@@ -56,7 +58,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/tracking`, { headers })
       ]);
 
-      console.log('Dashboard: Response statuses - Links:', linksRes.status, 'Activity:', activityRes.status, 'Payouts:', payoutsRes.status, 'Tracking:', trackingRes.status);
+      if (linksRes.status === 401) {
+        onLogout();
+        return;
+      }
+
+      if (!linksRes.ok) {
+        const err = await linksRes.json().catch(() => ({}));
+        throw new Error(err.error || `Server error (${linksRes.status}) — try logging out and back in.`);
+      }
 
       const [linksData, activityData, payoutsData, trackingData] = await Promise.all([
         linksRes.json(),
@@ -65,29 +75,12 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         trackingRes.json()
       ]);
 
-      console.log('=== Dashboard Data Loaded ===');
-      console.log('Links response:', linksData);
-      console.log('Links:', linksData.links?.length || 0, 'items');
-      console.log('Activity response:', activityData);
-      console.log('Activity:', activityData.activity?.length || 0, 'items');
-      console.log('Tracking response:', trackingData);
-      console.log('Tracking:', trackingData.tracking?.length || 0, 'items');
-      console.log('Payouts response:', payoutsData);
-      console.log('Payouts:', payoutsData.payouts?.length || 0, 'items');
-
-      if (linksData.error) console.error('Links error:', linksData.error);
-      if (activityData.error) console.error('Activity error:', activityData.error);
-      if (trackingData.error) console.error('Tracking error:', trackingData.error);
-      if (payoutsData.error) console.error('Payouts error:', payoutsData.error);
-
       setLinks(linksData.links || []);
       setActivity(activityData.activity || []);
       setTracking(trackingData.tracking || []);
       setPayouts(payoutsData.payouts || []);
     } catch (error) {
-      console.error('Dashboard: Exception while fetching data:', error);
-      console.error('Dashboard: Error message:', error.message);
-      console.error('Dashboard: Error stack:', error.stack);
+      setError(`Failed to load data: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -212,6 +205,12 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           </div>
         </div>
       </header>
+
+      {error && (
+        <div className="bg-red-50 border-b border-red-200 px-4 sm:px-6 lg:px-8 py-3 text-red-800 text-sm max-w-7xl mx-auto">
+          {error} — try refreshing the page or logging out and back in.
+        </div>
+      )}
 
       {/* Data Debug Banner */}
       <div className="bg-blue-50 border-b border-blue-200">
