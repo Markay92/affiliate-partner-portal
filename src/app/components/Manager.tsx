@@ -282,10 +282,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [affiliatesSort,       setAffiliatesSort]       = useState<SortState>({ field: 'name', dir: 'asc' });
 
   // ── Tracking Activity filter / sort ────────────────────────────────────────
-  const [mgTrackingFilter,     setMgTrackingFilter]     = useState<DateFilter>('all');
-  const [mgTrackingCustomFrom, setMgTrackingCustomFrom] = useState('');
-  const [mgTrackingCustomTo,   setMgTrackingCustomTo]   = useState('');
-  const [mgTrackingSort,       setMgTrackingSort]       = useState<SortState>({ field: 'clickDate', dir: 'desc' });
+  const [mgTrackingFilter,           setMgTrackingFilter]           = useState<DateFilter>('all');
+  const [mgTrackingCustomFrom,       setMgTrackingCustomFrom]       = useState('');
+  const [mgTrackingCustomTo,         setMgTrackingCustomTo]         = useState('');
+  const [mgTrackingSort,             setMgTrackingSort]             = useState<SortState>({ field: 'clickDate', dir: 'desc' });
+  const [mgTrackingStatusFilter,     setMgTrackingStatusFilter]     = useState('all');
+  const [mgTrackingAffiliateFilter,  setMgTrackingAffiliateFilter]  = useState('all');
 
   // ── Derived display data ────────────────────────────────────────────────────
   const displayUsers = sortUsers(
@@ -293,8 +295,21 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     affiliatesSort,
   );
 
+  // Unique affiliates present in tracking data, for the affiliate dropdown
+  const affiliateOptions: { id: string; name: string }[] = Array.from(
+    new Map(
+      (trackingActivity as any[])
+        .filter((a) => a.affiliateId)
+        .map((a) => [a.affiliateId, { id: a.affiliateId, name: a.memberName || a.affiliateId }])
+    ).values()
+  ).sort((a, b) => a.name.localeCompare(b.name));
+
   const displayTrackingActivity = applySort(
-    trackingActivity.filter((a: any) => inDateRange(a.clickDate, mgTrackingFilter, mgTrackingCustomFrom, mgTrackingCustomTo)),
+    (trackingActivity as any[]).filter((a) =>
+      inDateRange(a.clickDate, mgTrackingFilter, mgTrackingCustomFrom, mgTrackingCustomTo) &&
+      (mgTrackingStatusFilter === 'all' || a.status === mgTrackingStatusFilter) &&
+      (mgTrackingAffiliateFilter === 'all' || a.affiliateId === mgTrackingAffiliateFilter)
+    ),
     mgTrackingSort,
   );
 
@@ -877,13 +892,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           {/* ── Tracking Activity Tab ── */}
           <Tabs.Content value="tracking">
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+              <div className="p-4 border-b border-gray-200 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="text-xl font-semibold">
                     All Tracking Activity
                     <span className="text-base font-normal text-gray-500 ml-2">
                       ({displayTrackingActivity.length}
-                      {mgTrackingFilter !== 'all' ? ` of ${trackingActivity.length}` : ''} records)
+                      {(mgTrackingFilter !== 'all' || mgTrackingStatusFilter !== 'all' || mgTrackingAffiliateFilter !== 'all')
+                        ? ` of ${trackingActivity.length}` : ''} records)
                     </span>
                   </h2>
                   <button
@@ -894,11 +910,61 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     Refresh
                   </button>
                 </div>
+
+                {/* Date filter */}
                 <FilterBar
-                  filter={mgTrackingFilter}     setFilter={setMgTrackingFilter}
+                  filter={mgTrackingFilter}         setFilter={setMgTrackingFilter}
                   customFrom={mgTrackingCustomFrom} setCustomFrom={setMgTrackingCustomFrom}
                   customTo={mgTrackingCustomTo}     setCustomTo={setMgTrackingCustomTo}
                 />
+
+                {/* Status filter */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 mr-1">Status:</span>
+                  {[
+                    { value: 'all',         label: 'All' },
+                    { value: 'click',       label: 'Click' },
+                    { value: 'application', label: 'Application' },
+                    { value: 'approval',    label: 'Approval' },
+                  ].map(({ value, label }) => (
+                    <button
+                      key={value}
+                      onClick={() => setMgTrackingStatusFilter(value)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        mgTrackingStatusFilter === value
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Affiliate filter */}
+                {affiliateOptions.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-medium text-gray-500 mr-1">Affiliate:</span>
+                    <select
+                      value={mgTrackingAffiliateFilter}
+                      onChange={(e) => setMgTrackingAffiliateFilter(e.target.value)}
+                      className="px-3 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white text-gray-700"
+                    >
+                      <option value="all">All affiliates</option>
+                      {affiliateOptions.map((a) => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                      ))}
+                    </select>
+                    {mgTrackingAffiliateFilter !== 'all' && (
+                      <button
+                        onClick={() => setMgTrackingAffiliateFilter('all')}
+                        className="text-xs text-indigo-600 hover:text-indigo-800 underline"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="overflow-x-auto max-h-[600px] overflow-y-auto">

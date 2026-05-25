@@ -242,10 +242,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [payoutsSort,       setPayoutsSort]       = useState<SortState>({ field: 'date', dir: 'desc' });
 
   // API Tracking tab
-  const [trackingFilter,     setTrackingFilter]     = useState<DateFilter>('all');
-  const [trackingCustomFrom, setTrackingCustomFrom] = useState('');
-  const [trackingCustomTo,   setTrackingCustomTo]   = useState('');
-  const [trackingSort,       setTrackingSort]       = useState<SortState>({ field: 'clickDate', dir: 'desc' });
+  const [trackingFilter,       setTrackingFilter]       = useState<DateFilter>('all');
+  const [trackingCustomFrom,   setTrackingCustomFrom]   = useState('');
+  const [trackingCustomTo,     setTrackingCustomTo]     = useState('');
+  const [trackingSort,         setTrackingSort]         = useState<SortState>({ field: 'clickDate', dir: 'desc' });
+  const [trackingStatusFilter, setTrackingStatusFilter] = useState('all');
 
   // Links tab (sort only — no date field on links)
   const [linksSort, setLinksSort] = useState<SortState>({ field: 'name', dir: 'asc' });
@@ -260,7 +261,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     payoutsSort,
   );
   const displayTracking = applySort(
-    tracking.filter(t => inDateRange(t.clickDate, trackingFilter, trackingCustomFrom, trackingCustomTo)),
+    tracking.filter(t =>
+      inDateRange(t.clickDate, trackingFilter, trackingCustomFrom, trackingCustomTo) &&
+      (trackingStatusFilter === 'all' || t.status === trackingStatusFilter)
+    ),
     trackingSort,
   );
   const displayLinks = applySort(links, linksSort);
@@ -644,12 +648,33 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </button>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 mb-5">
+            <div className="flex flex-wrap items-center gap-3 mb-3">
               <FilterBar
                 filter={trackingFilter}     setFilter={setTrackingFilter}
                 customFrom={trackingCustomFrom} setCustomFrom={setTrackingCustomFrom}
                 customTo={trackingCustomTo}     setCustomTo={setTrackingCustomTo}
               />
+            </div>
+            <div className="flex flex-wrap items-center gap-2 mb-5">
+              <span className="text-xs font-medium text-gray-500 mr-1">Status:</span>
+              {[
+                { value: 'all',         label: 'All' },
+                { value: 'click',       label: 'Click' },
+                { value: 'application', label: 'Application' },
+                { value: 'approval',    label: 'Approval' },
+              ].map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setTrackingStatusFilter(value)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                    trackingStatusFilter === value
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
 
             {displayTracking.length === 0 ? (
