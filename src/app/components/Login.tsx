@@ -51,8 +51,6 @@ export function Login({ onLogin }: LoginProps) {
       const body = isSignup ? { email, password, name } : { email, password };
       const url = `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/${endpoint}`;
 
-      console.log('Attempting to connect to:', url);
-
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -80,7 +78,6 @@ export function Login({ onLogin }: LoginProps) {
         ? 'Cannot connect to server. Please make sure the Supabase edge function is deployed.'
         : err.message;
       setErrorWithTimeout(errorMsg, 8000);
-      console.error('Authentication error:', err);
     } finally {
       setLoading(false);
     }
@@ -94,7 +91,6 @@ export function Login({ onLogin }: LoginProps) {
     try {
       // Get the current origin to build the redirect URL
       const redirectUrl = `${window.location.origin}/reset-password`;
-      console.log('Password reset redirect URL:', redirectUrl);
 
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/send-password-reset`,
@@ -122,7 +118,6 @@ export function Login({ onLogin }: LoginProps) {
       setResetEmail('');
     } catch (err) {
       setErrorWithTimeout(err.message, 8000);
-      console.error('Password reset error:', err);
     } finally {
       setLoading(false);
     }
@@ -251,11 +246,7 @@ export function Login({ onLogin }: LoginProps) {
             </div>
 
             {!isSignup && (
-              <div className="flex items-center justify-between">
-                <label className="flex items-center">
-                  <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                  <span className="ml-2 text-gray-700">Remember me</span>
-                </label>
+              <div className="flex justify-end">
                 <button
                   type="button"
                   onClick={() => {

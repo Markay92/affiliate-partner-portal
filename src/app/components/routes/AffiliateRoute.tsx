@@ -1,14 +1,13 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Login } from '../Login';
 import { Dashboard } from '../Dashboard';
 
 interface AffiliateRouteProps {
-  children?: ReactNode;
   requireAuth?: boolean;
 }
 
-export function AffiliateRoute({ children, requireAuth }: AffiliateRouteProps) {
+export function AffiliateRoute({ requireAuth }: AffiliateRouteProps) {
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);

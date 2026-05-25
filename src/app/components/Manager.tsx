@@ -11,8 +11,7 @@ import {
   Edit,
   LogOut,
   RefreshCw,
-  LogIn,
-  Info
+  LogIn
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -77,11 +76,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
   useEffect(() => {
     if (!sessionToken) {
-      console.log('No session token yet, waiting...');
       return;
     }
 
-    console.log('Session token loaded, fetching users...');
     fetchUsers();
   }, [sessionToken]);
 
@@ -95,11 +92,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
   const fetchUsers = async () => {
     try {
-      console.log('Fetching users with session token:', sessionToken?.substring(0, 10) + '...');
-      console.log('Project ID:', projectId);
-
       const url = `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/users`;
-      console.log('Fetch URL:', url);
 
       const response = await fetch(url, {
         headers: {
@@ -109,26 +102,18 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         }
       });
 
-      console.log('Fetch users response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
       const responseText = await response.text();
-      console.log('Response text:', responseText);
 
       let data;
       try {
         data = JSON.parse(responseText);
-        console.log('Parsed response data:', data);
       } catch (parseError) {
-        console.error('Failed to parse response as JSON:', parseError);
         setMessageWithTimeout(`Server returned invalid response: ${responseText.substring(0, 100)}`, 8000);
         return;
       }
 
       if (response.ok) {
         const userList = data.users || [];
-        console.log('Successfully fetched', userList.length, 'users');
-        console.log('Users data:', userList);
         setUsers(userList);
 
         if (userList.length === 0) {
@@ -137,18 +122,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           setMessage('');
         }
       } else {
-        console.error('Response not OK. Status:', response.status);
-        console.error('Response data:', data);
-
         const errorMsg = data.error || `Failed to fetch users (status ${response.status})`;
-        console.error('Setting error message:', errorMsg);
         setMessageWithTimeout(errorMsg, 8000);
       }
     } catch (error) {
-      console.error('Fetch users exception:', error);
-      console.error('Error type:', error.constructor.name);
-      console.error('Error stack:', error.stack);
-
       // Don't show scary error messages for expected cases
       if (error.message === 'Failed to fetch') {
         setMessageWithTimeout('Cannot connect to server. Make sure edge functions are deployed.', 8000);
@@ -165,12 +142,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     setMessage('');
 
     try {
-      console.log('Creating user with:', { email: newUserEmail, name: newUserName, commission: newUserCommission });
-      console.log('Session token:', sessionToken?.substring(0, 10) + '...');
-      console.log('Anon key:', publicAnonKey?.substring(0, 20) + '...');
-
       const url = `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/user`;
-      console.log('POST URL:', url);
 
       const requestBody = {
         email: newUserEmail,
@@ -178,7 +150,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         name: newUserName,
         commissionRate: parseInt(newUserCommission)
       };
-      console.log('Request body:', requestBody);
 
       const response = await fetch(url, {
         method: 'POST',
@@ -190,18 +161,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         body: JSON.stringify(requestBody)
       });
 
-      console.log('Create user response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
       const responseText = await response.text();
-      console.log('Response text:', responseText);
 
       let data;
       try {
         data = JSON.parse(responseText);
-        console.log('Parsed response data:', data);
       } catch (parseError) {
-        console.error('Failed to parse JSON:', parseError);
         setMessageWithTimeout(`Server error: ${responseText.substring(0, 100)}`, 8000);
         return;
       }
@@ -216,12 +181,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         await fetchUsers();
       } else {
         setMessageWithTimeout(data.error || 'Failed to create affiliate', 8000);
-        console.error('Create user failed:', data.error);
       }
     } catch (error) {
-      console.error('Error creating user:', error);
-      console.error('Error type:', error.constructor.name);
-      console.error('Error stack:', error.stack);
       setMessageWithTimeout(`Network error: ${error.message}. Check browser console for details.`, 8000);
     }
   };
@@ -253,7 +214,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         setMessageWithTimeout(data.error || 'Failed to delete affiliate', 8000);
       }
     } catch (error) {
-      console.error('Error deleting user:', error);
       setMessageWithTimeout('Failed to delete affiliate', 8000);
     }
   };
@@ -287,7 +247,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         setMessageWithTimeout(data.error || 'Failed to reset password', 8000);
       }
     } catch (error) {
-      console.error('Error resetting password:', error);
       setMessageWithTimeout('Failed to reset password', 8000);
     }
   };
@@ -317,7 +276,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         setMessageWithTimeout(data.error || 'Failed to update commission', 8000);
       }
     } catch (error) {
-      console.error('Error updating commission:', error);
       setMessageWithTimeout('Failed to update commission', 8000);
     }
   };
@@ -359,7 +317,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         setMessageWithTimeout(data.error || 'Failed to update user', 8000);
       }
     } catch (error) {
-      console.error('Error updating user:', error);
       setMessageWithTimeout('Failed to update user', 8000);
     }
   };
@@ -386,15 +343,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       if (data.success) {
         const summary = `Sync complete: ${data.created} created, ${data.updated} updated, ${data.skipped} skipped${data.errors.length > 0 ? `, ${data.errors.length} errors` : ''}`;
         setMessageWithTimeout(summary, 10000);
-        if (data.errors.length > 0) {
-          console.error('Sync errors:', data.errors);
-        }
         await fetchUsers();
       } else {
         setMessageWithTimeout(data.error || 'Failed to sync from Airtable', 8000);
       }
     } catch (error) {
-      console.error('Error syncing from Airtable:', error);
       setMessageWithTimeout(`Sync failed: ${error.message}`, 8000);
     } finally {
       setSyncing(false);
@@ -427,7 +380,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         setMessageWithTimeout(data.error || 'Failed to sync tracking data', 8000);
       }
     } catch (error) {
-      console.error('Error syncing tracking from Airtable:', error);
       setMessageWithTimeout(`Tracking sync failed: ${error.message}`, 8000);
     } finally {
       setSyncingTracking(false);
@@ -456,35 +408,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         setMessageWithTimeout(data.error || 'Failed to login as user', 8000);
       }
     } catch (error) {
-      console.error('Error logging in as user:', error);
       setMessageWithTimeout(`Login failed: ${error.message}`, 8000);
-    }
-  };
-
-  const debugUser = async (userId: string) => {
-    try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/user/${userId}/debug`,
-        {
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'X-Manager-Session': sessionToken,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      const data = await response.json();
-      console.log('User Debug Info:', data);
-
-      if (data.error) {
-        setMessageWithTimeout(data.error, 8000);
-      } else {
-        setMessageWithTimeout(`Debug info logged to console. Affiliate ID: ${data.affiliateId || 'None'}, Links: ${data.linksCount}, Activity: ${data.activityCount}`, 8000);
-      }
-    } catch (error) {
-      console.error('Error fetching debug info:', error);
-      setMessageWithTimeout(`Debug failed: ${error.message}`, 8000);
     }
   };
 
@@ -509,7 +433,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         setMessageWithTimeout(data.error || 'Failed to fetch tracking activity', 8000);
       }
     } catch (error) {
-      console.error('Error fetching tracking activity:', error);
       setMessageWithTimeout(`Failed to fetch tracking: ${error.message}`, 8000);
     }
   };
@@ -522,8 +445,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       // Read the CSV file from imports folder
       const response = await fetch('/src/imports/QuinStreet_CPA_Report.csv');
       const csvData = await response.text();
-
-      console.log('CSV data loaded, sending to server...');
 
       // Send to backend for processing
       const importResponse = await fetch(
@@ -549,7 +470,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         setMessageWithTimeout(data.error || 'Failed to import CPA data', 8000);
       }
     } catch (error) {
-      console.error('Error importing CPA data:', error);
       setMessageWithTimeout(`Import failed: ${error.message}`, 8000);
     } finally {
       setImportingCPA(false);
@@ -790,13 +710,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               title="Login as this affiliate"
                             >
                               <LogIn className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => debugUser(user.id)}
-                              className="p-2 text-gray-600 hover:bg-gray-50 rounded transition-colors"
-                              title="Debug user data (check console)"
-                            >
-                              <Info className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => {

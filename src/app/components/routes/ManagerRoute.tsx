@@ -1,14 +1,13 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { ManagerLogin } from '../ManagerLogin';
 import { Manager } from '../Manager';
 
 interface ManagerRouteProps {
-  children?: ReactNode;
   requireAuth?: boolean;
 }
 
-export function ManagerRoute({ children, requireAuth }: ManagerRouteProps) {
+export function ManagerRoute({ requireAuth }: ManagerRouteProps) {
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);

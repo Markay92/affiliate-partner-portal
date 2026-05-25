@@ -11,7 +11,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { projectId } from '/utils/supabase/info';
 import { Profile } from './Profile';
 
 interface DashboardProps {
@@ -20,12 +20,55 @@ interface DashboardProps {
   onLogout: () => void;
 }
 
+interface Link {
+  id: number;
+  name: string;
+  bank: string;
+  url: string;
+  clicks: number;
+  conversions: number;
+  commission: number;
+  annualFee: number;
+  creditLevel: string;
+}
+
+interface ActivityItem {
+  id: number;
+  date: string;
+  card: string;
+  type: string;
+  amount: number;
+  status: string;
+}
+
+interface Payout {
+  id: number;
+  date: string;
+  amount: number;
+  method: string;
+  status: string;
+}
+
+interface TrackingItem {
+  id: string;
+  cardName: string;
+  status: string;
+  totalEarnings: number;
+  clickDate: string;
+  clickTime: string;
+  clicks: number;
+  applications: number;
+  approvals: number;
+  deviceType: string;
+  state: string;
+}
+
 export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) {
   const [copiedId, setCopiedId] = useState<number | null>(null);
-  const [links, setLinks] = useState([]);
-  const [activity, setActivity] = useState([]);
-  const [payouts, setPayouts] = useState([]);
-  const [tracking, setTracking] = useState([]);
+  const [links, setLinks] = useState<Link[]>([]);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [payouts, setPayouts] = useState<Payout[]>([]);
+  const [tracking, setTracking] = useState<TrackingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -45,11 +88,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const fetchData = async () => {
     setError('');
     try {
-      console.log('Dashboard: Starting data fetch with access token:', accessToken?.substring(0, 10) + '...');
-      console.log('Dashboard: Token type:', accessToken?.startsWith('imp_') ? 'impersonation' : 'regular');
-
       const headers = buildHeaders();
-
 
       const [linksRes, activityRes, payoutsRes, trackingRes] = await Promise.all([
         fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/links`, { headers }),
@@ -79,8 +118,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       setActivity(activityData.activity || []);
       setTracking(trackingData.tracking || []);
       setPayouts(payoutsData.payouts || []);
-    } catch (error) {
-      setError(`Failed to load data: ${error.message}`);
+    } catch (err: unknown) {
+      setError(`Failed to load data: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -97,11 +136,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
   const copyToClipboard = async (text: string, id: number) => {
     try {
-      // Try modern clipboard API first
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(text);
       } else {
-        // Fallback for browsers that don't support clipboard API
         const textArea = document.createElement('textarea');
         textArea.value = text;
         textArea.style.position = 'fixed';
@@ -110,54 +147,14 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         document.body.appendChild(textArea);
         textArea.focus();
         textArea.select();
-
-        try {
-          document.execCommand('copy');
-        } catch (err) {
-          console.error('Fallback copy failed:', err);
-        }
-
+        try { document.execCommand('copy'); } catch {}
         document.body.removeChild(textArea);
       }
-
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
-    } catch (err) {
-      console.error('Copy failed:', err);
-      // Still show the copied state even if copy fails
+    } catch {
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
-    }
-  };
-
-  const simulateClick = async (linkId: number) => {
-    try {
-      await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/click`, {
-        method: 'POST',
-        headers: buildHeaders(),
-        body: JSON.stringify({ linkId })
-      });
-      await fetchData();
-    } catch (error) {
-      console.error('Error recording click:', error);
-    }
-  };
-
-  const simulateConversion = async (linkId: number, cardName: string) => {
-    const commissions = { 1: 150, 2: 100, 3: 125, 4: 175 };
-    try {
-      await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/conversion`, {
-        method: 'POST',
-        headers: buildHeaders(),
-        body: JSON.stringify({
-          linkId,
-          cardName,
-          commission: commissions[linkId] || 100
-        })
-      });
-      await fetchData();
-    } catch (error) {
-      console.error('Error recording conversion:', error);
     }
   };
 
@@ -211,25 +208,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           {error} — try refreshing the page or logging out and back in.
         </div>
       )}
-
-      {/* Data Debug Banner */}
-      <div className="bg-blue-50 border-b border-blue-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
-          <div className="flex items-center gap-4 text-xs text-blue-800">
-            <span className="font-semibold">Data Status:</span>
-            <span>Links: {links.length}</span>
-            <span>Activity: {activity.length}</span>
-            <span>Tracking: {tracking.length}</span>
-            <span>Payouts: {payouts.length}</span>
-            <button
-              onClick={fetchData}
-              className="ml-auto px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
-            >
-              Refresh All
-            </button>
-          </div>
-        </div>
-      </div>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -318,11 +296,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
           {/* Tracking Links Tab */}
           <Tabs.Content value="links" className="p-6">
-            <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-800">
-                <strong>Demo:</strong> Use the buttons below to simulate clicks and conversions for testing.
-              </p>
-            </div>
             <div className="space-y-4">
               {links.map((link) => (
                 <div key={link.id} className="border border-gray-200 rounded-lg p-4 hover:border-indigo-300 transition-colors">
@@ -333,7 +306,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       <span className="text-green-600">{link.conversions} approvals</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-3 mb-3">
+                  <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-3">
                     <code className="flex-1 text-sm overflow-x-auto">{link.url}</code>
                     <button
                       onClick={() => copyToClipboard(link.url, link.id)}
@@ -355,20 +328,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     >
                       <ExternalLink className="w-4 h-4 text-gray-600" />
                     </a>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => simulateClick(link.id)}
-                      className="px-3 py-1.5 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
-                    >
-                      + Simulate Click
-                    </button>
-                    <button
-                      onClick={() => simulateConversion(link.id, link.name)}
-                      className="px-3 py-1.5 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
-                    >
-                      + Simulate Approval
-                    </button>
                   </div>
                 </div>
               ))}
@@ -474,11 +433,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             {tracking.length === 0 ? (
               <div className="text-center py-12">
                 <TrendingUp className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-600 mb-2">No tracking activity found</p>
-                <p className="text-sm text-gray-500">Check browser console for debug info</p>
+                <p className="text-gray-600 mb-4">No tracking activity found</p>
                 <button
                   onClick={fetchData}
-                  className="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
                 >
                   Refresh Data
                 </button>
