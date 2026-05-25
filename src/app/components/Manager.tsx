@@ -355,6 +355,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   useEffect(() => {
     if (!sessionToken) return;
     fetchUsers();
+    // Sync Airtable tracking stats into KV in the background so the
+    // affiliates tab stats cards show real click/conversion/commission data.
+    // After syncing we re-fetch users so the grid reflects the updated values.
+    fetchTrackingActivity().then(() => fetchUsers()).catch(() => {});
   }, [sessionToken]);
 
   useEffect(() => () => { if (messageTimeout) clearTimeout(messageTimeout); }, [messageTimeout]);

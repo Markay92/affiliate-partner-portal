@@ -1430,11 +1430,15 @@ app.get("/make-server-8dc4138c/manager/users", async (c) => {
           activity = [];
         }
 
-        const totalClicks = links.reduce((sum, link) => sum + (link.clicks || 0), 0);
-        const totalConversions = links.reduce((sum, link) => sum + (link.conversions || 0), 0);
-        const totalCommissions = activity
-          .filter(a => a.status === 'approved')
-          .reduce((sum, a) => sum + (a.amount || 0), 0);
+        // Prefer stats synced from Airtable tracking (written by tracking-activity endpoint).
+        // Fall back to computing from KV links/activity if not yet synced.
+        const airtableStats = userData.stats;
+        const totalClicks = airtableStats?.totalClicks
+          ?? links.reduce((sum, link) => sum + (link.clicks || 0), 0);
+        const totalConversions = airtableStats?.totalConversions
+          ?? links.reduce((sum, link) => sum + (link.conversions || 0), 0);
+        const totalCommissions = airtableStats?.totalCommissions
+          ?? activity.filter(a => a.status === 'approved').reduce((sum, a) => sum + (a.amount || 0), 0);
 
         return {
           id: authUser.id,
@@ -1446,7 +1450,8 @@ app.get("/make-server-8dc4138c/manager/users", async (c) => {
             totalClicks,
             totalConversions,
             totalCommissions,
-            activeLinks: links.length
+            activeLinks: links.length,
+            lastSynced: airtableStats ? (userData.statsUpdatedAt || null) : null,
           }
         };
       })
