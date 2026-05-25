@@ -629,8 +629,9 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
     });
 
     if (!airtableRes.ok) {
-      console.log('Airtable CPA Changes fetch error:', airtableRes.status);
-      return c.json({ payouts: [] });
+      const errText = await airtableRes.text();
+      console.log('Airtable CPA Changes fetch error:', airtableRes.status, errText);
+      return c.json({ payouts: [], error: `Airtable ${airtableRes.status}: ${errText.substring(0, 200)}` });
     }
 
     const airtableData = await airtableRes.json();
@@ -1916,112 +1917,106 @@ app.post("/make-server-8dc4138c/reset-password", async (c) => {
 });
 
 // Import CPA data from QuinStreet CSV
+// Import CPA rates directly from Airtable CPA Changes table.
+// Fetches current bank CPA per card and updates all users' KV link commissions.
 app.post("/make-server-8dc4138c/manager/import-cpa-data", async (c) => {
   try {
     const sessionToken = c.req.header('X-Manager-Session');
-
-    // Verify manager session
     const session = await kv.get(`manager_session:${sessionToken}`);
-    if (!session) {
-      return c.json({ error: 'Unauthorized' }, 401);
+    if (!session) return c.json({ error: 'Unauthorized' }, 401);
+
+    const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
+    if (!airtableToken) {
+      return c.json({ error: 'AIRTABLE_API_KEY not configured on server' }, 500);
     }
 
-    const { csvData } = await c.req.json();
+    // Fetch all records from CPA Changes table (ZeroAPR - COLLECTIONS base)
+    const baseId = 'appJq70k9nl9MK2zk';
+    const tableId = 'tbl31rWYAh5hb02Tx';
+    const url = `https://api.airtable.com/v0/${baseId}/${tableId}?fields[]=Card+Name&fields[]=Net+CPA+60%25&sort[0][field]=Date&sort[0][direction]=desc&pageSize=200`;
 
-    if (!csvData) {
-      return c.json({ error: 'CSV data is required' }, 400);
+    console.log('Fetching CPA rates from Airtable...');
+    const airtableRes = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${airtableToken}` },
+    });
+
+    if (!airtableRes.ok) {
+      const errText = await airtableRes.text();
+      console.log('Airtable CPA fetch failed:', airtableRes.status, errText);
+      return c.json({
+        error: `Airtable returned ${airtableRes.status}: ${errText.substring(0, 200)}`
+      }, 500);
     }
 
-    console.log('Importing CPA data from CSV...');
+    const airtableData = await airtableRes.json();
+    const records = airtableData.records || [];
+    console.log(`Fetched ${records.length} records from Airtable CPA Changes`);
 
-    // Parse CSV data
-    const lines = csvData.trim().split('\n');
-    const cardCommissions = new Map();
-    let imported = 0;
-    let skipped = 0;
-
-    // Skip header rows (first 3 lines)
-    for (let i = 3; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line.trim()) continue;
-
-      // Parse CSV line (handle quoted fields)
-      const fields = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g)?.map(f => f.replace(/^"|"$/g, '').trim());
-
-      if (!fields || fields.length < 5) {
-        skipped++;
-        continue;
-      }
-
-      const cardName = fields[2]; // Card Name column
-      const currentCPA = parseFloat(fields[4]); // Current Net CPA column
-
-      // Skip if no valid CPA or card name
-      if (!cardName || isNaN(currentCPA) || currentCPA <= 0) {
-        skipped++;
-        continue;
-      }
-
-      // Store the commission (use highest value if multiple tiers)
-      if (!cardCommissions.has(cardName) || cardCommissions.get(cardName) < currentCPA) {
-        cardCommissions.set(cardName, currentCPA);
+    // Build card → bank CPA map (most recent per card, data is sorted desc by date)
+    const cardCommissions = new Map<string, number>();
+    for (const rec of records) {
+      const f = rec.fields || {};
+      const cardName = f['Card Name'] ?? '';
+      const rawCpa   = f['Net CPA 60%'] ?? '0';
+      const bankCpa  = parseFloat(String(rawCpa).replace(/[^0-9.]/g, '')) || 0;
+      if (cardName && bankCpa > 0 && !cardCommissions.has(cardName)) {
+        cardCommissions.set(cardName, bankCpa);
       }
     }
 
-    console.log(`Parsed ${cardCommissions.size} unique cards from CSV`);
+    console.log(`Unique cards with CPA: ${cardCommissions.size}`);
 
-    // Update all users' cards with new commission rates
+    if (cardCommissions.size === 0) {
+      return c.json({
+        error: 'No valid CPA rates found in Airtable. Check that "Card Name" and "Net CPA 60%" fields have data.'
+      }, 400);
+    }
+
+    // Update every user's KV tracking links with the matched bank CPA
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL'),
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
     );
 
     const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
-
     if (listError) {
-      console.log(`List users error: ${listError.message}`);
-      return c.json({ error: 'Failed to fetch users' }, 500);
+      return c.json({ error: `Failed to list users: ${listError.message}` }, 500);
     }
+
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
     let usersUpdated = 0;
     let cardsUpdated = 0;
 
     for (const user of users || []) {
       const links = await kv.get(`links:${user.id}`) || [];
-      let userCardsUpdated = false;
+      let changed = false;
 
       for (const link of links) {
-        // Try to match card name (exact or partial match)
-        for (const [csvCardName, commission] of cardCommissions.entries()) {
-          if (link.name === csvCardName ||
-              link.name.includes(csvCardName) ||
-              csvCardName.includes(link.name)) {
-            link.commission = commission;
+        const normLink = norm(link.name || '');
+        for (const [airtableCard, bankCpa] of cardCommissions.entries()) {
+          if (norm(airtableCard) === normLink ||
+              normLink.includes(norm(airtableCard)) ||
+              norm(airtableCard).includes(normLink)) {
+            link.commission = bankCpa; // store bank CPA; each affiliate's cut calculated at display time
             cardsUpdated++;
-            userCardsUpdated = true;
-            console.log(`Updated ${link.name} commission to $${commission}`);
+            changed = true;
             break;
           }
         }
       }
 
-      if (userCardsUpdated) {
+      if (changed) {
         await kv.set(`links:${user.id}`, links);
         usersUpdated++;
       }
     }
 
-    console.log(`Import complete: ${usersUpdated} users updated, ${cardsUpdated} cards updated`);
+    console.log(`Import done: ${cardsUpdated} cards updated across ${usersUpdated} users`);
 
     return c.json({
       success: true,
-      message: `Imported ${cardCommissions.size} card commissions`,
-      stats: {
-        uniqueCards: cardCommissions.size,
-        usersUpdated,
-        cardsUpdated,
-        skipped
-      }
+      stats: { uniqueCards: cardCommissions.size, usersUpdated, cardsUpdated },
     });
   } catch (error) {
     console.log(`Import CPA data error: ${error.message}`);

@@ -597,8 +597,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const importCPAData = async () => {
     setMessage(''); setImportingCPA(true);
     try {
-      const response = await fetch('/src/imports/QuinStreet_CPA_Report.csv');
-      const csvData = await response.text();
+      // Pull CPA rates directly from Airtable (no CSV needed)
       const importResponse = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/import-cpa-data`,
         {
@@ -608,17 +607,24 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
             'X-Manager-Session': sessionToken,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ csvData }),
+          body: JSON.stringify({}),
         },
       );
       const data = await importResponse.json();
       if (data.success) {
-        const summary = `CPA Import: ${data.stats.cardsUpdated} cards updated across ${data.stats.usersUpdated} users (${data.stats.uniqueCards} unique cards found)`;
-        setMessageWithTimeout(summary, 10000);
+        const summary = `CPA Sync: ${data.stats.uniqueCards} cards found in Airtable → ${data.stats.cardsUpdated} card links updated across ${data.stats.usersUpdated} affiliates`;
+        setMessageWithTimeout(summary, 12000);
         await fetchUsers();
-      } else { setMessageWithTimeout(data.error || 'Failed to import CPA data', 8000); }
-    } catch (error: any) { setMessageWithTimeout(`Import failed: ${error.message}`, 8000); }
-    finally { setImportingCPA(false); }
+        // Also refresh CPA rates tab if it was loaded
+        if (cpaRates.length > 0) await fetchCpaRates(cpaAffiliateFilter);
+      } else {
+        setMessageWithTimeout(data.error || 'Failed to sync CPA data from Airtable', 10000);
+      }
+    } catch (error: any) {
+      setMessageWithTimeout(`Sync failed: ${error.message}`, 8000);
+    } finally {
+      setImportingCPA(false);
+    }
   };
 
   const fetchCpaRates = async (userId = 'all') => {

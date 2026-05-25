@@ -311,6 +311,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       setActivity(activityData.activity || []);
       setTracking(trackingData.tracking || []);
       setPayouts(payoutsData.payouts   || []);
+
+      // Surface Airtable errors so they're visible rather than silently empty
+      if (payoutsData.error) {
+        setError(`CPA rates: ${payoutsData.error}`);
+      }
     } catch (err: unknown) {
       setError(`Failed to load data: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
