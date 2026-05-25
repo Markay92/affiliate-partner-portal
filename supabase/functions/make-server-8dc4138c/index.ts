@@ -593,6 +593,24 @@ app.get("/make-server-8dc4138c/activity", async (c) => {
   }
 });
 
+// Fetch ALL records from an Airtable table, paginating automatically (max 100/page).
+async function fetchAllAirtableRecords(token: string, baseId: string, tableId: string, params: string): Promise<any[]> {
+  const all: any[] = [];
+  let offset: string | null = null;
+  do {
+    const url = `https://api.airtable.com/v0/${baseId}/${tableId}?${params}&pageSize=100${offset ? `&offset=${offset}` : ''}`;
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Airtable ${res.status}: ${errText.substring(0, 200)}`);
+    }
+    const data = await res.json();
+    all.push(...(data.records || []));
+    offset = data.offset ?? null;
+  } while (offset);
+  return all;
+}
+
 // Get payouts — current CPA rates from Airtable CPA Changes table,
 // adjusted to the affiliate's individual commission rate.
 app.get("/make-server-8dc4138c/payouts", async (c) => {
@@ -621,21 +639,14 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
       'Date Change of Current Net CPA', // fldW5olh5ASAJ39uD
     ].map(f => `fields[]=${encodeURIComponent(f)}`).join('&');
 
-    const sort = 'sort[0][field]=Date&sort[0][direction]=desc';
-    const airtableUrl = `https://api.airtable.com/v0/${baseId}/${tableId}?${fields}&${sort}&pageSize=200`;
-
-    const airtableRes = await fetch(airtableUrl, {
-      headers: { 'Authorization': `Bearer ${airtableToken}` },
-    });
-
-    if (!airtableRes.ok) {
-      const errText = await airtableRes.text();
-      console.log('Airtable CPA Changes fetch error:', airtableRes.status, errText);
-      return c.json({ payouts: [], error: `Airtable ${airtableRes.status}: ${errText.substring(0, 200)}` });
+    const sort = 'sort%5B0%5D%5Bfield%5D=Date&sort%5B0%5D%5Bdirection%5D=desc';
+    let records: any[];
+    try {
+      records = await fetchAllAirtableRecords(airtableToken, baseId, tableId, `${fields}&${sort}`);
+    } catch (airtableErr: any) {
+      console.log('Airtable CPA Changes fetch error:', airtableErr.message);
+      return c.json({ payouts: [], error: airtableErr.message });
     }
-
-    const airtableData = await airtableRes.json();
-    const records = airtableData.records || [];
 
     // Deduplicate — keep the most recent record per card name (data is sorted desc by date)
     const seen = new Set<string>();
@@ -1714,18 +1725,16 @@ app.get("/make-server-8dc4138c/manager/cpa-rates", async (c) => {
       'Card Name', 'Issuer', 'Net CPA 60%', 'Date', 'Date Change of Current Net CPA',
     ].map(f => `fields[]=${encodeURIComponent(f)}`).join('&');
 
-    const airtableUrl = `https://api.airtable.com/v0/${baseId}/${tableId}?${fields}&sort[0][field]=Date&sort[0][direction]=desc&pageSize=200`;
-    const airtableRes = await fetch(airtableUrl, {
-      headers: { 'Authorization': `Bearer ${airtableToken}` },
-    });
-
-    if (!airtableRes.ok) {
-      console.log('CPA rates Airtable error:', airtableRes.status);
-      return c.json({ rates: [] });
+    let records: any[];
+    try {
+      records = await fetchAllAirtableRecords(
+        airtableToken, baseId, tableId,
+        `${fields}&sort%5B0%5D%5Bfield%5D=Date&sort%5B0%5D%5Bdirection%5D=desc`
+      );
+    } catch (airtableErr: any) {
+      console.log('CPA rates Airtable error:', airtableErr.message);
+      return c.json({ rates: [], error: airtableErr.message });
     }
-
-    const airtableData = await airtableRes.json();
-    const records = airtableData.records || [];
 
     // Deduplicate by card name, keep most recent
     const seen = new Set<string>();
@@ -1933,23 +1942,16 @@ app.post("/make-server-8dc4138c/manager/import-cpa-data", async (c) => {
     // Fetch all records from CPA Changes table (ZeroAPR - COLLECTIONS base)
     const baseId = 'appJq70k9nl9MK2zk';
     const tableId = 'tbl31rWYAh5hb02Tx';
-    const url = `https://api.airtable.com/v0/${baseId}/${tableId}?fields[]=Card+Name&fields[]=Net+CPA+60%25&sort[0][field]=Date&sort[0][direction]=desc&pageSize=200`;
+    const params = 'fields%5B%5D=Card+Name&fields%5B%5D=Net+CPA+60%25&sort%5B0%5D%5Bfield%5D=Date&sort%5B0%5D%5Bdirection%5D=desc';
 
     console.log('Fetching CPA rates from Airtable...');
-    const airtableRes = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${airtableToken}` },
-    });
-
-    if (!airtableRes.ok) {
-      const errText = await airtableRes.text();
-      console.log('Airtable CPA fetch failed:', airtableRes.status, errText);
-      return c.json({
-        error: `Airtable returned ${airtableRes.status}: ${errText.substring(0, 200)}`
-      }, 500);
+    let records: any[];
+    try {
+      records = await fetchAllAirtableRecords(airtableToken, baseId, tableId, params);
+    } catch (airtableErr: any) {
+      console.log('Airtable CPA fetch failed:', airtableErr.message);
+      return c.json({ error: airtableErr.message }, 500);
     }
-
-    const airtableData = await airtableRes.json();
-    const records = airtableData.records || [];
     console.log(`Fetched ${records.length} records from Airtable CPA Changes`);
 
     // Build card → bank CPA map (most recent per card, data is sorted desc by date)
