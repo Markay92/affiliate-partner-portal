@@ -406,6 +406,50 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     : activity.filter(a => a.status === 'approved').reduce((s, a) => s + a.amount, 0);
   const totalPayouts     = payouts.reduce((s, p) => s + p.amount, 0);
 
+  // ── Month-over-month stats from tracking records ──────────────────────────
+  const _now = new Date();
+  const _thisM = _now.getMonth(), _thisY = _now.getFullYear();
+  const _lastM = _thisM === 0 ? 11 : _thisM - 1;
+  const _lastY  = _thisM === 0 ? _thisY - 1 : _thisY;
+
+  const _inMonth = (dateStr: string, m: number, y: number) => {
+    if (!dateStr) return false;
+    const d = parseLocalDate(dateStr);
+    return d.getMonth() === m && d.getFullYear() === y;
+  };
+
+  const _thisT = tracking.filter(t => _inMonth(t.clickDate, _thisM, _thisY));
+  const _lastT = tracking.filter(t => _inMonth(t.clickDate, _lastM, _lastY));
+
+  const _calcPct = (cur: number, prev: number): number | null =>
+    prev === 0 ? (cur > 0 ? 100 : null) : Math.round(((cur - prev) / prev) * 100);
+
+  const clicksPct      = _calcPct(
+    _thisT.reduce((s, t) => s + t.clicks, 0),
+    _lastT.reduce((s, t) => s + t.clicks, 0),
+  );
+  const approvalsPct   = _calcPct(
+    _thisT.reduce((s, t) => s + t.approvals, 0),
+    _lastT.reduce((s, t) => s + t.approvals, 0),
+  );
+  const commissionsPct = _calcPct(
+    _thisT.reduce((s, t) => s + t.totalEarnings, 0),
+    _lastT.reduce((s, t) => s + t.totalEarnings, 0),
+  );
+
+  /** Render the coloured percentage badge shown under each stat card */
+  const PctBadge = ({ pct }: { pct: number | null }) => {
+    if (pct === null) return <span className="text-gray-400 text-sm">No data last month</span>;
+    if (pct === 0)    return <span className="text-gray-500 text-sm">No change this month</span>;
+    const up = pct > 0;
+    return (
+      <div className={`flex items-center gap-1 ${up ? 'text-green-600' : 'text-red-500'}`}>
+        <TrendingUp className={`w-4 h-4 ${!up ? 'rotate-180' : ''}`} />
+        <span>{up ? '+' : ''}{pct}% vs last month</span>
+      </div>
+    );
+  };
+
   const copyToClipboard = async (text: string, id: number) => {
     try {
       if (navigator.clipboard?.writeText) {
@@ -484,10 +528,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               <MousePointerClick className="w-5 h-5 text-blue-600" />
             </div>
             <div className="text-3xl mb-1">{totalClicks.toLocaleString()}</div>
-            <div className="text-green-600 flex items-center gap-1">
-              <TrendingUp className="w-4 h-4" />
-              <span>+12.3% this month</span>
-            </div>
+            <PctBadge pct={clicksPct} />
           </div>
 
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
@@ -496,10 +537,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               <CheckCircle className="w-5 h-5 text-green-600" />
             </div>
             <div className="text-3xl mb-1">{totalConversions}</div>
-            <div className="text-green-600 flex items-center gap-1">
-              <TrendingUp className="w-4 h-4" />
-              <span>+8.5% this month</span>
-            </div>
+            <PctBadge pct={approvalsPct} />
           </div>
 
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
@@ -508,10 +546,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               <DollarSign className="w-5 h-5 text-indigo-600" />
             </div>
             <div className="text-3xl mb-1">${totalCommissions.toLocaleString()}</div>
-            <div className="text-green-600 flex items-center gap-1">
-              <TrendingUp className="w-4 h-4" />
-              <span>+15.2% this month</span>
-            </div>
+            <PctBadge pct={commissionsPct} />
           </div>
 
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
