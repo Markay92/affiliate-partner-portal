@@ -281,8 +281,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [trackingSort,         setTrackingSort]         = useState<SortState>({ field: 'clickDate', dir: 'desc' });
   const [trackingStatusFilter, setTrackingStatusFilter] = useState('all');
 
-  // Links tab (sort only — no date field on links)
-  const [linksSort, setLinksSort] = useState<SortState>({ field: 'name', dir: 'asc' });
+  // Links tab — sort + filters
+  const [linksSort,         setLinksSort]         = useState<SortState>({ field: 'name', dir: 'asc' });
+  const [linksIssuerFilter, setLinksIssuerFilter] = useState('all');
+  const [linksPayoutFilter, setLinksPayoutFilter] = useState('all');
 
   // ── Derived display data ────────────────────────────────────────────────────
   const displayActivity = applySort(
@@ -300,7 +302,23 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     ),
     trackingSort,
   );
-  const displayLinks = applySort(links, linksSort);
+  // Unique issuers for filter dropdown (sorted A-Z)
+  const linkIssuers = Array.from(new Set(links.map(l => l.bank).filter(Boolean))).sort();
+
+  const displayLinks = applySort(
+    links.filter(l => {
+      if (linksIssuerFilter !== 'all' && l.bank !== linksIssuerFilter) return false;
+      if (linksPayoutFilter !== 'all') {
+        const amt = l.commission || 0;
+        if (linksPayoutFilter === 'lt50'   && !(amt > 0   && amt < 50))   return false;
+        if (linksPayoutFilter === '50-200'  && !(amt >= 50  && amt < 200))  return false;
+        if (linksPayoutFilter === '200plus' && !(amt >= 200))               return false;
+        if (linksPayoutFilter === 'zero'    && amt !== 0)                   return false;
+      }
+      return true;
+    }),
+    linksSort,
+  );
 
   // ── Data fetching ───────────────────────────────────────────────────────────
   const buildHeaders = () => {
@@ -496,32 +514,92 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
           {/* ── Tracking Links Tab ── */}
           <Tabs.Content value="links" className="p-6">
-            {/* Sort bar */}
-            <div className="flex flex-wrap items-center gap-2 mb-5">
-              <span className="text-xs font-medium text-gray-500 mr-1">Sort by:</span>
-              {([
-                { field: 'name',        label: 'Name' },
-                { field: 'clicks',      label: 'Clicks' },
-                { field: 'conversions', label: 'Approvals' },
-                { field: 'commission',  label: 'Commission' },
-              ] as { field: string; label: string }[]).map(({ field, label }) => (
-                <button
-                  key={field}
-                  onClick={() => setLinksSort(toggleSort(linksSort, field))}
-                  className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                    linksSort.field === field
-                      ? 'bg-indigo-600 text-white border-indigo-600'
-                      : 'text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
-                  }`}
-                >
-                  {label}
-                  {linksSort.field === field && (
-                    linksSort.dir === 'asc'
-                      ? <ChevronUp className="w-3 h-3" />
-                      : <ChevronDown className="w-3 h-3" />
-                  )}
-                </button>
-              ))}
+            {/* Sort + filter toolbar */}
+            <div className="flex flex-col gap-3 mb-5">
+              {/* Sort row */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 mr-1">Sort by:</span>
+                {([
+                  { field: 'name',        label: 'Name' },
+                  { field: 'clicks',      label: 'Clicks' },
+                  { field: 'conversions', label: 'Approvals' },
+                  { field: 'commission',  label: 'Commission' },
+                ] as { field: string; label: string }[]).map(({ field, label }) => (
+                  <button
+                    key={field}
+                    onClick={() => setLinksSort(toggleSort(linksSort, field))}
+                    className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      linksSort.field === field
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
+                    }`}
+                  >
+                    {label}
+                    {linksSort.field === field && (
+                      linksSort.dir === 'asc'
+                        ? <ChevronUp className="w-3 h-3" />
+                        : <ChevronDown className="w-3 h-3" />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Filter row */}
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Issuer filter */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500">Issuer:</span>
+                  <select
+                    value={linksIssuerFilter}
+                    onChange={e => setLinksIssuerFilter(e.target.value)}
+                    className="px-2 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                  >
+                    <option value="all">All issuers</option>
+                    {linkIssuers.map(issuer => (
+                      <option key={issuer} value={issuer}>{issuer}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Payout range filter */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500">Payout:</span>
+                  {([
+                    { value: 'all',     label: 'All' },
+                    { value: 'zero',    label: '$0' },
+                    { value: 'lt50',    label: 'Under $50' },
+                    { value: '50-200',  label: '$50–$200' },
+                    { value: '200plus', label: '$200+' },
+                  ]).map(({ value, label }) => (
+                    <button
+                      key={value}
+                      onClick={() => setLinksPayoutFilter(value)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        linksPayoutFilter === value
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Active filter count / clear */}
+                {(linksIssuerFilter !== 'all' || linksPayoutFilter !== 'all') && (
+                  <div className="flex items-center gap-2 ml-auto">
+                    <span className="text-xs text-gray-500">
+                      {displayLinks.length} of {links.length} cards
+                    </span>
+                    <button
+                      onClick={() => { setLinksIssuerFilter('all'); setLinksPayoutFilter('all'); }}
+                      className="text-xs text-indigo-600 hover:underline"
+                    >
+                      Clear filters
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="space-y-4">
