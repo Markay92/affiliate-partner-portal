@@ -593,7 +593,8 @@ app.get("/make-server-8dc4138c/activity", async (c) => {
   }
 });
 
-// Get payouts
+// Get payouts — current CPA rates from Airtable CPA Changes table,
+// adjusted to the affiliate's individual commission rate.
 app.get("/make-server-8dc4138c/payouts", async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
@@ -603,7 +604,71 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
-    const payouts = await kv.get(`payouts:${user.id}`) || [];
+    // Get the affiliate's commission rate (default 50 if not set)
+    const userData = await kv.get(`user:${user.id}`) || {};
+    const commissionRate = Number(userData.commissionRate) || 50;
+
+    // Fetch CPA Changes from Airtable (ZeroAPR - COLLECTIONS base)
+    const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
+    const baseId = 'appJq70k9nl9MK2zk';
+    const tableId = 'tbl31rWYAh5hb02Tx';
+
+    const fields = [
+      'Card Name',           // fldN6ug8vDACn4yO1
+      'Issuer',              // fldXsTKc4Op37yXWu
+      'Net CPA 60%',         // fldr71bjB28kEAsbp — amount at 60% cut (reference point)
+      'Date',                // fldfL3uObDr0uotjI
+      'Date Change of Current Net CPA', // fldW5olh5ASAJ39uD
+    ].map(f => `fields[]=${encodeURIComponent(f)}`).join('&');
+
+    const sort = 'sort[0][field]=Date&sort[0][direction]=desc';
+    const airtableUrl = `https://api.airtable.com/v0/${baseId}/${tableId}?${fields}&${sort}&pageSize=200`;
+
+    const airtableRes = await fetch(airtableUrl, {
+      headers: { 'Authorization': `Bearer ${airtableToken}` },
+    });
+
+    if (!airtableRes.ok) {
+      console.log('Airtable CPA Changes fetch error:', airtableRes.status);
+      return c.json({ payouts: [] });
+    }
+
+    const airtableData = await airtableRes.json();
+    const records = airtableData.records || [];
+
+    // Deduplicate — keep the most recent record per card name (data is sorted desc by date)
+    const seen = new Set<string>();
+    const payouts = [];
+
+    for (let i = 0; i < records.length; i++) {
+      const f = records[i].cellValuesByFieldId || records[i].fields || {};
+
+      // Support both fieldId-keyed and field-name-keyed responses
+      const cardName  = f['fldN6ug8vDACn4yO1'] ?? f['Card Name'] ?? '';
+      const issuer    = f['fldXsTKc4Op37yXWu'] ?? f['Issuer'] ?? '';
+      const netCpa60  = f['fldr71bjB28kEAsbp'] ?? f['Net CPA 60%'] ?? '0';
+      const date      = f['fldfL3uObDr0uotjI'] ?? f['Date'] ?? '';
+      const rateDate  = f['fldW5olh5ASAJ39uD'] ?? f['Date Change of Current Net CPA'] ?? '';
+
+      if (!cardName || seen.has(cardName)) continue;
+      seen.add(cardName);
+
+      // Calculate affiliate's amount: (Net CPA 60%) × (commissionRate / 60)
+      const base60 = parseFloat(String(netCpa60).replace(/[^0-9.]/g, '')) || 0;
+      const affiliateAmount = base60 > 0
+        ? Math.round((base60 * commissionRate / 60) * 100) / 100
+        : 0;
+
+      payouts.push({
+        id: i + 1,
+        card: cardName,
+        issuer,
+        amount: affiliateAmount,
+        date: date || rateDate || records[i].createdTime?.split('T')[0] || '',
+        status: 'current',
+      });
+    }
+
     return c.json({ payouts });
   } catch (error) {
     console.log(`Get payouts error: ${error.message}`);

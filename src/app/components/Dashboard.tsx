@@ -48,7 +48,8 @@ interface Payout {
   id: number;
   date: string;
   amount: number;
-  method: string;
+  card: string;
+  issuer?: string;
   status: string;
 }
 
@@ -258,7 +259,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   );
   const displayPayouts = applySort(
     payouts.filter(p => inDateRange(p.date, payoutsFilter, payoutsCustomFrom, payoutsCustomTo)),
-    payoutsSort,
+    { ...payoutsSort, field: payoutsSort.field === 'method' ? 'card' : payoutsSort.field },
   );
   const displayTracking = applySort(
     tracking.filter(t =>
@@ -434,11 +435,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600">Total Payouts</span>
+              <span className="text-gray-600">CPA Rates</span>
               <DollarSign className="w-5 h-5 text-purple-600" />
             </div>
-            <div className="text-3xl mb-1">${totalPayouts.toLocaleString()}</div>
-            <div className="text-gray-500">All time</div>
+            <div className="text-3xl mb-1">{payouts.length}</div>
+            <div className="text-gray-500">Active cards</div>
           </div>
         </div>
 
@@ -602,8 +603,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                 <p>
                   {payouts.length === 0
-                    ? 'No payouts yet. Keep promoting to earn commissions!'
-                    : 'No payouts match the selected date range.'}
+                    ? 'No CPA rates loaded yet — try refreshing.'
+                    : 'No rates match the selected date range.'}
                 </p>
               </div>
             ) : (
@@ -611,18 +612,22 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <SortTh label="Date"   field="date"   sort={payoutsSort} onSort={(f) => setPayoutsSort(toggleSort(payoutsSort, f))} />
-                      <SortTh label="Amount" field="amount" sort={payoutsSort} onSort={(f) => setPayoutsSort(toggleSort(payoutsSort, f))} align="right" />
-                      <SortTh label="Method" field="method" sort={payoutsSort} onSort={(f) => setPayoutsSort(toggleSort(payoutsSort, f))} />
-                      <SortTh label="Status" field="status" sort={payoutsSort} onSort={(f) => setPayoutsSort(toggleSort(payoutsSort, f))} align="right" />
+                      <SortTh label="Card"        field="card"   sort={payoutsSort} onSort={(f) => setPayoutsSort(toggleSort(payoutsSort, f))} />
+                      <SortTh label="Issuer"      field="issuer" sort={payoutsSort} onSort={(f) => setPayoutsSort(toggleSort(payoutsSort, f))} />
+                      <SortTh label="Your CPA"    field="amount" sort={payoutsSort} onSort={(f) => setPayoutsSort(toggleSort(payoutsSort, f))} align="right" />
+                      <SortTh label="Rate Date"   field="date"   sort={payoutsSort} onSort={(f) => setPayoutsSort(toggleSort(payoutsSort, f))} />
+                      <SortTh label="Status"      field="status" sort={payoutsSort} onSort={(f) => setPayoutsSort(toggleSort(payoutsSort, f))} align="right" />
                     </tr>
                   </thead>
                   <tbody>
                     {displayPayouts.map((payout) => (
                       <tr key={payout.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4">{payout.date}</td>
-                        <td className="py-3 px-4 text-right">${payout.amount.toLocaleString()}</td>
-                        <td className="py-3 px-4">{payout.method}</td>
+                        <td className="py-3 px-4 text-sm font-medium">{payout.card}</td>
+                        <td className="py-3 px-4 text-sm text-gray-600">{payout.issuer || '—'}</td>
+                        <td className="py-3 px-4 text-right font-medium">
+                          {payout.amount > 0 ? `$${payout.amount.toLocaleString()}` : '—'}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600">{payout.date || '—'}</td>
                         <td className="py-3 px-4 text-right">
                           <span className="inline-flex px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
                             {payout.status}
