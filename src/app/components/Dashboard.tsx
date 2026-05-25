@@ -488,13 +488,23 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             </div>
 
             <div className="space-y-4">
-              {displayLinks.map((link) => (
+              {displayLinks.map((link) => {
+                // Join with payouts to show per-card CPA (match by normalized card name)
+                const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+                const cpaRecord = payouts.find(p => norm(p.card) === norm(link.name));
+                return (
                 <div key={link.id} className="border border-gray-200 rounded-lg p-4 hover:border-indigo-300 transition-colors">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
                     <h3>{link.name}</h3>
                     <div className="flex items-center gap-4 text-sm">
                       <span className="text-gray-600">{link.clicks} clicks</span>
                       <span className="text-green-600">{link.conversions} approvals</span>
+                      {cpaRecord && cpaRecord.amount > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium border border-indigo-200">
+                          <DollarSign className="w-3 h-3" />
+                          Your CPA: ${cpaRecord.amount.toLocaleString()}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-3">
@@ -519,7 +529,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </a>
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           </Tabs.Content>
 

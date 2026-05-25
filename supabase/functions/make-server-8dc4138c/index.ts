@@ -653,10 +653,11 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
       if (!cardName || seen.has(cardName)) continue;
       seen.add(cardName);
 
-      // Calculate affiliate's amount: (Net CPA 60%) × (commissionRate / 60)
-      const base60 = parseFloat(String(netCpa60).replace(/[^0-9.]/g, '')) || 0;
-      const affiliateAmount = base60 > 0
-        ? Math.round((base60 * commissionRate / 60) * 100) / 100
+      // Calculate affiliate's amount: bank payout × (affiliate's commission rate / 100)
+      // "Net CPA 60%" is just the field name — it represents the full amount received from the bank.
+      const bankCpa = parseFloat(String(netCpa60).replace(/[^0-9.]/g, '')) || 0;
+      const affiliateAmount = bankCpa > 0
+        ? Math.round((bankCpa * commissionRate / 100) * 100) / 100
         : 0;
 
       payouts.push({
@@ -1683,6 +1684,82 @@ app.post("/make-server-8dc4138c/manager/login-as/:userId", async (c) => {
     });
   } catch (error) {
     console.log(`Manager login-as error: ${error.message}`);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Manager: CPA rates — all cards from Airtable with bank total + optional affiliate payout
+app.get("/make-server-8dc4138c/manager/cpa-rates", async (c) => {
+  try {
+    const sessionToken = c.req.header('X-Manager-Session');
+    const session = await kv.get(`manager_session:${sessionToken}`);
+    if (!session) return c.json({ error: 'Unauthorized' }, 401);
+
+    // Optional: calculate payout for a specific affiliate
+    const affiliateUserId = c.req.query('userId');
+    let affiliateCommissionRate = 0;
+    let affiliateName = '';
+    if (affiliateUserId) {
+      const affiliateKvData = await kv.get(`user:${affiliateUserId}`) || {};
+      affiliateCommissionRate = Number(affiliateKvData.commissionRate) || 50;
+      affiliateName = affiliateKvData.name || affiliateKvData.email || affiliateUserId;
+    }
+
+    const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
+    const baseId = 'appJq70k9nl9MK2zk';
+    const tableId = 'tbl31rWYAh5hb02Tx';
+
+    const fields = [
+      'Card Name', 'Issuer', 'Net CPA 60%', 'Date', 'Date Change of Current Net CPA',
+    ].map(f => `fields[]=${encodeURIComponent(f)}`).join('&');
+
+    const airtableUrl = `https://api.airtable.com/v0/${baseId}/${tableId}?${fields}&sort[0][field]=Date&sort[0][direction]=desc&pageSize=200`;
+    const airtableRes = await fetch(airtableUrl, {
+      headers: { 'Authorization': `Bearer ${airtableToken}` },
+    });
+
+    if (!airtableRes.ok) {
+      console.log('CPA rates Airtable error:', airtableRes.status);
+      return c.json({ rates: [] });
+    }
+
+    const airtableData = await airtableRes.json();
+    const records = airtableData.records || [];
+
+    // Deduplicate by card name, keep most recent
+    const seen = new Set<string>();
+    const rates = [];
+
+    for (let i = 0; i < records.length; i++) {
+      const f = records[i].cellValuesByFieldId || records[i].fields || {};
+      const cardName = f['fldN6ug8vDACn4yO1'] ?? f['Card Name'] ?? '';
+      const issuer   = f['fldXsTKc4Op37yXWu'] ?? f['Issuer'] ?? '';
+      const netCpa60 = f['fldr71bjB28kEAsbp'] ?? f['Net CPA 60%'] ?? '0';
+      const date     = f['fldfL3uObDr0uotjI'] ?? f['Date'] ?? '';
+      const rateDate = f['fldW5olh5ASAJ39uD'] ?? f['Date Change of Current Net CPA'] ?? '';
+
+      if (!cardName || seen.has(cardName)) continue;
+      seen.add(cardName);
+
+      const bankCpa = parseFloat(String(netCpa60).replace(/[^0-9.]/g, '')) || 0;
+      const affiliatePayout = (affiliateCommissionRate > 0 && bankCpa > 0)
+        ? Math.round(bankCpa * affiliateCommissionRate / 100 * 100) / 100
+        : null;
+
+      rates.push({
+        id: i + 1,
+        card: cardName,
+        issuer,
+        bankCpa,
+        affiliatePayout,
+        affiliateCommissionRate: affiliateCommissionRate || null,
+        date: date || rateDate || records[i].createdTime?.split('T')[0] || '',
+      });
+    }
+
+    return c.json({ rates, affiliateName, affiliateCommissionRate });
+  } catch (error) {
+    console.log(`Manager CPA rates error: ${error.message}`);
     return c.json({ error: error.message }, 500);
   }
 });

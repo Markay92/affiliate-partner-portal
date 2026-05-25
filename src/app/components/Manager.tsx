@@ -289,6 +289,13 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [mgTrackingStatusFilter,     setMgTrackingStatusFilter]     = useState('all');
   const [mgTrackingAffiliateFilter,  setMgTrackingAffiliateFilter]  = useState('all');
 
+  // CPA Rates tab
+  const [cpaRates,          setCpaRates]          = useState<any[]>([]);
+  const [cpaRatesLoading,   setCpaRatesLoading]   = useState(false);
+  const [cpaAffiliateFilter, setCpaAffiliateFilter] = useState('all');
+  const [cpaSort,           setCpaSort]           = useState<SortState>({ field: 'card', dir: 'asc' });
+  const [cpaAffiliateLabel, setCpaAffiliateLabel] = useState('');
+
   // ── Derived display data ────────────────────────────────────────────────────
   const displayUsers = sortUsers(
     users.filter((u: any) => inDateRange(u.createdAt, affiliatesFilter, affiliatesCustomFrom, affiliatesCustomTo)),
@@ -614,9 +621,35 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     finally { setImportingCPA(false); }
   };
 
+  const fetchCpaRates = async (userId = 'all') => {
+    setCpaRatesLoading(true);
+    try {
+      const url = userId !== 'all'
+        ? `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/cpa-rates?userId=${userId}`
+        : `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/cpa-rates`;
+      const res = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'X-Manager-Session': sessionToken,
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await res.json();
+      setCpaRates(data.rates || []);
+      setCpaAffiliateLabel(data.affiliateName || '');
+    } catch (err: any) {
+      setMessageWithTimeout(`Failed to load CPA rates: ${err.message}`, 6000);
+    } finally {
+      setCpaRatesLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'tracking' && trackingActivity.length === 0) {
       fetchTrackingActivity();
+    }
+    if (activeTab === 'cpa-rates' && cpaRates.length === 0) {
+      fetchCpaRates(cpaAffiliateFilter);
     }
   }, [activeTab]);
 
@@ -705,6 +738,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               className="px-6 py-3 text-gray-600 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-gray-900 transition-colors"
             >
               Tracking Activity
+            </Tabs.Trigger>
+            <Tabs.Trigger
+              value="cpa-rates"
+              className="px-6 py-3 text-gray-600 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-gray-900 transition-colors"
+            >
+              CPA Rates
             </Tabs.Trigger>
           </Tabs.List>
 
@@ -1011,6 +1050,94 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   </tbody>
                 </table>
               </div>
+            </div>
+          </Tabs.Content>
+
+          {/* ── CPA Rates Tab ── */}
+          <Tabs.Content value="cpa-rates">
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              {/* Toolbar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-sm font-medium text-gray-600">Affiliate:</span>
+                  <select
+                    value={cpaAffiliateFilter}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCpaAffiliateFilter(val);
+                      fetchCpaRates(val);
+                    }}
+                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="all">All (bank CPA only)</option>
+                    {(users as any[]).map((u: any) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name || u.email} ({u.commissionRate || 50}%)
+                      </option>
+                    ))}
+                  </select>
+                  {cpaAffiliateLabel && (
+                    <span className="text-xs text-indigo-600 font-medium">
+                      Showing payouts for: {cpaAffiliateLabel}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => fetchCpaRates(cpaAffiliateFilter)}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Refresh
+                </button>
+              </div>
+
+              {cpaRatesLoading ? (
+                <div className="text-center py-12 text-gray-500">
+                  <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-3 text-indigo-600" />
+                  <p>Loading CPA rates from Airtable…</p>
+                </div>
+              ) : cpaRates.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <DollarSign className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+                  <p>No CPA rates found. Try refreshing.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <p className="text-xs text-gray-500 mb-3">{cpaRates.length} cards loaded</p>
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <SortThSm label="Card"        field="card"             sort={cpaSort} onSort={(f) => setCpaSort(toggleSort(cpaSort, f))} />
+                        <SortThSm label="Issuer"      field="issuer"           sort={cpaSort} onSort={(f) => setCpaSort(toggleSort(cpaSort, f))} />
+                        <SortThSm label="Bank CPA"    field="bankCpa"          sort={cpaSort} onSort={(f) => setCpaSort(toggleSort(cpaSort, f))} align="right" />
+                        {cpaAffiliateFilter !== 'all' && (
+                          <SortThSm label="Affiliate Payout" field="affiliatePayout" sort={cpaSort} onSort={(f) => setCpaSort(toggleSort(cpaSort, f))} align="right" />
+                        )}
+                        <SortThSm label="Rate Date"   field="date"             sort={cpaSort} onSort={(f) => setCpaSort(toggleSort(cpaSort, f))} />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {applySort(cpaRates, cpaSort).map((rate: any) => (
+                        <tr key={rate.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-2 px-3 font-medium text-gray-900">{rate.card}</td>
+                          <td className="py-2 px-3 text-gray-600">{rate.issuer || '—'}</td>
+                          <td className="py-2 px-3 text-right font-medium text-gray-900">
+                            {rate.bankCpa > 0 ? `$${rate.bankCpa.toLocaleString()}` : '—'}
+                          </td>
+                          {cpaAffiliateFilter !== 'all' && (
+                            <td className="py-2 px-3 text-right font-medium text-indigo-700">
+                              {rate.affiliatePayout != null && rate.affiliatePayout > 0
+                                ? `$${rate.affiliatePayout.toLocaleString()}`
+                                : '—'}
+                            </td>
+                          )}
+                          <td className="py-2 px-3 text-gray-500">{rate.date || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </Tabs.Content>
         </Tabs.Root>
