@@ -77,6 +77,19 @@ const DATE_LABELS: Record<DateFilter, string> = {
   '30d': '30 days', '90d': '90 days', custom: 'Custom',
 };
 
+/** Decode common HTML entities in card names coming from external APIs */
+function decodeHtml(str: string): string {
+  return str
+    .replace(/&amp;/g,   '&')
+    .replace(/&reg;/g,   '®')
+    .replace(/&trade;/g, '™')
+    .replace(/&copy;/g,  '©')
+    .replace(/&lt;/g,    '<')
+    .replace(/&gt;/g,    '>')
+    .replace(/&quot;/g,  '"')
+    .replace(/&#(\d+);/g, (_, c) => String.fromCharCode(Number(c)));
+}
+
 /** Parse date strings without UTC-shift issues for YYYY-MM-DD values */
 function parseLocalDate(str: string): Date {
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
@@ -519,7 +532,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 return (
                 <div key={link.id} className="border border-gray-200 rounded-lg p-4 hover:border-indigo-300 transition-colors">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
-                    <h3>{link.name}</h3>
+                    <h3>{decodeHtml(link.name)}</h3>
                     <div className="flex items-center gap-4 text-sm">
                       <span className="text-gray-600">{link.clicks} clicks</span>
                       <span className="text-green-600">{link.conversions} approvals</span>

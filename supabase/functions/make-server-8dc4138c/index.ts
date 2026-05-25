@@ -351,56 +351,103 @@ app.post("/make-server-8dc4138c/login", async (c) => {
 });
 
 // Get tracking links
+// Decode common HTML entities (CardBenefit / Airtable data often includes &reg; etc.)
+function decodeHtml(str: string): string {
+  return str
+    .replace(/&amp;/g,   '&')
+    .replace(/&reg;/g,   '®')
+    .replace(/&trade;/g, '™')
+    .replace(/&copy;/g,  '©')
+    .replace(/&lt;/g,    '<')
+    .replace(/&gt;/g,    '>')
+    .replace(/&quot;/g,  '"')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
+}
+
 app.get("/make-server-8dc4138c/links", async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
-
     const impersonationToken = c.req.header('X-Impersonation-Token');
     const { user, error } = await getUserFromToken(accessToken, impersonationToken);
     if (!user?.id) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
-    let links = await kv.get(`links:${user.id}`) || [];
+    // Ensure user has an affiliate ID
+    const userData = await kv.get(`user:${user.id}`) || {};
+    let affiliateId = userData.affiliateId;
+    if (!affiliateId) {
+      affiliateId = `AF${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+      userData.affiliateId = affiliateId;
+      await kv.set(`user:${user.id}`, userData);
+      console.log(`Generated affiliate ID: ${affiliateId} for user ${user.id}`);
+    }
 
-    // If user has no links, initialize them with real card data
-    if (links.length === 0) {
-      console.log('User has no links, initializing with real card data...');
-      const userData = await kv.get(`user:${user.id}`) || {};
-      let affiliateId = userData.affiliateId;
+    // Load any existing KV links so we can preserve click/conversion counts
+    const existingLinks: any[] = await kv.get(`links:${user.id}`) || [];
+    const clickMap: Record<string, { clicks: number; conversions: number }> = {};
+    for (const l of existingLinks) {
+      if (l.name) clickMap[l.name] = { clicks: l.clicks || 0, conversions: l.conversions || 0 };
+    }
 
-      // If no affiliate ID exists, generate one and save it
-      if (!affiliateId) {
-        affiliateId = `AF${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-        userData.affiliateId = affiliateId;
-        await kv.set(`user:${user.id}`, userData);
-        console.log(`Generated new affiliate ID: ${affiliateId} for user ${user.id}`);
-      } else {
-        console.log(`Using existing affiliate ID: ${affiliateId} for user ${user.id}`);
+    // Pull live card list from Airtable CPA Changes (same source as Payouts tab)
+    const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
+    const baseId = 'appJq70k9nl9MK2zk';
+    const tableId = 'tbl31rWYAh5hb02Tx';
+    const params = [
+      'fields[]=Card+Name',
+      'fields[]=Issuer',
+      'fields[]=Net+CPA+60%25',
+      'fields[]=slug',
+      'sort[0][field]=Card+Name',
+      'sort[0][direction]=asc',
+    ].join('&');
+
+    let records: any[] = [];
+    if (airtableToken) {
+      try {
+        records = await fetchAllAirtableRecords(airtableToken, baseId, tableId, params);
+        console.log(`Fetched ${records.length} cards from Airtable CPA Changes`);
+      } catch (err: any) {
+        console.log('Airtable links fetch error:', err.message);
       }
+    }
 
-      const cards = await fetchCards();
-      const cardsArray = Array.isArray(cards) ? cards : [];
-      console.log('Fetched', cardsArray.length, 'cards from CardBenefit');
+    // Deduplicate by card name (keep first / most-recent per card after sort)
+    const seen = new Set<string>();
+    const links = [];
 
-      links = cardsArray.slice(0, 10).map((item, index) => {
-        const card = item.card;
-        const url = card.link ? card.link.replace(/ref=[^&]+/, `ref=${affiliateId}`) : `https://apply.cards/${card.name.toLowerCase().replace(/\s+/g, '-')}?ref=${affiliateId}`;
-        return {
-          id: index + 1,
-          name: card.name,
-          bank: card.bank,
-          url,
-          clicks: 0,
-          conversions: 0,
-          commission: 150,
-          annualFee: card.annualFee,
-          creditLevel: card.creditLevel
-        };
+    for (let i = 0; i < records.length; i++) {
+      const f = records[i].fields || {};
+      const rawName = f['Card Name'] ?? '';
+      const cardName = decodeHtml(rawName.trim());
+      if (!cardName || seen.has(cardName)) continue;
+      seen.add(cardName);
+
+      const issuer   = decodeHtml(f['Issuer'] ?? '');
+      const bankCpa  = parseFloat(String(f['Net CPA 60%'] ?? '0').replace(/[^0-9.]/g, '')) || 0;
+      const slug     = (f['slug'] ?? '').trim();
+
+      // Build tracking URL from slug; fall back to a slug derived from card name
+      const urlSlug  = slug || cardName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const url      = `https://www.cardbenefit.com/${urlSlug}/?ref=${affiliateId}`;
+
+      const prev = clickMap[cardName] || { clicks: 0, conversions: 0 };
+
+      links.push({
+        id: i + 1,
+        name: cardName,
+        bank: issuer,
+        url,
+        clicks:      prev.clicks,
+        conversions: prev.conversions,
+        commission:  bankCpa,   // bank CPA; affiliate cut calculated at display time
       });
+    }
 
+    // Persist updated list (keeps click counts in sync)
+    if (links.length > 0) {
       await kv.set(`links:${user.id}`, links);
-      console.log('Initialized', links.length, 'links for user');
     }
 
     return c.json({ links });
