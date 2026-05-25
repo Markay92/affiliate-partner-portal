@@ -8,7 +8,10 @@ import {
   Copy,
   ExternalLink,
   LogOut,
-  RefreshCw
+  RefreshCw,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown
 } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { projectId } from '/utils/supabase/info';
@@ -63,20 +66,208 @@ interface TrackingItem {
   state: string;
 }
 
+// ── Filter / sort types & helpers ────────────────────────────────────────────
+
+type DateFilter = 'all' | 'today' | '7d' | '30d' | '90d' | 'custom';
+type SortState  = { field: string; dir: 'asc' | 'desc' };
+
+const DATE_LABELS: Record<DateFilter, string> = {
+  all: 'All time', today: 'Today', '7d': '7 days',
+  '30d': '30 days', '90d': '90 days', custom: 'Custom',
+};
+
+/** Parse date strings without UTC-shift issues for YYYY-MM-DD values */
+function parseLocalDate(str: string): Date {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const [y, m, d] = str.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+  return new Date(str);
+}
+
+function getDateBounds(filter: DateFilter, customFrom: string, customTo: string) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  switch (filter) {
+    case 'today': return { from: today, to: null };
+    case '7d':    return { from: new Date(today.getTime() - 6  * 86400000), to: null };
+    case '30d':   return { from: new Date(today.getTime() - 29 * 86400000), to: null };
+    case '90d':   return { from: new Date(today.getTime() - 89 * 86400000), to: null };
+    case 'custom': {
+      const to = customTo ? parseLocalDate(customTo) : null;
+      if (to) to.setHours(23, 59, 59, 999);
+      return { from: customFrom ? parseLocalDate(customFrom) : null, to };
+    }
+    default: return { from: null, to: null };
+  }
+}
+
+function inDateRange(
+  dateStr: string | undefined,
+  filter: DateFilter,
+  customFrom: string,
+  customTo: string,
+): boolean {
+  if (filter === 'all') return true;
+  if (!dateStr) return false;
+  const date = parseLocalDate(dateStr);
+  if (isNaN(date.getTime())) return false;
+  const { from, to } = getDateBounds(filter, customFrom, customTo);
+  if (from && date < from) return false;
+  if (to   && date > to)   return false;
+  return true;
+}
+
+function applySort<T>(items: T[], sort: SortState): T[] {
+  return [...items].sort((a, b) => {
+    const aVal = (a as Record<string, unknown>)[sort.field];
+    const bVal = (b as Record<string, unknown>)[sort.field];
+    if (aVal == null) return 1;
+    if (bVal == null) return -1;
+    let cmp = 0;
+    if (typeof aVal === 'number' && typeof bVal === 'number') {
+      cmp = aVal - bVal;
+    } else {
+      const aStr = String(aVal);
+      const bStr = String(bVal);
+      const aDate = parseLocalDate(aStr);
+      const bDate = parseLocalDate(bStr);
+      if (!isNaN(aDate.getTime()) && !isNaN(bDate.getTime())) {
+        cmp = aDate.getTime() - bDate.getTime();
+      } else {
+        cmp = aStr.localeCompare(bStr);
+      }
+    }
+    return sort.dir === 'asc' ? cmp : -cmp;
+  });
+}
+
+function toggleSort(current: SortState, field: string): SortState {
+  return current.field === field
+    ? { field, dir: current.dir === 'asc' ? 'desc' : 'asc' }
+    : { field, dir: 'asc' };
+}
+
+// ── Shared UI sub-components ─────────────────────────────────────────────────
+
+function FilterBar({
+  filter, setFilter, customFrom, setCustomFrom, customTo, setCustomTo,
+}: {
+  filter: DateFilter; setFilter: (f: DateFilter) => void;
+  customFrom: string; setCustomFrom: (s: string) => void;
+  customTo: string;   setCustomTo: (s: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs font-medium text-gray-500 mr-1">Period:</span>
+      {(['all', 'today', '7d', '30d', '90d', 'custom'] as DateFilter[]).map((f) => (
+        <button
+          key={f}
+          onClick={() => setFilter(f)}
+          className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+            filter === f
+              ? 'bg-indigo-600 text-white border-indigo-600'
+              : 'text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
+          }`}
+        >
+          {DATE_LABELS[f]}
+        </button>
+      ))}
+      {filter === 'custom' && (
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={customFrom}
+            onChange={(e) => setCustomFrom(e.target.value)}
+            className="px-2 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+          <span className="text-gray-400 text-xs">to</span>
+          <input
+            type="date"
+            value={customTo}
+            onChange={(e) => setCustomTo(e.target.value)}
+            className="px-2 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SortTh({
+  label, field, sort, onSort, align = 'left',
+}: {
+  label: string; field: string; sort: SortState;
+  onSort: (f: string) => void; align?: 'left' | 'right';
+}) {
+  const icon =
+    sort.field === field
+      ? sort.dir === 'asc'
+        ? <ChevronUp className="w-3 h-3 flex-shrink-0" />
+        : <ChevronDown className="w-3 h-3 flex-shrink-0" />
+      : <ChevronsUpDown className="w-3 h-3 flex-shrink-0 text-gray-400" />;
+  return (
+    <th
+      onClick={() => onSort(field)}
+      className={`py-3 px-4 text-gray-600 cursor-pointer select-none hover:bg-gray-100 transition-colors text-${align}`}
+    >
+      <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''}`}>
+        {label}{icon}
+      </span>
+    </th>
+  );
+}
+
+// ── Dashboard component ───────────────────────────────────────────────────────
+
 export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) {
   const [copiedId, setCopiedId] = useState<number | null>(null);
-  const [links, setLinks] = useState<Link[]>([]);
+  const [links, setLinks]       = useState<Link[]>([]);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
-  const [payouts, setPayouts] = useState<Payout[]>([]);
+  const [payouts, setPayouts]   = useState<Payout[]>([]);
   const [tracking, setTracking] = useState<TrackingItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState('');
 
-  // Helper to build headers with impersonation support
+  // Activity tab
+  const [activityFilter,     setActivityFilter]     = useState<DateFilter>('all');
+  const [activityCustomFrom, setActivityCustomFrom] = useState('');
+  const [activityCustomTo,   setActivityCustomTo]   = useState('');
+  const [activitySort,       setActivitySort]       = useState<SortState>({ field: 'date', dir: 'desc' });
+
+  // Payouts tab
+  const [payoutsFilter,     setPayoutsFilter]     = useState<DateFilter>('all');
+  const [payoutsCustomFrom, setPayoutsCustomFrom] = useState('');
+  const [payoutsCustomTo,   setPayoutsCustomTo]   = useState('');
+  const [payoutsSort,       setPayoutsSort]       = useState<SortState>({ field: 'date', dir: 'desc' });
+
+  // API Tracking tab
+  const [trackingFilter,     setTrackingFilter]     = useState<DateFilter>('all');
+  const [trackingCustomFrom, setTrackingCustomFrom] = useState('');
+  const [trackingCustomTo,   setTrackingCustomTo]   = useState('');
+  const [trackingSort,       setTrackingSort]       = useState<SortState>({ field: 'clickDate', dir: 'desc' });
+
+  // Links tab (sort only — no date field on links)
+  const [linksSort, setLinksSort] = useState<SortState>({ field: 'name', dir: 'asc' });
+
+  // ── Derived display data ────────────────────────────────────────────────────
+  const displayActivity = applySort(
+    activity.filter(a => inDateRange(a.date, activityFilter, activityCustomFrom, activityCustomTo)),
+    activitySort,
+  );
+  const displayPayouts = applySort(
+    payouts.filter(p => inDateRange(p.date, payoutsFilter, payoutsCustomFrom, payoutsCustomTo)),
+    payoutsSort,
+  );
+  const displayTracking = applySort(
+    tracking.filter(t => inDateRange(t.clickDate, trackingFilter, trackingCustomFrom, trackingCustomTo)),
+    trackingSort,
+  );
+  const displayLinks = applySort(links, linksSort);
+
+  // ── Data fetching ───────────────────────────────────────────────────────────
   const buildHeaders = () => {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
-    };
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (accessToken?.startsWith('imp_')) {
       headers['X-Impersonation-Token'] = accessToken;
     } else {
@@ -89,18 +280,14 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     setError('');
     try {
       const headers = buildHeaders();
-
       const [linksRes, activityRes, payoutsRes, trackingRes] = await Promise.all([
-        fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/links`, { headers }),
+        fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/links`,    { headers }),
         fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/activity`, { headers }),
-        fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/payouts`, { headers }),
-        fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/tracking`, { headers })
+        fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/payouts`,  { headers }),
+        fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/tracking`, { headers }),
       ]);
 
-      if (linksRes.status === 401) {
-        onLogout();
-        return;
-      }
+      if (linksRes.status === 401) { onLogout(); return; }
 
       if (!linksRes.ok) {
         const err = await linksRes.json().catch(() => ({}));
@@ -108,16 +295,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       }
 
       const [linksData, activityData, payoutsData, trackingData] = await Promise.all([
-        linksRes.json(),
-        activityRes.json(),
-        payoutsRes.json(),
-        trackingRes.json()
+        linksRes.json(), activityRes.json(), payoutsRes.json(), trackingRes.json(),
       ]);
 
-      setLinks(linksData.links || []);
+      setLinks(linksData.links       || []);
       setActivity(activityData.activity || []);
       setTracking(trackingData.tracking || []);
-      setPayouts(payoutsData.payouts || []);
+      setPayouts(payoutsData.payouts   || []);
     } catch (err: unknown) {
       setError(`Failed to load data: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
@@ -125,37 +309,29 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
-  const totalClicks = links.reduce((sum, link) => sum + link.clicks, 0);
-  const totalConversions = links.reduce((sum, link) => sum + link.conversions, 0);
-  const totalCommissions = activity.filter(a => a.status === 'approved').reduce((sum, a) => sum + a.amount, 0);
-  const totalPayouts = payouts.reduce((sum, p) => sum + p.amount, 0);
+  const totalClicks      = links.reduce((s, l) => s + l.clicks, 0);
+  const totalConversions = links.reduce((s, l) => s + l.conversions, 0);
+  const totalCommissions = activity.filter(a => a.status === 'approved').reduce((s, a) => s + a.amount, 0);
+  const totalPayouts     = payouts.reduce((s, p) => s + p.amount, 0);
 
   const copyToClipboard = async (text: string, id: number) => {
     try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
+      if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
       } else {
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-999999px';
-        textArea.style.top = '-999999px';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;left:-999999px;top:-999999px';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
         try { document.execCommand('copy'); } catch {}
-        document.body.removeChild(textArea);
+        document.body.removeChild(ta);
       }
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 2000);
-    } catch {
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 2000);
-    }
+    } catch {}
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   if (loading) {
@@ -181,7 +357,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
               <h1 className="hidden sm:block">Affiliate Portal</h1>
             </div>
-
             <div className="flex items-center gap-4">
               <button
                 onClick={fetchData}
@@ -262,42 +437,49 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         {/* Tabs */}
         <Tabs.Root defaultValue="links" className="bg-white rounded-xl shadow-sm border border-gray-200">
           <Tabs.List className="flex border-b border-gray-200 overflow-x-auto">
-            <Tabs.Trigger
-              value="links"
-              className="px-6 py-4 text-gray-600 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-gray-900 transition-colors whitespace-nowrap"
-            >
-              Tracking Links
-            </Tabs.Trigger>
-            <Tabs.Trigger
-              value="activity"
-              className="px-6 py-4 text-gray-600 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-gray-900 transition-colors whitespace-nowrap"
-            >
-              Activity
-            </Tabs.Trigger>
-            <Tabs.Trigger
-              value="payouts"
-              className="px-6 py-4 text-gray-600 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-gray-900 transition-colors whitespace-nowrap"
-            >
-              Payouts
-            </Tabs.Trigger>
-            <Tabs.Trigger
-              value="tracking"
-              className="px-6 py-4 text-gray-600 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-gray-900 transition-colors whitespace-nowrap"
-            >
-              API Tracking
-            </Tabs.Trigger>
-            <Tabs.Trigger
-              value="profile"
-              className="px-6 py-4 text-gray-600 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-gray-900 transition-colors whitespace-nowrap"
-            >
-              Profile
-            </Tabs.Trigger>
+            {['links', 'activity', 'payouts', 'tracking', 'profile'].map((tab) => (
+              <Tabs.Trigger
+                key={tab}
+                value={tab}
+                className="px-6 py-4 text-gray-600 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-gray-900 transition-colors whitespace-nowrap capitalize"
+              >
+                {tab === 'links' ? 'Tracking Links' : tab === 'tracking' ? 'API Tracking' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </Tabs.Trigger>
+            ))}
           </Tabs.List>
 
-          {/* Tracking Links Tab */}
+          {/* ── Tracking Links Tab ── */}
           <Tabs.Content value="links" className="p-6">
+            {/* Sort bar */}
+            <div className="flex flex-wrap items-center gap-2 mb-5">
+              <span className="text-xs font-medium text-gray-500 mr-1">Sort by:</span>
+              {([
+                { field: 'name',        label: 'Name' },
+                { field: 'clicks',      label: 'Clicks' },
+                { field: 'conversions', label: 'Approvals' },
+                { field: 'commission',  label: 'Commission' },
+              ] as { field: string; label: string }[]).map(({ field, label }) => (
+                <button
+                  key={field}
+                  onClick={() => setLinksSort(toggleSort(linksSort, field))}
+                  className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                    linksSort.field === field
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
+                  }`}
+                >
+                  {label}
+                  {linksSort.field === field && (
+                    linksSort.dir === 'asc'
+                      ? <ChevronUp className="w-3 h-3" />
+                      : <ChevronDown className="w-3 h-3" />
+                  )}
+                </button>
+              ))}
+            </div>
+
             <div className="space-y-4">
-              {links.map((link) => (
+              {displayLinks.map((link) => (
                 <div key={link.id} className="border border-gray-200 rounded-lg p-4 hover:border-indigo-300 transition-colors">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
                     <h3>{link.name}</h3>
@@ -313,11 +495,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       className="p-2 hover:bg-gray-200 rounded transition-colors flex-shrink-0"
                       title="Copy link"
                     >
-                      {copiedId === link.id ? (
-                        <CheckCircle className="w-4 h-4 text-green-600" />
-                      ) : (
-                        <Copy className="w-4 h-4 text-gray-600" />
-                      )}
+                      {copiedId === link.id
+                        ? <CheckCircle className="w-4 h-4 text-green-600" />
+                        : <Copy className="w-4 h-4 text-gray-600" />}
                     </button>
                     <a
                       href={link.url}
@@ -334,40 +514,55 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             </div>
           </Tabs.Content>
 
-          {/* Activity Tab */}
+          {/* ── Activity Tab ── */}
           <Tabs.Content value="activity" className="p-6">
-            {activity.length === 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+              <FilterBar
+                filter={activityFilter}     setFilter={setActivityFilter}
+                customFrom={activityCustomFrom} setCustomFrom={setActivityCustomFrom}
+                customTo={activityCustomTo}     setCustomTo={setActivityCustomTo}
+              />
+              {activityFilter !== 'all' && (
+                <span className="text-xs text-gray-500">
+                  {displayActivity.length} of {activity.length} records
+                </span>
+              )}
+            </div>
+
+            {displayActivity.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <CheckCircle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>No activity yet. Start promoting your tracking links!</p>
+                <p>
+                  {activity.length === 0
+                    ? 'No activity yet. Start promoting your tracking links!'
+                    : 'No activity matches the selected date range.'}
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-gray-600">Date</th>
-                      <th className="text-left py-3 px-4 text-gray-600">Card</th>
-                      <th className="text-left py-3 px-4 text-gray-600">Type</th>
-                      <th className="text-right py-3 px-4 text-gray-600">Commission</th>
-                      <th className="text-right py-3 px-4 text-gray-600">Status</th>
+                      <SortTh label="Date"       field="date"   sort={activitySort} onSort={(f) => setActivitySort(toggleSort(activitySort, f))} />
+                      <SortTh label="Card"       field="card"   sort={activitySort} onSort={(f) => setActivitySort(toggleSort(activitySort, f))} />
+                      <SortTh label="Type"       field="type"   sort={activitySort} onSort={(f) => setActivitySort(toggleSort(activitySort, f))} />
+                      <SortTh label="Commission" field="amount" sort={activitySort} onSort={(f) => setActivitySort(toggleSort(activitySort, f))} align="right" />
+                      <SortTh label="Status"     field="status" sort={activitySort} onSort={(f) => setActivitySort(toggleSort(activitySort, f))} align="right" />
                     </tr>
                   </thead>
                   <tbody>
-                    {activity.map((item) => (
+                    {displayActivity.map((item) => (
                       <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4">{item.date}</td>
                         <td className="py-3 px-4">{item.card}</td>
                         <td className="py-3 px-4 capitalize">{item.type}</td>
                         <td className="py-3 px-4 text-right">${item.amount}</td>
                         <td className="py-3 px-4 text-right">
-                          <span
-                            className={`inline-flex px-2 py-1 rounded-full text-xs ${
-                              item.status === 'approved'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}
-                          >
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs ${
+                            item.status === 'approved'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
                             {item.status}
                           </span>
                         </td>
@@ -379,26 +574,43 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             )}
           </Tabs.Content>
 
-          {/* Payouts Tab */}
+          {/* ── Payouts Tab ── */}
           <Tabs.Content value="payouts" className="p-6">
-            {payouts.length === 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+              <FilterBar
+                filter={payoutsFilter}     setFilter={setPayoutsFilter}
+                customFrom={payoutsCustomFrom} setCustomFrom={setPayoutsCustomFrom}
+                customTo={payoutsCustomTo}     setCustomTo={setPayoutsCustomTo}
+              />
+              {payoutsFilter !== 'all' && (
+                <span className="text-xs text-gray-500">
+                  {displayPayouts.length} of {payouts.length} records
+                </span>
+              )}
+            </div>
+
+            {displayPayouts.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>No payouts yet. Keep promoting to earn commissions!</p>
+                <p>
+                  {payouts.length === 0
+                    ? 'No payouts yet. Keep promoting to earn commissions!'
+                    : 'No payouts match the selected date range.'}
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-gray-600">Date</th>
-                      <th className="text-right py-3 px-4 text-gray-600">Amount</th>
-                      <th className="text-left py-3 px-4 text-gray-600">Method</th>
-                      <th className="text-right py-3 px-4 text-gray-600">Status</th>
+                      <SortTh label="Date"   field="date"   sort={payoutsSort} onSort={(f) => setPayoutsSort(toggleSort(payoutsSort, f))} />
+                      <SortTh label="Amount" field="amount" sort={payoutsSort} onSort={(f) => setPayoutsSort(toggleSort(payoutsSort, f))} align="right" />
+                      <SortTh label="Method" field="method" sort={payoutsSort} onSort={(f) => setPayoutsSort(toggleSort(payoutsSort, f))} />
+                      <SortTh label="Status" field="status" sort={payoutsSort} onSort={(f) => setPayoutsSort(toggleSort(payoutsSort, f))} align="right" />
                     </tr>
                   </thead>
                   <tbody>
-                    {payouts.map((payout) => (
+                    {displayPayouts.map((payout) => (
                       <tr key={payout.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4">{payout.date}</td>
                         <td className="py-3 px-4 text-right">${payout.amount.toLocaleString()}</td>
@@ -416,46 +628,62 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             )}
           </Tabs.Content>
 
-          {/* API Tracking Tab */}
+          {/* ── API Tracking Tab ── */}
           <Tabs.Content value="tracking" className="p-6">
-            <div className="mb-4 p-4 bg-green-50 rounded-lg flex items-center justify-between">
+            <div className="mb-4 p-4 bg-green-50 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <p className="text-sm text-green-800">
-                <strong>API Tracking:</strong> Real-time data from Airtable API Output showing all your card clicks, applications, and approvals. ({tracking.length} records)
+                <strong>API Tracking:</strong> Real-time data from Airtable showing all card clicks, applications, and approvals.
+                ({displayTracking.length}{trackingFilter !== 'all' ? ` of ${tracking.length}` : ''} records)
               </p>
               <button
                 onClick={fetchData}
-                className="flex items-center gap-2 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+                className="flex items-center gap-2 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm flex-shrink-0"
               >
                 <RefreshCw className="w-4 h-4" />
                 Refresh
               </button>
             </div>
-            {tracking.length === 0 ? (
+
+            <div className="flex flex-wrap items-center gap-3 mb-5">
+              <FilterBar
+                filter={trackingFilter}     setFilter={setTrackingFilter}
+                customFrom={trackingCustomFrom} setCustomFrom={setTrackingCustomFrom}
+                customTo={trackingCustomTo}     setCustomTo={setTrackingCustomTo}
+              />
+            </div>
+
+            {displayTracking.length === 0 ? (
               <div className="text-center py-12">
                 <TrendingUp className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-600 mb-4">No tracking activity found</p>
-                <button
-                  onClick={fetchData}
-                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                >
-                  Refresh Data
-                </button>
+                <p className="text-gray-600 mb-4">
+                  {tracking.length === 0
+                    ? 'No tracking activity found'
+                    : 'No activity matches the selected date range.'}
+                </p>
+                {tracking.length === 0 && (
+                  <button
+                    onClick={fetchData}
+                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                  >
+                    Refresh Data
+                  </button>
+                )}
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      <th className="text-left py-3 px-4 text-gray-700">Date/Time</th>
-                      <th className="text-left py-3 px-4 text-gray-700">Card</th>
-                      <th className="text-left py-3 px-4 text-gray-700">Status</th>
-                      <th className="text-right py-3 px-4 text-gray-700">Earnings</th>
-                      <th className="text-left py-3 px-4 text-gray-700">Device</th>
-                      <th className="text-left py-3 px-4 text-gray-700">Location</th>
+                      <SortTh label="Date / Time"  field="clickDate"     sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
+                      <SortTh label="Card"         field="cardName"      sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
+                      <SortTh label="Status"       field="status"        sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
+                      <SortTh label="Earnings"     field="totalEarnings" sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} align="right" />
+                      <SortTh label="Device"       field="deviceType"    sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
+                      <SortTh label="Location"     field="state"         sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
                     </tr>
                   </thead>
                   <tbody>
-                    {tracking.map((item) => (
+                    {displayTracking.map((item) => (
                       <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4 text-sm">
                           <div>{item.clickDate}</div>
@@ -464,8 +692,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         <td className="py-3 px-4 text-sm">{item.cardName}</td>
                         <td className="py-3 px-4">
                           <span className={`px-2 py-1 rounded text-xs ${
-                            item.status === 'approval' ? 'bg-green-100 text-green-800' :
-                            item.status === 'application' ? 'bg-blue-100 text-blue-800' :
+                            item.status === 'approval'    ? 'bg-green-100 text-green-800' :
+                            item.status === 'application' ? 'bg-blue-100 text-blue-800'  :
                             'bg-gray-100 text-gray-800'
                           }`}>
                             {item.status}
@@ -484,7 +712,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             )}
           </Tabs.Content>
 
-          {/* Profile Tab */}
+          {/* ── Profile Tab ── */}
           <Tabs.Content value="profile">
             <Profile accessToken={accessToken} />
           </Tabs.Content>
