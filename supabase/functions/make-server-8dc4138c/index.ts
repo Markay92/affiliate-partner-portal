@@ -656,6 +656,11 @@ app.put("/make-server-8dc4138c/user", async (c) => {
     }
 
     // Update email in Supabase Auth if it changed
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL'),
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+    );
+
     if (email && email !== user.email) {
       const { error: emailError } = await supabase.auth.admin.updateUserById(
         user.id,
@@ -1824,6 +1829,11 @@ app.post("/make-server-8dc4138c/manager/import-cpa-data", async (c) => {
     console.log(`Parsed ${cardCommissions.size} unique cards from CSV`);
 
     // Update all users' cards with new commission rates
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL'),
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+    );
+
     const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
 
     if (listError) {
