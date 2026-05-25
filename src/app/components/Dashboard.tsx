@@ -290,6 +290,16 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [payoutsIssuerFilter, setPayoutsIssuerFilter] = useState('all');
   const [payoutsAmountFilter, setPayoutsAmountFilter] = useState('all');
 
+  // Stats grid comparison period
+  type StatPeriod = 'month' | '7d' | '30d' | '90d';
+  const [statPeriod, setStatPeriod] = useState<StatPeriod>('month');
+  const STAT_PERIOD_LABELS: Record<StatPeriod, string> = {
+    month: 'This month vs last month',
+    '7d':  'Last 7 days vs prior 7 days',
+    '30d': 'Last 30 days vs prior 30 days',
+    '90d': 'Last 90 days vs prior 90 days',
+  };
+
   // ── Derived display data ────────────────────────────────────────────────────
   const displayActivity = applySort(
     activity.filter(a => inDateRange(a.date, activityFilter, activityCustomFrom, activityCustomTo)),
@@ -406,20 +416,39 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     : activity.filter(a => a.status === 'approved').reduce((s, a) => s + a.amount, 0);
   const totalPayouts     = payouts.reduce((s, p) => s + p.amount, 0);
 
-  // ── Month-over-month stats from tracking records ──────────────────────────
+  // ── Period-over-period stats from tracking records ────────────────────────
   const _now = new Date();
-  const _thisM = _now.getMonth(), _thisY = _now.getFullYear();
-  const _lastM = _thisM === 0 ? 11 : _thisM - 1;
-  const _lastY  = _thisM === 0 ? _thisY - 1 : _thisY;
+  const _today = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate()); // midnight local
 
-  const _inMonth = (dateStr: string, m: number, y: number) => {
+  const _getDayOffset = (d: Date): number =>
+    Math.floor((_today.getTime() - d.getTime()) / 86_400_000);
+
+  const _inRange = (dateStr: string, startDaysAgo: number, endDaysAgo: number) => {
     if (!dateStr) return false;
-    const d = parseLocalDate(dateStr);
-    return d.getMonth() === m && d.getFullYear() === y;
+    const offset = _getDayOffset(parseLocalDate(dateStr));
+    return offset >= endDaysAgo && offset < startDaysAgo;
   };
 
-  const _thisT = tracking.filter(t => _inMonth(t.clickDate, _thisM, _thisY));
-  const _lastT = tracking.filter(t => _inMonth(t.clickDate, _lastM, _lastY));
+  let _thisT: TrackingItem[], _lastT: TrackingItem[], _periodLabel: string;
+
+  if (statPeriod === 'month') {
+    const _thisM = _now.getMonth(), _thisY = _now.getFullYear();
+    const _lastM = _thisM === 0 ? 11 : _thisM - 1;
+    const _lastY  = _thisM === 0 ? _thisY - 1 : _thisY;
+    const _inMonth = (dateStr: string, m: number, y: number) => {
+      if (!dateStr) return false;
+      const d = parseLocalDate(dateStr);
+      return d.getMonth() === m && d.getFullYear() === y;
+    };
+    _thisT = tracking.filter(t => _inMonth(t.clickDate, _thisM, _thisY));
+    _lastT = tracking.filter(t => _inMonth(t.clickDate, _lastM, _lastY));
+    _periodLabel = 'vs last month';
+  } else {
+    const days = statPeriod === '7d' ? 7 : statPeriod === '30d' ? 30 : 90;
+    _thisT = tracking.filter(t => _inRange(t.clickDate, days, 0));
+    _lastT = tracking.filter(t => _inRange(t.clickDate, days * 2, days));
+    _periodLabel = `vs prior ${days} days`;
+  }
 
   const _calcPct = (cur: number, prev: number): number | null =>
     prev === 0 ? (cur > 0 ? 100 : null) : Math.round(((cur - prev) / prev) * 100);
@@ -437,15 +466,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     _lastT.reduce((s, t) => s + t.totalEarnings, 0),
   );
 
-  /** Render the coloured percentage badge shown under each stat card */
+  /** Coloured percentage badge shown under each stat card */
   const PctBadge = ({ pct }: { pct: number | null }) => {
-    if (pct === null) return <span className="text-gray-400 text-sm">No data last month</span>;
-    if (pct === 0)    return <span className="text-gray-500 text-sm">No change this month</span>;
+    if (pct === null) return <span className="text-gray-400 text-sm">No prior-period data</span>;
+    if (pct === 0)    return <span className="text-gray-500 text-sm flex items-center gap-1">— No change <span className="font-normal">{_periodLabel}</span></span>;
     const up = pct > 0;
     return (
-      <div className={`flex items-center gap-1 ${up ? 'text-green-600' : 'text-red-500'}`}>
+      <div className={`flex items-center gap-1 text-sm ${up ? 'text-green-600' : 'text-red-500'}`}>
         <TrendingUp className={`w-4 h-4 ${!up ? 'rotate-180' : ''}`} />
-        <span>{up ? '+' : ''}{pct}% vs last month</span>
+        <span>{up ? '+' : ''}{pct}% {_periodLabel}</span>
       </div>
     );
   };
@@ -520,6 +549,28 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats header: title + period picker */}
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <p className="text-xs text-gray-400">
+            Percentage change compares <strong>{STAT_PERIOD_LABELS[statPeriod].toLowerCase()}</strong>
+          </p>
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 text-xs font-medium">
+            {(['month', '7d', '30d', '90d'] as StatPeriod[]).map(p => (
+              <button
+                key={p}
+                onClick={() => setStatPeriod(p)}
+                className={`px-3 py-1 rounded-md transition-colors ${
+                  statPeriod === p
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {p === 'month' ? 'Month' : p.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
