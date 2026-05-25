@@ -86,6 +86,25 @@ function parseLocalDate(str: string): Date {
   return new Date(str);
 }
 
+/** Format a date string as "Mon, Jan 1, 2026" */
+function formatDate(str: string | undefined): string {
+  if (!str) return '—';
+  const d = parseLocalDate(str);
+  if (isNaN(d.getTime())) return str;
+  return d.toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+  });
+}
+
+/** Format a time string (ISO or HH:MM:SS) as "6:46 PM" */
+function formatTime(str: string | undefined): string {
+  if (!str) return '';
+  const timeStr = str.includes('T') ? str : `1970-01-01T${str}`;
+  const d = new Date(timeStr);
+  if (isNaN(d.getTime())) return str;
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
 function getDateBounds(filter: DateFilter, customFrom: string, customTo: string) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -578,7 +597,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   <tbody>
                     {displayActivity.map((item) => (
                       <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4">{item.date}</td>
+                        <td className="py-3 px-4">{formatDate(item.date)}</td>
                         <td className="py-3 px-4">{item.card}</td>
                         <td className="py-3 px-4 capitalize">{item.type}</td>
                         <td className="py-3 px-4 text-right">${item.amount}</td>
@@ -643,7 +662,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         <td className="py-3 px-4 text-right font-medium">
                           {payout.amount > 0 ? `$${payout.amount.toLocaleString()}` : '—'}
                         </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">{payout.date || '—'}</td>
+                        <td className="py-3 px-4 text-sm text-gray-600">{formatDate(payout.date)}</td>
                         <td className="py-3 px-4 text-right">
                           <span className="inline-flex px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
                             {payout.status}
@@ -736,8 +755,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     {displayTracking.map((item) => (
                       <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4 text-sm">
-                          <div>{item.clickDate}</div>
-                          <div className="text-xs text-gray-500">{item.clickTime?.split('T')[1]?.split('.')[0]}</div>
+                          <div>{formatDate(item.clickDate)}</div>
+                          <div className="text-xs text-gray-500">{formatTime(item.clickTime)}</div>
                         </td>
                         <td className="py-3 px-4 text-sm">{item.cardName}</td>
                         <td className="py-3 px-4">

@@ -45,6 +45,23 @@ function parseLocalDate(str: string): Date {
   return new Date(str);
 }
 
+function formatDate(str: string | undefined): string {
+  if (!str) return '—';
+  const d = parseLocalDate(str);
+  if (isNaN(d.getTime())) return str;
+  return d.toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+  });
+}
+
+function formatTime(str: string | undefined): string {
+  if (!str) return '';
+  const timeStr = str.includes('T') ? str : `1970-01-01T${str}`;
+  const d = new Date(timeStr);
+  if (isNaN(d.getTime())) return str;
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
 function getDateBounds(filter: DateFilter, customFrom: string, customTo: string) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -885,7 +902,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         <td className="py-4 px-6 text-right">{user.stats?.totalConversions || 0}</td>
                         <td className="py-4 px-6 text-right">${(user.stats?.totalCommissions || 0).toLocaleString()}</td>
                         <td className="py-4 px-6 text-right text-sm text-gray-500">
-                          {new Date(user.createdAt).toLocaleDateString()}
+                          {formatDate(user.createdAt)}
                         </td>
                         <td className="py-4 px-6">
                           <div className="flex items-center justify-end gap-2">
@@ -1029,8 +1046,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     {displayTrackingActivity.map((activity: any) => (
                       <tr key={activity.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4 text-sm">
-                          <div>{activity.clickDate}</div>
-                          <div className="text-xs text-gray-500">{activity.clickTime?.split('T')[1]?.split('.')[0]}</div>
+                          <div>{formatDate(activity.clickDate)}</div>
+                          <div className="text-xs text-gray-500">{formatTime(activity.clickTime)}</div>
                         </td>
                         <td className="py-3 px-4 text-sm">
                           <div className="font-medium">{activity.memberName}</div>
@@ -1137,7 +1154,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                 : '—'}
                             </td>
                           )}
-                          <td className="py-2 px-3 text-gray-500">{rate.date || '—'}</td>
+                          <td className="py-2 px-3 text-gray-500">{formatDate(rate.date)}</td>
                         </tr>
                       ))}
                     </tbody>
