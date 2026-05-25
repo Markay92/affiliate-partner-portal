@@ -286,13 +286,31 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [linksIssuerFilter, setLinksIssuerFilter] = useState('all');
   const [linksPayoutFilter, setLinksPayoutFilter] = useState('all');
 
+  // Payouts tab — extra filters (issuer + payout range, on top of existing date filter)
+  const [payoutsIssuerFilter, setPayoutsIssuerFilter] = useState('all');
+  const [payoutsAmountFilter, setPayoutsAmountFilter] = useState('all');
+
   // ── Derived display data ────────────────────────────────────────────────────
   const displayActivity = applySort(
     activity.filter(a => inDateRange(a.date, activityFilter, activityCustomFrom, activityCustomTo)),
     activitySort,
   );
+  // Unique issuers for Payouts tab filter
+  const payoutIssuers = Array.from(new Set(payouts.map(p => p.issuer).filter(Boolean))).sort();
+
   const displayPayouts = applySort(
-    payouts.filter(p => inDateRange(p.date, payoutsFilter, payoutsCustomFrom, payoutsCustomTo)),
+    payouts.filter(p => {
+      if (!inDateRange(p.date, payoutsFilter, payoutsCustomFrom, payoutsCustomTo)) return false;
+      if (payoutsIssuerFilter !== 'all' && p.issuer !== payoutsIssuerFilter) return false;
+      if (payoutsAmountFilter !== 'all') {
+        const amt = p.amount || 0;
+        if (payoutsAmountFilter === 'zero'    && amt !== 0)                  return false;
+        if (payoutsAmountFilter === 'lt50'    && !(amt > 0 && amt < 50))     return false;
+        if (payoutsAmountFilter === '50-200'  && !(amt >= 50 && amt < 200))  return false;
+        if (payoutsAmountFilter === '200plus' && !(amt >= 200))              return false;
+      }
+      return true;
+    }),
     { ...payoutsSort, field: payoutsSort.field === 'method' ? 'card' : payoutsSort.field },
   );
   const displayTracking = applySort(
@@ -711,17 +729,67 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
           {/* ── Payouts Tab ── */}
           <Tabs.Content value="payouts" className="p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-              <FilterBar
-                filter={payoutsFilter}     setFilter={setPayoutsFilter}
-                customFrom={payoutsCustomFrom} setCustomFrom={setPayoutsCustomFrom}
-                customTo={payoutsCustomTo}     setCustomTo={setPayoutsCustomTo}
-              />
-              {payoutsFilter !== 'all' && (
-                <span className="text-xs text-gray-500">
-                  {displayPayouts.length} of {payouts.length} records
-                </span>
-              )}
+            <div className="flex flex-col gap-3 mb-5">
+              {/* Date filter */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <FilterBar
+                  filter={payoutsFilter}     setFilter={setPayoutsFilter}
+                  customFrom={payoutsCustomFrom} setCustomFrom={setPayoutsCustomFrom}
+                  customTo={payoutsCustomTo}     setCustomTo={setPayoutsCustomTo}
+                />
+              </div>
+
+              {/* Issuer + payout range filters */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500">Issuer:</span>
+                  <select
+                    value={payoutsIssuerFilter}
+                    onChange={e => setPayoutsIssuerFilter(e.target.value)}
+                    className="px-2 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                  >
+                    <option value="all">All issuers</option>
+                    {payoutIssuers.map(i => <option key={i} value={i}>{i}</option>)}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500">Your CPA:</span>
+                  {([
+                    { value: 'all',     label: 'All' },
+                    { value: 'zero',    label: '$0' },
+                    { value: 'lt50',    label: '<$50' },
+                    { value: '50-200',  label: '$50–$200' },
+                    { value: '200plus', label: '$200+' },
+                  ]).map(({ value, label }) => (
+                    <button
+                      key={value}
+                      onClick={() => setPayoutsAmountFilter(value)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        payoutsAmountFilter === value
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {(payoutsFilter !== 'all' || payoutsIssuerFilter !== 'all' || payoutsAmountFilter !== 'all') && (
+                  <div className="flex items-center gap-2 ml-auto">
+                    <span className="text-xs text-gray-500">
+                      {displayPayouts.length} of {payouts.length} cards
+                    </span>
+                    <button
+                      onClick={() => { setPayoutsFilter('all'); setPayoutsIssuerFilter('all'); setPayoutsAmountFilter('all'); }}
+                      className="text-xs text-indigo-600 hover:underline"
+                    >
+                      Clear filters
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {displayPayouts.length === 0 ? (
