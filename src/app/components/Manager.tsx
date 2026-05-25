@@ -302,7 +302,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         .filter((a) => a.affiliateId)
         .map((a) => [a.affiliateId, { id: a.affiliateId, name: a.memberName || a.affiliateId }])
     ).values()
-  ).sort((a, b) => a.name.localeCompare(b.name));
+  ).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
 
   const displayTrackingActivity = applySort(
     (trackingActivity as any[]).filter((a) =>
