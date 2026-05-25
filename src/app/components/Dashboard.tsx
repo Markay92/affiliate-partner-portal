@@ -14,7 +14,7 @@ import {
   ChevronsUpDown
 } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
-import { projectId } from '/utils/supabase/info';
+import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { Profile } from './Profile';
 
 interface DashboardProps {
@@ -273,6 +273,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const buildHeaders = () => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (accessToken?.startsWith('imp_')) {
+      // Supabase infrastructure requires a valid JWT in Authorization even for
+      // impersonated sessions — send the anon key to pass infrastructure auth,
+      // then the impersonation token for app-level user identification.
+      headers['Authorization'] = `Bearer ${publicAnonKey}`;
       headers['X-Impersonation-Token'] = accessToken;
     } else {
       headers['Authorization'] = `Bearer ${accessToken}`;
