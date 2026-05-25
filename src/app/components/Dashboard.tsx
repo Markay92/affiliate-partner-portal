@@ -393,9 +393,17 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
   useEffect(() => { fetchData(); }, []);
 
-  const totalClicks      = links.reduce((s, l) => s + l.clicks, 0);
-  const totalConversions = links.reduce((s, l) => s + l.conversions, 0);
-  const totalCommissions = activity.filter(a => a.status === 'approved').reduce((s, a) => s + a.amount, 0);
+  // Prefer Airtable tracking data (real-time from API Output table) for stats.
+  // Fall back to KV-derived values for users who haven't synced yet.
+  const totalClicks      = tracking.length > 0
+    ? tracking.reduce((s, t) => s + (t.clicks || 0), 0)
+    : links.reduce((s, l) => s + l.clicks, 0);
+  const totalConversions = tracking.length > 0
+    ? tracking.reduce((s, t) => s + (t.approvals || 0), 0)
+    : links.reduce((s, l) => s + l.conversions, 0);
+  const totalCommissions = tracking.length > 0
+    ? tracking.reduce((s, t) => s + (t.totalEarnings || 0), 0)
+    : activity.filter(a => a.status === 'approved').reduce((s, a) => s + a.amount, 0);
   const totalPayouts     = payouts.reduce((s, p) => s + p.amount, 0);
 
   const copyToClipboard = async (text: string, id: number) => {
