@@ -646,6 +646,40 @@ async function fetchAllAirtableRecords(token: string, baseId: string, tableId: s
   return all;
 }
 
+// ── CPA rate cache helpers ───────────────────────────────────────────────────
+// Raw Airtable records from CPA Changes are cached in KV for 15 minutes so
+// every affiliate page-load doesn't hit Airtable separately.
+const CPA_CACHE_KEY = 'cache:cpa_rates_raw';
+const CPA_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
+async function getCachedCpaRecords(airtableToken: string): Promise<any[]> {
+  // Try cache first
+  const cached = await kv.get(CPA_CACHE_KEY);
+  if (cached && cached.records && cached.fetchedAt) {
+    const age = Date.now() - cached.fetchedAt;
+    if (age < CPA_CACHE_TTL_MS) {
+      console.log(`CPA cache hit (${Math.round(age / 1000)}s old, ${cached.records.length} records)`);
+      return cached.records;
+    }
+    console.log(`CPA cache stale (${Math.round(age / 1000)}s old), refreshing`);
+  } else {
+    console.log('CPA cache miss, fetching from Airtable');
+  }
+
+  // Fetch fresh from Airtable
+  const baseId = 'appJq70k9nl9MK2zk';
+  const tableId = 'tbl31rWYAh5hb02Tx';
+  const fields = [
+    'Card Name', 'Issuer', 'Net CPA 60%', 'Date', 'Date Change of Current Net CPA',
+  ].map(f => `fields[]=${encodeURIComponent(f)}`).join('&');
+  const sort = 'sort%5B0%5D%5Bfield%5D=Date&sort%5B0%5D%5Bdirection%5D=desc';
+
+  const records = await fetchAllAirtableRecords(airtableToken, baseId, tableId, `${fields}&${sort}`);
+  await kv.set(CPA_CACHE_KEY, { records, fetchedAt: Date.now() });
+  console.log(`CPA cache updated (${records.length} records)`);
+  return records;
+}
+
 // Get payouts — current CPA rates from Airtable CPA Changes table,
 // adjusted to the affiliate's individual commission rate.
 app.get("/make-server-8dc4138c/payouts", async (c) => {
@@ -661,23 +695,11 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
     const userData = await kv.get(`user:${user.id}`) || {};
     const commissionRate = Number(userData.commissionRate) || 50;
 
-    // Fetch CPA Changes from Airtable (ZeroAPR - COLLECTIONS base)
     const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
-    const baseId = 'appJq70k9nl9MK2zk';
-    const tableId = 'tbl31rWYAh5hb02Tx';
 
-    const fields = [
-      'Card Name',           // fldN6ug8vDACn4yO1
-      'Issuer',              // fldXsTKc4Op37yXWu
-      'Net CPA 60%',         // fldr71bjB28kEAsbp — amount at 60% cut (reference point)
-      'Date',                // fldfL3uObDr0uotjI
-      'Date Change of Current Net CPA', // fldW5olh5ASAJ39uD
-    ].map(f => `fields[]=${encodeURIComponent(f)}`).join('&');
-
-    const sort = 'sort%5B0%5D%5Bfield%5D=Date&sort%5B0%5D%5Bdirection%5D=desc';
     let records: any[];
     try {
-      records = await fetchAllAirtableRecords(airtableToken, baseId, tableId, `${fields}&${sort}`);
+      records = await getCachedCpaRecords(airtableToken);
     } catch (airtableErr: any) {
       console.log('Airtable CPA Changes fetch error:', airtableErr.message);
       return c.json({ payouts: [], error: airtableErr.message });
@@ -1758,19 +1780,10 @@ app.get("/make-server-8dc4138c/manager/cpa-rates", async (c) => {
     }
 
     const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
-    const baseId = 'appJq70k9nl9MK2zk';
-    const tableId = 'tbl31rWYAh5hb02Tx';
-
-    const fields = [
-      'Card Name', 'Issuer', 'Net CPA 60%', 'Date', 'Date Change of Current Net CPA',
-    ].map(f => `fields[]=${encodeURIComponent(f)}`).join('&');
 
     let records: any[];
     try {
-      records = await fetchAllAirtableRecords(
-        airtableToken, baseId, tableId,
-        `${fields}&sort%5B0%5D%5Bfield%5D=Date&sort%5B0%5D%5Bdirection%5D=desc`
-      );
+      records = await getCachedCpaRecords(airtableToken);
     } catch (airtableErr: any) {
       console.log('CPA rates Airtable error:', airtableErr.message);
       return c.json({ rates: [], error: airtableErr.message });
@@ -1978,6 +1991,10 @@ app.post("/make-server-8dc4138c/manager/import-cpa-data", async (c) => {
     if (!airtableToken) {
       return c.json({ error: 'AIRTABLE_API_KEY not configured on server' }, 500);
     }
+
+    // Bust the CPA rates cache so everyone sees fresh data immediately after import
+    await kv.del(CPA_CACHE_KEY);
+    console.log('CPA cache cleared before import');
 
     // Fetch all records from CPA Changes table (ZeroAPR - COLLECTIONS base)
     const baseId = 'appJq70k9nl9MK2zk';
