@@ -650,7 +650,7 @@ async function fetchAllAirtableRecords(token: string, baseId: string, tableId: s
 // Raw Airtable records from CPA Changes are cached in KV for 15 minutes so
 // every affiliate page-load doesn't hit Airtable separately.
 const CPA_CACHE_KEY = 'cache:cpa_rates_raw';
-const CPA_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const CPA_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days — refresh via Import CPA Rates
 
 async function getCachedCpaRecords(airtableToken: string): Promise<any[]> {
   // Try cache first
