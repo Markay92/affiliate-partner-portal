@@ -268,11 +268,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [activityCustomTo,   setActivityCustomTo]   = useState('');
   const [activitySort,       setActivitySort]       = useState<SortState>({ field: 'date', dir: 'desc' });
 
-  // Payouts tab
-  const [payoutsFilter,     setPayoutsFilter]     = useState<DateFilter>('all');
-  const [payoutsCustomFrom, setPayoutsCustomFrom] = useState('');
-  const [payoutsCustomTo,   setPayoutsCustomTo]   = useState('');
-  const [payoutsSort,       setPayoutsSort]       = useState<SortState>({ field: 'date', dir: 'desc' });
 
   // API Tracking tab
   const [trackingFilter,       setTrackingFilter]       = useState<DateFilter>('all');
@@ -281,14 +276,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [trackingSort,         setTrackingSort]         = useState<SortState>({ field: 'clickDate', dir: 'desc' });
   const [trackingStatusFilter, setTrackingStatusFilter] = useState('all');
 
-  // Links tab — sort + filters
-  const [linksSort,         setLinksSort]         = useState<SortState>({ field: 'name', dir: 'asc' });
-  const [linksIssuerFilter, setLinksIssuerFilter] = useState('all');
-  const [linksPayoutFilter, setLinksPayoutFilter] = useState('all');
-
-  // Payouts tab — extra filters (issuer + payout range, on top of existing date filter)
-  const [payoutsIssuerFilter, setPayoutsIssuerFilter] = useState('all');
-  const [payoutsAmountFilter, setPayoutsAmountFilter] = useState('all');
+  // Cards tab — sort + filters
+  const [cardsSort,         setCardsSort]         = useState<SortState>({ field: 'name', dir: 'asc' });
+  const [cardsIssuerFilter, setCardsIssuerFilter] = useState('all');
+  const [cardsPayoutFilter, setCardsPayoutFilter] = useState('all');
 
   // Stats grid comparison period
   type StatPeriod = 'month' | '7d' | '30d' | '90d';
@@ -305,24 +296,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     activity.filter(a => inDateRange(a.date, activityFilter, activityCustomFrom, activityCustomTo)),
     activitySort,
   );
-  // Unique issuers for Payouts tab filter
-  const payoutIssuers = Array.from(new Set(payouts.map(p => p.issuer).filter(Boolean))).sort();
-
-  const displayPayouts = applySort(
-    payouts.filter(p => {
-      if (!inDateRange(p.date, payoutsFilter, payoutsCustomFrom, payoutsCustomTo)) return false;
-      if (payoutsIssuerFilter !== 'all' && p.issuer !== payoutsIssuerFilter) return false;
-      if (payoutsAmountFilter !== 'all') {
-        const amt = p.amount || 0;
-        if (payoutsAmountFilter === 'zero'    && amt !== 0)                  return false;
-        if (payoutsAmountFilter === 'lt50'    && !(amt > 0 && amt < 50))     return false;
-        if (payoutsAmountFilter === '50-200'  && !(amt >= 50 && amt < 200))  return false;
-        if (payoutsAmountFilter === '200plus' && !(amt >= 200))              return false;
-      }
-      return true;
-    }),
-    { ...payoutsSort, field: payoutsSort.field === 'method' ? 'card' : payoutsSort.field },
-  );
   const displayTracking = applySort(
     tracking.filter(t =>
       inDateRange(t.clickDate, trackingFilter, trackingCustomFrom, trackingCustomTo) &&
@@ -330,22 +303,36 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     ),
     trackingSort,
   );
-  // Unique issuers for filter dropdown (sorted A-Z)
-  const linkIssuers = Array.from(new Set(links.map(l => l.bank).filter(Boolean))).sort();
 
-  const displayLinks = applySort(
-    links.filter(l => {
-      if (linksIssuerFilter !== 'all' && l.bank !== linksIssuerFilter) return false;
-      if (linksPayoutFilter !== 'all') {
-        const amt = l.commission || 0;
-        if (linksPayoutFilter === 'lt50'   && !(amt > 0   && amt < 50))   return false;
-        if (linksPayoutFilter === '50-200'  && !(amt >= 50  && amt < 200))  return false;
-        if (linksPayoutFilter === '200plus' && !(amt >= 200))               return false;
-        if (linksPayoutFilter === 'zero'    && amt !== 0)                   return false;
+  // Cards tab: join links (URL + stats) with payouts (issuer + CPA amount) by normalised name
+  const _norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const allCards = links.map(link => {
+    const cpa = payouts.find(p => _norm(p.card) === _norm(link.name));
+    return {
+      id:       link.id,
+      name:     decodeHtml(link.name),
+      issuer:   cpa?.issuer || link.bank || '',
+      cpa:      cpa?.amount ?? 0,
+      rateDate: cpa?.date   ?? '',
+      clicks:       link.clicks,
+      conversions:  link.conversions,
+      url:      link.url,
+    };
+  });
+  const cardIssuers = Array.from(new Set(allCards.map(c => c.issuer).filter(Boolean))).sort() as string[];
+  const displayCards = applySort(
+    allCards.filter(c => {
+      if (cardsIssuerFilter !== 'all' && c.issuer !== cardsIssuerFilter) return false;
+      if (cardsPayoutFilter !== 'all') {
+        const amt = c.cpa;
+        if (cardsPayoutFilter === 'zero'    && amt !== 0)                 return false;
+        if (cardsPayoutFilter === 'lt50'    && !(amt > 0 && amt < 50))   return false;
+        if (cardsPayoutFilter === '50-200'  && !(amt >= 50 && amt < 200)) return false;
+        if (cardsPayoutFilter === '200plus' && !(amt >= 200))             return false;
       }
       return true;
     }),
-    linksSort,
+    cardsSort,
   );
 
   // ── Data fetching ───────────────────────────────────────────────────────────
@@ -611,154 +598,134 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         </div>
 
         {/* Tabs */}
-        <Tabs.Root defaultValue="links" className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <Tabs.Root defaultValue="cards" className="bg-white rounded-xl shadow-sm border border-gray-200">
           <Tabs.List className="flex border-b border-gray-200 overflow-x-auto">
-            {['links', 'activity', 'payouts', 'tracking', 'profile'].map((tab) => (
+            {['cards', 'activity', 'tracking', 'profile'].map((tab) => (
               <Tabs.Trigger
                 key={tab}
                 value={tab}
                 className="px-6 py-4 text-gray-600 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-gray-900 transition-colors whitespace-nowrap capitalize"
               >
-                {tab === 'links' ? 'Tracking Links' : tab === 'tracking' ? 'API Tracking' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {tab === 'tracking' ? 'API Tracking' : tab.charAt(0).toUpperCase() + tab.slice(1)}
               </Tabs.Trigger>
             ))}
           </Tabs.List>
 
-          {/* ── Tracking Links Tab ── */}
-          <Tabs.Content value="links" className="p-6">
-            {/* Sort + filter toolbar */}
-            <div className="flex flex-col gap-3 mb-5">
-              {/* Sort row */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-gray-500 mr-1">Sort by:</span>
+          {/* ── Cards Tab ── */}
+          <Tabs.Content value="cards" className="p-6">
+            {/* Toolbar */}
+            <div className="flex flex-wrap items-center gap-3 mb-5">
+              {/* Issuer filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-500">Issuer:</span>
+                <select
+                  value={cardsIssuerFilter}
+                  onChange={e => setCardsIssuerFilter(e.target.value)}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                >
+                  <option value="all">All issuers</option>
+                  {cardIssuers.map(issuer => (
+                    <option key={issuer} value={issuer}>{issuer}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* CPA range filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-500">Your CPA:</span>
                 {([
-                  { field: 'name',        label: 'Name' },
-                  { field: 'clicks',      label: 'Clicks' },
-                  { field: 'conversions', label: 'Approvals' },
-                  { field: 'commission',  label: 'Commission' },
-                ] as { field: string; label: string }[]).map(({ field, label }) => (
+                  { value: 'all',     label: 'All' },
+                  { value: 'zero',    label: '$0' },
+                  { value: 'lt50',    label: '<$50' },
+                  { value: '50-200',  label: '$50–$200' },
+                  { value: '200plus', label: '$200+' },
+                ]).map(({ value, label }) => (
                   <button
-                    key={field}
-                    onClick={() => setLinksSort(toggleSort(linksSort, field))}
-                    className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                      linksSort.field === field
+                    key={value}
+                    onClick={() => setCardsPayoutFilter(value)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      cardsPayoutFilter === value
                         ? 'bg-indigo-600 text-white border-indigo-600'
                         : 'text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
                     }`}
                   >
                     {label}
-                    {linksSort.field === field && (
-                      linksSort.dir === 'asc'
-                        ? <ChevronUp className="w-3 h-3" />
-                        : <ChevronDown className="w-3 h-3" />
-                    )}
                   </button>
                 ))}
               </div>
 
-              {/* Filter row */}
-              <div className="flex flex-wrap items-center gap-3">
-                {/* Issuer filter */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-gray-500">Issuer:</span>
-                  <select
-                    value={linksIssuerFilter}
-                    onChange={e => setLinksIssuerFilter(e.target.value)}
-                    className="px-2 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
-                  >
-                    <option value="all">All issuers</option>
-                    {linkIssuers.map(issuer => (
-                      <option key={issuer} value={issuer}>{issuer}</option>
-                    ))}
-                  </select>
+              {(cardsIssuerFilter !== 'all' || cardsPayoutFilter !== 'all') && (
+                <div className="flex items-center gap-2 ml-auto">
+                  <span className="text-xs text-gray-500">{displayCards.length} of {allCards.length} cards</span>
+                  <button
+                    onClick={() => { setCardsIssuerFilter('all'); setCardsPayoutFilter('all'); }}
+                    className="text-xs text-indigo-600 hover:underline"
+                  >Clear filters</button>
                 </div>
+              )}
+            </div>
 
-                {/* Payout range filter */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-gray-500">Payout:</span>
-                  {([
-                    { value: 'all',     label: 'All' },
-                    { value: 'zero',    label: '$0' },
-                    { value: 'lt50',    label: 'Under $50' },
-                    { value: '50-200',  label: '$50–$200' },
-                    { value: '200plus', label: '$200+' },
-                  ]).map(({ value, label }) => (
-                    <button
-                      key={value}
-                      onClick={() => setLinksPayoutFilter(value)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                        linksPayoutFilter === value
-                          ? 'bg-indigo-600 text-white border-indigo-600'
-                          : 'text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Active filter count / clear */}
-                {(linksIssuerFilter !== 'all' || linksPayoutFilter !== 'all') && (
-                  <div className="flex items-center gap-2 ml-auto">
-                    <span className="text-xs text-gray-500">
-                      {displayLinks.length} of {links.length} cards
-                    </span>
-                    <button
-                      onClick={() => { setLinksIssuerFilter('all'); setLinksPayoutFilter('all'); }}
-                      className="text-xs text-indigo-600 hover:underline"
-                    >
-                      Clear filters
-                    </button>
-                  </div>
-                )}
+            {/* Table */}
+            {displayCards.length === 0 ? (
+              <div className="text-center py-12 text-gray-400">
+                <CreditCard className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p>{links.length === 0 ? 'No cards loaded yet — try refreshing.' : 'No cards match the selected filters.'}</p>
               </div>
-            </div>
-
-            <div className="space-y-4">
-              {displayLinks.map((link) => {
-                // Join with payouts to show per-card CPA (match by normalized card name)
-                const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-                const cpaRecord = payouts.find(p => norm(p.card) === norm(link.name));
-                return (
-                <div key={link.id} className="border border-gray-200 rounded-lg p-4 hover:border-indigo-300 transition-colors">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
-                    <h3>{decodeHtml(link.name)}</h3>
-                    <div className="flex items-center gap-4 text-sm">
-                      <span className="text-gray-600">{link.clicks} clicks</span>
-                      <span className="text-green-600">{link.conversions} approvals</span>
-                      {cpaRecord && cpaRecord.amount > 0 && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium border border-indigo-200">
-                          <DollarSign className="w-3 h-3" />
-                          Your CPA: ${cpaRecord.amount.toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-3">
-                    <code className="flex-1 text-sm overflow-x-auto">{link.url}</code>
-                    <button
-                      onClick={() => copyToClipboard(link.url, link.id)}
-                      className="p-2 hover:bg-gray-200 rounded transition-colors flex-shrink-0"
-                      title="Copy link"
-                    >
-                      {copiedId === link.id
-                        ? <CheckCircle className="w-4 h-4 text-green-600" />
-                        : <Copy className="w-4 h-4 text-gray-600" />}
-                    </button>
-                    <a
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 hover:bg-gray-200 rounded transition-colors flex-shrink-0"
-                      title="Open link"
-                    >
-                      <ExternalLink className="w-4 h-4 text-gray-600" />
-                    </a>
-                  </div>
-                </div>
-              );
-              })}
-            </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <SortTh label="Card"     field="name"        sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />
+                      <SortTh label="Issuer"   field="issuer"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />
+                      <SortTh label="Your CPA" field="cpa"         sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
+                      <SortTh label="Clicks"   field="clicks"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
+                      <SortTh label="Approvals" field="conversions" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
+                      <th className="py-3 px-4 text-right text-gray-600 font-medium text-sm">Link</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayCards.map(card => (
+                      <tr key={card.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 px-4 font-medium text-sm">{card.name}</td>
+                        <td className="py-3 px-4 text-sm text-gray-600">{card.issuer || '—'}</td>
+                        <td className="py-3 px-4 text-right">
+                          {card.cpa > 0
+                            ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium border border-indigo-200">
+                                <DollarSign className="w-3 h-3" />${card.cpa.toLocaleString()}
+                              </span>
+                            : <span className="text-gray-400 text-sm">—</span>}
+                        </td>
+                        <td className="py-3 px-4 text-right text-sm text-gray-600">{card.clicks}</td>
+                        <td className="py-3 px-4 text-right text-sm text-gray-600">{card.conversions}</td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => copyToClipboard(card.url, card.id)}
+                              className="p-1.5 rounded hover:bg-gray-200 transition-colors"
+                              title="Copy link"
+                            >
+                              {copiedId === card.id
+                                ? <CheckCircle className="w-4 h-4 text-green-600" />
+                                : <Copy className="w-4 h-4 text-gray-500" />}
+                            </button>
+                            <a
+                              href={card.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1.5 rounded hover:bg-gray-200 transition-colors"
+                              title="Open link"
+                            >
+                              <ExternalLink className="w-4 h-4 text-gray-500" />
+                            </a>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Tabs.Content>
 
           {/* ── Activity Tab ── */}
@@ -821,113 +788,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             )}
           </Tabs.Content>
 
-          {/* ── Payouts Tab ── */}
-          <Tabs.Content value="payouts" className="p-6">
-            <div className="flex flex-col gap-3 mb-5">
-              {/* Date filter */}
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <FilterBar
-                  filter={payoutsFilter}     setFilter={setPayoutsFilter}
-                  customFrom={payoutsCustomFrom} setCustomFrom={setPayoutsCustomFrom}
-                  customTo={payoutsCustomTo}     setCustomTo={setPayoutsCustomTo}
-                />
-              </div>
-
-              {/* Issuer + payout range filters */}
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-gray-500">Issuer:</span>
-                  <select
-                    value={payoutsIssuerFilter}
-                    onChange={e => setPayoutsIssuerFilter(e.target.value)}
-                    className="px-2 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
-                  >
-                    <option value="all">All issuers</option>
-                    {payoutIssuers.map(i => <option key={i} value={i}>{i}</option>)}
-                  </select>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-gray-500">Your CPA:</span>
-                  {([
-                    { value: 'all',     label: 'All' },
-                    { value: 'zero',    label: '$0' },
-                    { value: 'lt50',    label: '<$50' },
-                    { value: '50-200',  label: '$50–$200' },
-                    { value: '200plus', label: '$200+' },
-                  ]).map(({ value, label }) => (
-                    <button
-                      key={value}
-                      onClick={() => setPayoutsAmountFilter(value)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                        payoutsAmountFilter === value
-                          ? 'bg-indigo-600 text-white border-indigo-600'
-                          : 'text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                {(payoutsFilter !== 'all' || payoutsIssuerFilter !== 'all' || payoutsAmountFilter !== 'all') && (
-                  <div className="flex items-center gap-2 ml-auto">
-                    <span className="text-xs text-gray-500">
-                      {displayPayouts.length} of {payouts.length} cards
-                    </span>
-                    <button
-                      onClick={() => { setPayoutsFilter('all'); setPayoutsIssuerFilter('all'); setPayoutsAmountFilter('all'); }}
-                      className="text-xs text-indigo-600 hover:underline"
-                    >
-                      Clear filters
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {displayPayouts.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>
-                  {payouts.length === 0
-                    ? 'No CPA rates loaded yet — try refreshing.'
-                    : 'No rates match the selected date range.'}
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <SortTh label="Card"        field="card"   sort={payoutsSort} onSort={(f) => setPayoutsSort(toggleSort(payoutsSort, f))} />
-                      <SortTh label="Issuer"      field="issuer" sort={payoutsSort} onSort={(f) => setPayoutsSort(toggleSort(payoutsSort, f))} />
-                      <SortTh label="Your CPA"    field="amount" sort={payoutsSort} onSort={(f) => setPayoutsSort(toggleSort(payoutsSort, f))} align="right" />
-                      <SortTh label="Rate Date"   field="date"   sort={payoutsSort} onSort={(f) => setPayoutsSort(toggleSort(payoutsSort, f))} />
-                      <SortTh label="Status"      field="status" sort={payoutsSort} onSort={(f) => setPayoutsSort(toggleSort(payoutsSort, f))} align="right" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {displayPayouts.map((payout) => (
-                      <tr key={payout.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4 text-sm font-medium">{payout.card}</td>
-                        <td className="py-3 px-4 text-sm text-gray-600">{payout.issuer || '—'}</td>
-                        <td className="py-3 px-4 text-right font-medium">
-                          {payout.amount > 0 ? `$${payout.amount.toLocaleString()}` : '—'}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">{formatDate(payout.date)}</td>
-                        <td className="py-3 px-4 text-right">
-                          <span className="inline-flex px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-                            {payout.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Tabs.Content>
 
           {/* ── API Tracking Tab ── */}
           <Tabs.Content value="tracking" className="p-6">
