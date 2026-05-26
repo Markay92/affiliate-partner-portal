@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { User, Save, Copy, CheckCircle } from 'lucide-react';
-import { projectId } from '/utils/supabase/info';
+import { projectId, publicAnonKey } from '/utils/supabase/info';
 
 interface ProfileProps {
   accessToken: string;
@@ -28,67 +28,47 @@ export function Profile({ accessToken }: ProfileProps) {
     fetchUserData();
   }, []);
 
+  /** Build headers that work for both regular and impersonation sessions.
+   *  Supabase infra requires Authorization at the network level; impersonation
+   *  sessions use the anon key there and pass the imp token via a custom header. */
+  const buildHeaders = (): Record<string, string> => {
+    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (accessToken?.startsWith('imp_')) {
+      h['Authorization'] = `Bearer ${publicAnonKey}`;
+      h['X-Impersonation-Token'] = accessToken;
+    } else {
+      h['Authorization'] = `Bearer ${accessToken}`;
+    }
+    return h;
+  };
+
   const fetchUserData = async () => {
     try {
-      console.log('Profile: Fetching user data with access token:', accessToken?.substring(0, 10) + '...');
-      console.log('Profile: Token type:', accessToken?.startsWith('imp_') ? 'impersonation' : 'regular');
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-
-      // Use custom header for impersonation tokens to bypass Supabase JWT validation
-      if (accessToken?.startsWith('imp_')) {
-        headers['X-Impersonation-Token'] = accessToken;
-      } else {
-        headers['Authorization'] = `Bearer ${accessToken}`;
-      }
-
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/user`,
-        { headers }
+        { headers: buildHeaders() }
       );
 
-      console.log('Profile: Response status:', response.status);
-      console.log('Profile: Response ok?', response.ok);
+      const data = await response.json().catch(() => ({}));
 
-      let data;
-      try {
-        data = await response.json();
-        console.log('Profile: Response data:', data);
-      } catch (parseError) {
-        console.error('Profile: Failed to parse response as JSON:', parseError);
-        const text = await response.text();
-        console.error('Profile: Response text:', text);
+      if (!response.ok || !data.user) {
+        setLoading(false);
         return;
       }
 
-      if (!response.ok) {
-        console.error('Profile: Failed to fetch user data. Status:', response.status, 'Error:', data.error || 'No error message provided');
-        console.error('Profile: Full response data:', JSON.stringify(data));
-        return;
-      }
-
-      if (data.user) {
-        console.log('Profile: User data loaded successfully:', data.user);
-        setUserData(data.user);
-        setFormData({
-          email: data.user.email || '',
-          name: data.user.name || '',
-          phone: data.user.phone || '',
-          address: data.user.address || '',
-          city: data.user.city || '',
-          state: data.user.state || '',
-          zip: data.user.zip || '',
-          country: data.user.country || ''
-        });
-      } else {
-        console.error('Profile: No user data in response. Full response:', JSON.stringify(data));
-      }
+      setUserData(data.user);
+      setFormData({
+        email: data.user.email || '',
+        name: data.user.name || '',
+        phone: data.user.phone || '',
+        address: data.user.address || '',
+        city: data.user.city || '',
+        state: data.user.state || '',
+        zip: data.user.zip || '',
+        country: data.user.country || ''
+      });
     } catch (error) {
-      console.error('Profile: Exception while fetching user data:', error);
-      console.error('Profile: Error message:', error.message);
-      console.error('Profile: Error stack:', error.stack);
+      // userData stays null → error UI shown
     } finally {
       setLoading(false);
     }
@@ -100,22 +80,11 @@ export function Profile({ accessToken }: ProfileProps) {
     setSuccessMessage('');
 
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-
-      // Use custom header for impersonation tokens
-      if (accessToken?.startsWith('imp_')) {
-        headers['X-Impersonation-Token'] = accessToken;
-      } else {
-        headers['Authorization'] = `Bearer ${accessToken}`;
-      }
-
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/user`,
         {
           method: 'PUT',
-          headers,
+          headers: buildHeaders(),
           body: JSON.stringify(formData)
         }
       );
