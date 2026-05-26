@@ -573,30 +573,18 @@ app.get("/make-server-8dc4138c/tracking", async (c) => {
       return c.json({ tracking: [] });
     }
 
-    // Fetch records from Airtable filtered by affiliate ID
+    // Fetch ALL records for this affiliate, paginating until exhausted
     const filterFormula = `{affiliate-id}='${affiliateId}'`;
-    const airtableUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}?filterByFormula=${encodeURIComponent(filterFormula)}&sort[0][field]=Click Date&sort[0][direction]=desc&pageSize=100`;
+    const params = `filterByFormula=${encodeURIComponent(filterFormula)}&sort[0][field]=Click%20Date&sort[0][direction]=desc`;
 
-    console.log('Airtable filter formula:', filterFormula);
-    console.log('Airtable URL:', airtableUrl);
+    console.log(`Fetching all tracking records for affiliate ${affiliateId}`);
 
-    const airtableResponse = await fetch(airtableUrl, {
-      headers: {
-        'Authorization': `Bearer ${airtableToken}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    console.log('Airtable response status:', airtableResponse.status);
-
-    if (!airtableResponse.ok) {
-      const errorText = await airtableResponse.text();
-      console.log('Airtable API error:', airtableResponse.status, errorText);
-      return c.json({ tracking: [] });
-    }
-
-    const airtableData = await airtableResponse.json();
-    const records = airtableData.records || [];
+    const records = await fetchAllAirtableRecords(
+      airtableToken,
+      baseId,
+      encodeURIComponent(tableName),
+      params,
+    );
 
     console.log(`Found ${records.length} tracking records for affiliate ${affiliateId}`);
 
