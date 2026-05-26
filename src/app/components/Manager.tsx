@@ -698,13 +698,67 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
             <h1 className="text-3xl mb-2">Manager Dashboard</h1>
             <p className="text-gray-600">Welcome, {managerName} — Manage affiliates and monitor performance</p>
           </div>
-          <button
-            onClick={() => { setActionsOpen(false); onLogout(); }}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-            Logout
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Actions dropdown */}
+            {(() => {
+              const anyBusy = syncing || syncingTracking || importingCPA;
+              return (
+                <div className="relative">
+                  <button
+                    onClick={() => setActionsOpen(o => !o)}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium shadow-sm"
+                  >
+                    {anyBusy
+                      ? <RefreshCw className="w-4 h-4 animate-spin text-indigo-500" />
+                      : <RefreshCw className="w-4 h-4" />}
+                    Actions
+                    <ChevronDown className={`w-4 h-4 transition-transform ${actionsOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {actionsOpen && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setActionsOpen(false)} />
+                      <div className="absolute right-0 mt-1 w-52 bg-white rounded-xl shadow-lg border border-gray-200 z-20 overflow-hidden">
+                        <div className="py-1">
+                          <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">Sync</p>
+                          <button
+                            onClick={() => { setActionsOpen(false); syncFromAirtable(); }}
+                            disabled={syncing}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                          >
+                            <RefreshCw className={`w-4 h-4 text-purple-600 ${syncing ? 'animate-spin' : ''}`} />
+                            {syncing ? 'Syncing affiliates…' : 'Sync Affiliates'}
+                          </button>
+                          <button
+                            onClick={() => { setActionsOpen(false); syncTrackingFromAirtable(); }}
+                            disabled={syncingTracking}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                          >
+                            <RefreshCw className={`w-4 h-4 text-green-600 ${syncingTracking ? 'animate-spin' : ''}`} />
+                            {syncingTracking ? 'Syncing tracking…' : 'Sync Tracking'}
+                          </button>
+                          <button
+                            onClick={() => { setActionsOpen(false); importCPAData(); }}
+                            disabled={importingCPA}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                          >
+                            <RefreshCw className={`w-4 h-4 text-orange-600 ${importingCPA ? 'animate-spin' : ''}`} />
+                            {importingCPA ? 'Importing…' : 'Import CPA Rates'}
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
+            <button
+              onClick={onLogout}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </button>
+          </div>
         </div>
 
         {message && (
@@ -783,79 +837,21 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               </div>
             </div>
 
-            {/* Actions row */}
-            {(() => {
-              const anyBusy = syncing || syncingTracking || importingCPA;
-              return (
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                  {/* Period filter on the left */}
-                  <FilterBar
-                    filter={affiliatesFilter}     setFilter={setAffiliatesFilter}
-                    customFrom={affiliatesCustomFrom} setCustomFrom={setAffiliatesCustomFrom}
-                    customTo={affiliatesCustomTo}     setCustomTo={setAffiliatesCustomTo}
-                  />
-
-                  {/* Buttons on the right */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setShowCreateModal(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Create Affiliate
-                    </button>
-
-                    <div className="relative">
-                      <button
-                        onClick={() => setActionsOpen(o => !o)}
-                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium shadow-sm"
-                      >
-                        {anyBusy
-                          ? <RefreshCw className="w-4 h-4 animate-spin text-indigo-500" />
-                          : <RefreshCw className="w-4 h-4" />}
-                        Actions
-                        <ChevronDown className={`w-4 h-4 transition-transform ${actionsOpen ? 'rotate-180' : ''}`} />
-                      </button>
-
-                      {actionsOpen && (
-                        <>
-                          <div className="fixed inset-0 z-10" onClick={() => setActionsOpen(false)} />
-                          <div className="absolute right-0 mt-1 w-52 bg-white rounded-xl shadow-lg border border-gray-200 z-20 overflow-hidden">
-                            <div className="py-1">
-                              <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">Sync</p>
-                              <button
-                                onClick={() => { setActionsOpen(false); syncFromAirtable(); }}
-                                disabled={syncing}
-                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                              >
-                                <RefreshCw className={`w-4 h-4 text-purple-600 ${syncing ? 'animate-spin' : ''}`} />
-                                {syncing ? 'Syncing affiliates…' : 'Sync Affiliates'}
-                              </button>
-                              <button
-                                onClick={() => { setActionsOpen(false); syncTrackingFromAirtable(); }}
-                                disabled={syncingTracking}
-                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                              >
-                                <RefreshCw className={`w-4 h-4 text-green-600 ${syncingTracking ? 'animate-spin' : ''}`} />
-                                {syncingTracking ? 'Syncing tracking…' : 'Sync Tracking'}
-                              </button>
-                              <button
-                                onClick={() => { setActionsOpen(false); importCPAData(); }}
-                                disabled={importingCPA}
-                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                              >
-                                <RefreshCw className={`w-4 h-4 text-orange-600 ${importingCPA ? 'animate-spin' : ''}`} />
-                                {importingCPA ? 'Importing…' : 'Import CPA Rates'}
-                              </button>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
+            {/* Filter + Create row */}
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <FilterBar
+                filter={affiliatesFilter}     setFilter={setAffiliatesFilter}
+                customFrom={affiliatesCustomFrom} setCustomFrom={setAffiliatesCustomFrom}
+                customTo={affiliatesCustomTo}     setCustomTo={setAffiliatesCustomTo}
+              />
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+              >
+                <Plus className="w-4 h-4" />
+                Create Affiliate
+              </button>
+            </div>
 
             {affiliatesFilter !== 'all' && (
               <p className="text-xs text-gray-500 mb-3">
