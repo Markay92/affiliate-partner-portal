@@ -35,15 +35,6 @@ interface Link {
   creditLevel: string;
 }
 
-interface ActivityItem {
-  id: number;
-  date: string;
-  card: string;
-  type: string;
-  amount: number;
-  status: string;
-}
-
 interface Payout {
   id: number;
   date: string;
@@ -256,20 +247,12 @@ function SortTh({
 export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) {
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [links, setLinks]       = useState<Link[]>([]);
-  const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [payouts, setPayouts]   = useState<Payout[]>([]);
   const [tracking, setTracking] = useState<TrackingItem[]>([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState('');
 
-  // Activity tab
-  const [activityFilter,     setActivityFilter]     = useState<DateFilter>('all');
-  const [activityCustomFrom, setActivityCustomFrom] = useState('');
-  const [activityCustomTo,   setActivityCustomTo]   = useState('');
-  const [activitySort,       setActivitySort]       = useState<SortState>({ field: 'date', dir: 'desc' });
-
-
-  // API Tracking tab
+  // Activity tab (Airtable API Output)
   const [trackingFilter,       setTrackingFilter]       = useState<DateFilter>('all');
   const [trackingCustomFrom,   setTrackingCustomFrom]   = useState('');
   const [trackingCustomTo,     setTrackingCustomTo]     = useState('');
@@ -292,10 +275,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   };
 
   // ── Derived display data ────────────────────────────────────────────────────
-  const displayActivity = applySort(
-    activity.filter(a => inDateRange(a.date, activityFilter, activityCustomFrom, activityCustomTo)),
-    activitySort,
-  );
   const displayTracking = applySort(
     tracking.filter(t =>
       inDateRange(t.clickDate, trackingFilter, trackingCustomFrom, trackingCustomTo) &&
@@ -354,9 +333,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     setError('');
     try {
       const headers = buildHeaders();
-      const [linksRes, activityRes, payoutsRes, trackingRes] = await Promise.all([
+      const [linksRes, payoutsRes, trackingRes] = await Promise.all([
         fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/links`,    { headers }),
-        fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/activity`, { headers }),
         fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/payouts`,  { headers }),
         fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/tracking`, { headers }),
       ]);
@@ -368,12 +346,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         throw new Error(err.error || `Server error (${linksRes.status}) — try logging out and back in.`);
       }
 
-      const [linksData, activityData, payoutsData, trackingData] = await Promise.all([
-        linksRes.json(), activityRes.json(), payoutsRes.json(), trackingRes.json(),
+      const [linksData, payoutsData, trackingData] = await Promise.all([
+        linksRes.json(), payoutsRes.json(), trackingRes.json(),
       ]);
 
       setLinks(linksData.links       || []);
-      setActivity(activityData.activity || []);
       setTracking(trackingData.tracking || []);
       setPayouts(payoutsData.payouts   || []);
 
@@ -398,9 +375,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const totalConversions = tracking.length > 0
     ? tracking.reduce((s, t) => s + (t.approvals || 0), 0)
     : links.reduce((s, l) => s + l.conversions, 0);
-  const totalCommissions = tracking.length > 0
-    ? tracking.reduce((s, t) => s + (t.totalEarnings || 0), 0)
-    : activity.filter(a => a.status === 'approved').reduce((s, a) => s + a.amount, 0);
+  const totalCommissions = tracking.reduce((s, t) => s + (t.totalEarnings || 0), 0);
   const totalPayouts     = payouts.reduce((s, p) => s + p.amount, 0);
 
   // ── Period-over-period stats from tracking records ────────────────────────
@@ -600,13 +575,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         {/* Tabs */}
         <Tabs.Root defaultValue="cards" className="bg-white rounded-xl shadow-sm border border-gray-200">
           <Tabs.List className="flex border-b border-gray-200 overflow-x-auto">
-            {['cards', 'activity', 'tracking', 'profile'].map((tab) => (
+            {['cards', 'activity', 'profile'].map((tab) => (
               <Tabs.Trigger
                 key={tab}
                 value={tab}
                 className="px-6 py-4 text-gray-600 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-gray-900 transition-colors whitespace-nowrap capitalize"
               >
-                {tab === 'tracking' ? 'API Tracking' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
               </Tabs.Trigger>
             ))}
           </Tabs.List>
@@ -726,70 +701,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
           {/* ── Activity Tab ── */}
           <Tabs.Content value="activity" className="p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-              <FilterBar
-                filter={activityFilter}     setFilter={setActivityFilter}
-                customFrom={activityCustomFrom} setCustomFrom={setActivityCustomFrom}
-                customTo={activityCustomTo}     setCustomTo={setActivityCustomTo}
-              />
-              {activityFilter !== 'all' && (
-                <span className="text-xs text-gray-500">
-                  {displayActivity.length} of {activity.length} records
-                </span>
-              )}
-            </div>
-
-            {displayActivity.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <CheckCircle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>
-                  {activity.length === 0
-                    ? 'No activity yet. Start promoting your tracking links!'
-                    : 'No activity matches the selected date range.'}
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <SortTh label="Date"       field="date"   sort={activitySort} onSort={(f) => setActivitySort(toggleSort(activitySort, f))} />
-                      <SortTh label="Card"       field="card"   sort={activitySort} onSort={(f) => setActivitySort(toggleSort(activitySort, f))} />
-                      <SortTh label="Type"       field="type"   sort={activitySort} onSort={(f) => setActivitySort(toggleSort(activitySort, f))} />
-                      <SortTh label="Commission" field="amount" sort={activitySort} onSort={(f) => setActivitySort(toggleSort(activitySort, f))} align="right" />
-                      <SortTh label="Status"     field="status" sort={activitySort} onSort={(f) => setActivitySort(toggleSort(activitySort, f))} align="right" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {displayActivity.map((item) => (
-                      <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4">{formatDate(item.date)}</td>
-                        <td className="py-3 px-4">{item.card}</td>
-                        <td className="py-3 px-4 capitalize">{item.type}</td>
-                        <td className="py-3 px-4 text-right">${item.amount}</td>
-                        <td className="py-3 px-4 text-right">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs ${
-                            item.status === 'approved'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {item.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Tabs.Content>
-
-
-          {/* ── API Tracking Tab ── */}
-          <Tabs.Content value="tracking" className="p-6">
             <div className="mb-4 p-4 bg-green-50 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <p className="text-sm text-green-800">
-                <strong>API Tracking:</strong> Real-time data from Airtable showing all card clicks, applications, and approvals.
+                <strong>Activity:</strong> Real-time data from Airtable showing all card clicks, applications, and approvals.
                 ({displayTracking.length}{trackingFilter !== 'all' ? ` of ${tracking.length}` : ''} records)
               </p>
               <button
