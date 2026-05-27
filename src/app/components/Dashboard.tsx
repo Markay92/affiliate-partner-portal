@@ -689,12 +689,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       <tr key={card.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4 font-medium text-sm">{card.name}</td>
                         <td className="py-3 px-4 text-sm text-gray-600">{card.issuer || '—'}</td>
-                        <td className="py-3 px-4 text-right">
-                          {card.cpa > 0
-                            ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium border border-indigo-200">
-                                <DollarSign className="w-3 h-3" />${card.cpa.toLocaleString()}
-                              </span>
-                            : <span className="text-gray-400 text-sm">—</span>}
+                        <td className="py-3 px-4 text-right text-sm font-medium">
+                          {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : <span className="text-gray-400">—</span>}
                         </td>
                         <td className="py-3 px-4 text-right text-sm text-gray-600">{card.clicks}</td>
                         <td className="py-3 px-4 text-right text-sm text-gray-600">{card.conversions}</td>
