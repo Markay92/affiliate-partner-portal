@@ -338,12 +338,20 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     mgTrackingSort,
   );
 
-  // Always all-time — not affected by the period filter (which only filters the table rows)
-  const totalStats = users.reduce((acc: any, user: any) => ({
-    clicks:      acc.clicks      + (user.stats?.totalClicks      || 0),
-    conversions: acc.conversions + (user.stats?.totalConversions  || 0),
-    commissions: acc.commissions + (user.stats?.totalCommissions  || 0),
-  }), { clicks: 0, conversions: 0, commissions: 0 });
+  // Always all-time — not affected by the period filter (which only filters the table rows).
+  // Prefer summing from the live trackingActivity array (real Airtable data) when loaded;
+  // fall back to KV-cached user.stats for the period before the first tracking fetch completes.
+  const totalStats = trackingActivity.length > 0
+    ? trackingActivity.reduce((acc: any, row: any) => ({
+        clicks:      acc.clicks      + (row.clicks      || 0),
+        conversions: acc.conversions + ((row.applications || 0) + (row.approvals || 0)),
+        commissions: acc.commissions + (row.totalEarnings || 0),
+      }), { clicks: 0, conversions: 0, commissions: 0 })
+    : users.reduce((acc: any, user: any) => ({
+        clicks:      acc.clicks      + (user.stats?.totalClicks      || 0),
+        conversions: acc.conversions + (user.stats?.totalConversions  || 0),
+        commissions: acc.commissions + (user.stats?.totalCommissions  || 0),
+      }), { clicks: 0, conversions: 0, commissions: 0 });
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 

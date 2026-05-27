@@ -1221,6 +1221,43 @@ app.get("/make-server-8dc4138c/manager/tracking-activity", async (c) => {
       state: record.fields['State'] || ''
     }));
 
+    // Aggregate per-affiliate stats and write to KV so the Affiliates tab
+    // shows correct Earned / Clicks / Conversions without a separate sync.
+    try {
+      const statsByAffiliate: Record<string, { totalClicks: number; totalConversions: number; totalCommissions: number }> = {};
+      for (const row of activity) {
+        if (!row.affiliateId || row.affiliateId === 'N/A') continue;
+        if (!statsByAffiliate[row.affiliateId]) {
+          statsByAffiliate[row.affiliateId] = { totalClicks: 0, totalConversions: 0, totalCommissions: 0 };
+        }
+        statsByAffiliate[row.affiliateId].totalClicks      += row.clicks;
+        statsByAffiliate[row.affiliateId].totalConversions += (row.applications + row.approvals);
+        statsByAffiliate[row.affiliateId].totalCommissions += row.totalEarnings;
+      }
+
+      // Build affiliateId → userId map
+      const supabaseUrl  = Deno.env.get('SUPABASE_URL')!;
+      const serviceKey   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const usersRes = await fetch(`${supabaseUrl}/auth/v1/admin/users?per_page=200`, {
+        headers: { 'Authorization': `Bearer ${serviceKey}`, 'apikey': serviceKey }
+      });
+      if (usersRes.ok) {
+        const usersData = await usersRes.json();
+        for (const user of (usersData.users || [])) {
+          const userData = await kv.get(`user:${user.id}`);
+          if (userData?.affiliateId && statsByAffiliate[userData.affiliateId]) {
+            userData.stats = statsByAffiliate[userData.affiliateId];
+            userData.statsUpdatedAt = new Date().toISOString();
+            await kv.set(`user:${user.id}`, userData);
+          }
+        }
+        console.log(`KV stats updated for ${Object.keys(statsByAffiliate).length} affiliates`);
+      }
+    } catch (kvErr: any) {
+      // Non-fatal — stats update is best-effort
+      console.log('KV stats update error (non-fatal):', kvErr.message);
+    }
+
     return c.json({
       success: true,
       activity,
