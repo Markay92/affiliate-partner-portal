@@ -1165,44 +1165,18 @@ app.get("/make-server-8dc4138c/manager/tracking-activity", async (c) => {
       return c.json({ error: 'Airtable API key not configured' }, 500);
     }
 
-    // Fetch all records from Airtable "All Items 2026" view with pagination
-    const viewName = 'All Items 2026';
-    console.log('Fetching all records from Airtable view:', viewName);
+    // Fetch ALL records from the full table (no view filter) so nothing is excluded
+    console.log('Fetching all records from API Output table (no view filter)');
 
-    let allRecords = [];
-    let offset = null;
+    let records: any[];
+    try {
+      records = await fetchAllAirtableRecords(airtableToken, baseId, encodeURIComponent(tableName), '');
+    } catch (err: any) {
+      console.log('Airtable fetch error:', err.message);
+      return c.json({ error: `Airtable API error: ${err.message}` }, 500);
+    }
 
-    // Loop through all pages of results
-    do {
-      let airtableUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}?view=${encodeURIComponent(viewName)}&pageSize=100`;
-      if (offset) {
-        airtableUrl += `&offset=${offset}`;
-      }
-
-      console.log('Fetching page with offset:', offset || 'none');
-
-      const airtableResponse = await fetch(airtableUrl, {
-        headers: {
-          'Authorization': `Bearer ${airtableToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!airtableResponse.ok) {
-        const errorText = await airtableResponse.text();
-        console.log('Airtable API error:', errorText);
-        return c.json({ error: `Airtable API error: ${airtableResponse.status}` }, 500);
-      }
-
-      const airtableData = await airtableResponse.json();
-      allRecords = allRecords.concat(airtableData.records || []);
-      offset = airtableData.offset || null;
-
-      console.log('Fetched', airtableData.records?.length || 0, 'records. Total so far:', allRecords.length);
-    } while (offset);
-
-    console.log('Finished fetching. Total records:', allRecords.length);
-    const records = allRecords;
+    console.log('Total records fetched:', records.length);
 
     // Format activity records
     const activity = records.map(record => ({
