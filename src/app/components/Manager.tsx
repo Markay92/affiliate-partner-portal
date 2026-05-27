@@ -338,7 +338,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     mgTrackingSort,
   );
 
-  const totalStats = displayUsers.reduce((acc: any, user: any) => ({
+  // Always all-time — not affected by the period filter (which only filters the table rows)
+  const totalStats = users.reduce((acc: any, user: any) => ({
     clicks:      acc.clicks      + (user.stats?.totalClicks      || 0),
     conversions: acc.conversions + (user.stats?.totalConversions  || 0),
     commissions: acc.commissions + (user.stats?.totalCommissions  || 0),
