@@ -183,15 +183,15 @@ function FilterBar({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs font-medium text-gray-500 mr-1">Period:</span>
+      <span className="text-xs font-medium text-slate-400 mr-1">Period:</span>
       {(['all', 'today', '7d', '30d', '90d', 'custom'] as DateFilter[]).map((f) => (
         <button
           key={f}
           onClick={() => setFilter(f)}
-          className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
             filter === f
-              ? 'bg-indigo-600 text-white border-indigo-600'
-              : 'text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
           }`}
         >
           {DATE_LABELS[f]}
@@ -203,14 +203,14 @@ function FilterBar({
             type="date"
             value={customFrom}
             onChange={(e) => setCustomFrom(e.target.value)}
-            className="px-2 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
           />
-          <span className="text-gray-400 text-xs">to</span>
+          <span className="text-slate-400 text-xs">to</span>
           <input
             type="date"
             value={customTo}
             onChange={(e) => setCustomTo(e.target.value)}
-            className="px-2 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
           />
         </div>
       )}
@@ -229,11 +229,11 @@ function SortTh({
       ? sort.dir === 'asc'
         ? <ChevronUp className="w-3 h-3 flex-shrink-0" />
         : <ChevronDown className="w-3 h-3 flex-shrink-0" />
-      : <ChevronsUpDown className="w-3 h-3 flex-shrink-0 text-gray-400" />;
+      : <ChevronsUpDown className="w-3 h-3 flex-shrink-0 text-slate-300" />;
   return (
     <th
       onClick={() => onSort(field)}
-      className={`py-3 px-4 text-gray-600 cursor-pointer select-none hover:bg-gray-100 transition-colors text-${align}`}
+      className={`py-3 px-4 text-slate-500 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-slate-50 transition-colors text-${align}`}
     >
       <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''}`}>
         {label}{icon}
@@ -430,12 +430,12 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
   /** Coloured percentage badge shown under each stat card */
   const PctBadge = ({ pct }: { pct: number | null }) => {
-    if (pct === null) return <span className="text-gray-400 text-sm">No prior-period data</span>;
-    if (pct === 0)    return <span className="text-gray-500 text-sm flex items-center gap-1">— No change <span className="font-normal">{_periodLabel}</span></span>;
+    if (pct === null) return <span className="text-slate-400 text-xs">No prior-period data</span>;
+    if (pct === 0)    return <span className="text-slate-400 text-xs flex items-center gap-1">— No change <span className="font-normal">{_periodLabel}</span></span>;
     const up = pct > 0;
     return (
-      <div className={`flex items-center gap-1 text-sm ${up ? 'text-green-600' : 'text-red-500'}`}>
-        <TrendingUp className={`w-4 h-4 ${!up ? 'rotate-180' : ''}`} />
+      <div className={`flex items-center gap-1 text-xs font-medium ${up ? 'text-emerald-600' : 'text-red-500'}`}>
+        <TrendingUp className={`w-3.5 h-3.5 ${!up ? 'rotate-180' : ''}`} />
         <span>{up ? '+' : ''}{pct}% {_periodLabel}</span>
       </div>
     );
@@ -461,39 +461,41 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <RefreshCw className="w-8 h-8 animate-spin text-indigo-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading your dashboard...</p>
+          <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <RefreshCw className="w-5 h-5 animate-spin text-indigo-600" />
+          </div>
+          <p className="text-slate-500 text-sm">Loading your dashboard…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-slate-900 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
-              <div className="bg-indigo-600 p-2 rounded-lg">
-                <CreditCard className="w-6 h-6 text-white" />
+              <div className="bg-indigo-500 p-2 rounded-xl">
+                <CreditCard className="w-5 h-5 text-white" />
               </div>
-              <h1 className="hidden sm:block">Affiliate Portal</h1>
+              <h1 className="hidden sm:block text-white font-semibold text-lg tracking-tight">Affiliate Portal</h1>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <button
                 onClick={fetchData}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
                 title="Refresh data"
               >
-                <RefreshCw className="w-4 h-4 text-gray-600" />
+                <RefreshCw className="w-4 h-4 text-slate-400" />
               </button>
-              <span className="hidden sm:inline text-gray-600">{userEmail}</span>
+              <span className="hidden sm:inline text-slate-400 text-sm">{userEmail}</span>
               <button
                 onClick={onLogout}
-                className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors text-sm"
               >
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline">Logout</span>
@@ -504,27 +506,27 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       </header>
 
       {error && (
-        <div className="bg-red-50 border-b border-red-200 px-4 sm:px-6 lg:px-8 py-3 text-red-800 text-sm max-w-7xl mx-auto">
+        <div className="bg-red-50 border-b border-red-100 px-4 sm:px-6 lg:px-8 py-3 text-red-700 text-sm max-w-7xl mx-auto">
           {error} — try refreshing the page or logging out and back in.
         </div>
       )}
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats header: title + period picker */}
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <p className="text-xs text-gray-400">
-            Percentage change compares <strong>{STAT_PERIOD_LABELS[statPeriod].toLowerCase()}</strong>
+        {/* Stats header: period picker */}
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <p className="text-xs text-slate-400">
+            Comparing <span className="font-medium text-slate-500">{STAT_PERIOD_LABELS[statPeriod].toLowerCase()}</span>
           </p>
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 text-xs font-medium">
+          <div className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl p-1 text-xs font-medium shadow-sm">
             {(['month', '7d', '30d', '90d'] as StatPeriod[]).map(p => (
               <button
                 key={p}
                 onClick={() => setStatPeriod(p)}
-                className={`px-3 py-1 rounded-md transition-colors ${
+                className={`px-3 py-1.5 rounded-lg transition-all ${
                   statPeriod === p
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 {p === 'month' ? 'Month' : p.toUpperCase()}
@@ -535,51 +537,59 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600">Total Clicks</span>
-              <MousePointerClick className="w-5 h-5 text-blue-600" />
+          <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-slate-500">Total Clicks</span>
+              <div className="p-2 bg-blue-50 rounded-xl">
+                <MousePointerClick className="w-4 h-4 text-blue-600" />
+              </div>
             </div>
-            <div className="text-3xl mb-1">{totalClicks.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-slate-900 mb-1">{totalClicks.toLocaleString()}</div>
             <PctBadge pct={clicksPct} />
           </div>
 
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600">Approvals</span>
-              <CheckCircle className="w-5 h-5 text-green-600" />
+          <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-slate-500">Approvals</span>
+              <div className="p-2 bg-emerald-50 rounded-xl">
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+              </div>
             </div>
-            <div className="text-3xl mb-1">{totalConversions}</div>
+            <div className="text-3xl font-bold text-slate-900 mb-1">{totalConversions}</div>
             <PctBadge pct={approvalsPct} />
           </div>
 
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600">Commissions</span>
-              <DollarSign className="w-5 h-5 text-indigo-600" />
+          <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-slate-500">Commissions</span>
+              <div className="p-2 bg-indigo-50 rounded-xl">
+                <DollarSign className="w-4 h-4 text-indigo-600" />
+              </div>
             </div>
-            <div className="text-3xl mb-1">${totalCommissions.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-slate-900 mb-1">${totalCommissions.toLocaleString()}</div>
             <PctBadge pct={commissionsPct} />
           </div>
 
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600">CPA Rates</span>
-              <DollarSign className="w-5 h-5 text-purple-600" />
+          <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-slate-500">CPA Rates</span>
+              <div className="p-2 bg-violet-50 rounded-xl">
+                <DollarSign className="w-4 h-4 text-violet-600" />
+              </div>
             </div>
-            <div className="text-3xl mb-1">{payouts.length}</div>
-            <div className="text-gray-500">Active cards</div>
+            <div className="text-3xl font-bold text-slate-900 mb-1">{payouts.length}</div>
+            <div className="text-xs text-slate-500">Active cards</div>
           </div>
         </div>
 
         {/* Tabs */}
-        <Tabs.Root defaultValue="cards" className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <Tabs.List className="flex border-b border-gray-200 overflow-x-auto">
+        <Tabs.Root defaultValue="cards" className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-900/5">
+          <Tabs.List className="flex border-b border-slate-100 overflow-x-auto px-2 pt-1">
             {['cards', 'activity', 'profile'].map((tab) => (
               <Tabs.Trigger
                 key={tab}
                 value={tab}
-                className="px-6 py-4 text-gray-600 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-gray-900 transition-colors whitespace-nowrap capitalize"
+                className="px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-slate-800 transition-colors whitespace-nowrap capitalize -mb-px"
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
               </Tabs.Trigger>
@@ -592,11 +602,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             <div className="flex flex-wrap items-center gap-3 mb-5">
               {/* Issuer filter */}
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-500">Issuer:</span>
+                <span className="text-xs font-medium text-slate-500">Issuer:</span>
                 <select
                   value={cardsIssuerFilter}
                   onChange={e => setCardsIssuerFilter(e.target.value)}
-                  className="px-2 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                  className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
                 >
                   <option value="all">All issuers</option>
                   {cardIssuers.map(issuer => (
@@ -607,7 +617,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
               {/* CPA range filter */}
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-500">Your CPA:</span>
+                <span className="text-xs font-medium text-slate-500">Your CPA:</span>
                 {([
                   { value: 'all',     label: 'All' },
                   { value: 'zero',    label: '$0' },
@@ -618,10 +628,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   <button
                     key={value}
                     onClick={() => setCardsPayoutFilter(value)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                       cardsPayoutFilter === value
-                        ? 'bg-indigo-600 text-white border-indigo-600'
-                        : 'text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
                     }`}
                   >
                     {label}
@@ -631,7 +641,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
               {(cardsIssuerFilter !== 'all' || cardsPayoutFilter !== 'all') && (
                 <div className="flex items-center gap-2 ml-auto">
-                  <span className="text-xs text-gray-500">{displayCards.length} of {allCards.length} cards</span>
+                  <span className="text-xs text-slate-500">{displayCards.length} of {allCards.length} cards</span>
                   <button
                     onClick={() => { setCardsIssuerFilter('all'); setCardsPayoutFilter('all'); }}
                     className="text-xs text-indigo-600 hover:underline"
@@ -642,52 +652,54 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
             {/* Table */}
             {displayCards.length === 0 ? (
-              <div className="text-center py-12 text-gray-400">
-                <CreditCard className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>{links.length === 0 ? 'No cards loaded yet — try refreshing.' : 'No cards match the selected filters.'}</p>
+              <div className="text-center py-16 text-slate-400">
+                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <CreditCard className="w-7 h-7 text-slate-300" />
+                </div>
+                <p className="text-sm">{links.length === 0 ? 'No cards loaded yet — try refreshing.' : 'No cards match the selected filters.'}</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
+                    <tr className="border-b border-slate-100">
                       <SortTh label="Card"     field="name"        sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />
                       <SortTh label="Issuer"   field="issuer"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />
                       <SortTh label="Your CPA" field="cpa"         sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
                       <SortTh label="Clicks"   field="clicks"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
                       <SortTh label="Approvals" field="conversions" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
-                      <th className="py-3 px-4 text-right text-gray-600 font-medium text-sm">Link</th>
+                      <th className="py-3 px-4 text-right text-slate-500 text-xs font-semibold uppercase tracking-wider">Link</th>
                     </tr>
                   </thead>
                   <tbody>
                     {displayCards.map(card => (
-                      <tr key={card.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4 font-medium text-sm">{card.name}</td>
-                        <td className="py-3 px-4 text-sm text-gray-600">{card.issuer || '—'}</td>
-                        <td className="py-3 px-4 text-right text-sm font-medium">
-                          {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : <span className="text-gray-400">—</span>}
+                      <tr key={card.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3.5 px-4 font-medium text-sm text-slate-900">{card.name}</td>
+                        <td className="py-3.5 px-4 text-sm text-slate-500">{card.issuer || '—'}</td>
+                        <td className="py-3.5 px-4 text-right text-sm font-semibold text-slate-900">
+                          {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : <span className="text-slate-300 font-normal">—</span>}
                         </td>
-                        <td className="py-3 px-4 text-right text-sm text-gray-600">{card.clicks}</td>
-                        <td className="py-3 px-4 text-right text-sm text-gray-600">{card.conversions}</td>
-                        <td className="py-3 px-4 text-right">
+                        <td className="py-3.5 px-4 text-right text-sm text-slate-600">{card.clicks}</td>
+                        <td className="py-3.5 px-4 text-right text-sm text-slate-600">{card.conversions}</td>
+                        <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <button
                               onClick={() => copyToClipboard(card.url, card.id)}
-                              className="p-1.5 rounded hover:bg-gray-200 transition-colors"
+                              className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
                               title="Copy link"
                             >
                               {copiedId === card.id
-                                ? <CheckCircle className="w-4 h-4 text-green-600" />
-                                : <Copy className="w-4 h-4 text-gray-500" />}
+                                ? <CheckCircle className="w-4 h-4 text-emerald-600" />
+                                : <Copy className="w-4 h-4 text-slate-400" />}
                             </button>
                             <a
                               href={card.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="p-1.5 rounded hover:bg-gray-200 transition-colors"
+                              className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
                               title="Open link"
                             >
-                              <ExternalLink className="w-4 h-4 text-gray-500" />
+                              <ExternalLink className="w-4 h-4 text-slate-400" />
                             </a>
                           </div>
                         </td>
@@ -701,16 +713,16 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
           {/* ── Activity Tab ── */}
           <Tabs.Content value="activity" className="p-6">
-            <div className="mb-4 p-4 bg-green-50 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <p className="text-sm text-green-800">
-                <strong>Activity:</strong> Real-time data from Airtable showing all card clicks, applications, and approvals.
-                ({displayTracking.length}{trackingFilter !== 'all' ? ` of ${tracking.length}` : ''} records)
+            <div className="flex items-center justify-between mb-5 p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+              <p className="text-sm text-slate-600">
+                <span className="font-semibold text-slate-900">{displayTracking.length}</span>
+                {trackingFilter !== 'all' ? <span className="text-slate-400"> of {tracking.length}</span> : ''} activity records
               </p>
               <button
                 onClick={fetchData}
-                className="flex items-center gap-2 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm flex-shrink-0"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all"
               >
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className="w-3.5 h-3.5" />
                 Refresh
               </button>
             </div>
@@ -723,7 +735,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               />
             </div>
             <div className="flex flex-wrap items-center gap-2 mb-5">
-              <span className="text-xs font-medium text-gray-500 mr-1">Status:</span>
+              <span className="text-xs font-medium text-slate-400 mr-1">Status:</span>
               {[
                 { value: 'all',         label: 'All' },
                 { value: 'click',       label: 'Click' },
@@ -733,10 +745,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <button
                   key={value}
                   onClick={() => setTrackingStatusFilter(value)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     trackingStatusFilter === value
-                      ? 'bg-indigo-600 text-white border-indigo-600'
-                      : 'text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
                   }`}
                 >
                   {label}
@@ -745,9 +757,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             </div>
 
             {displayTracking.length === 0 ? (
-              <div className="text-center py-12">
-                <TrendingUp className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-600 mb-4">
+              <div className="text-center py-16">
+                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <TrendingUp className="w-7 h-7 text-slate-300" />
+                </div>
+                <p className="text-slate-500 text-sm mb-4">
                   {tracking.length === 0
                     ? 'No tracking activity found'
                     : 'No activity matches the selected date range.'}
@@ -755,7 +769,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 {tracking.length === 0 && (
                   <button
                     onClick={fetchData}
-                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
                   >
                     Refresh Data
                   </button>
@@ -764,7 +778,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
+                  <thead className="bg-slate-50/80 border-b border-slate-100">
                     <tr>
                       <SortTh label="Date / Time"  field="clickDate"     sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
                       <SortTh label="Card"         field="cardName"      sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
@@ -776,26 +790,26 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   </thead>
                   <tbody>
                     {displayTracking.map((item) => (
-                      <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4 text-sm">
-                          <div>{formatDate(item.clickDate)}</div>
-                          <div className="text-xs text-gray-500">{formatTime(item.clickTime)}</div>
+                      <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3.5 px-4 text-sm">
+                          <div className="font-medium text-slate-900">{formatDate(item.clickDate)}</div>
+                          <div className="text-xs text-slate-400 mt-0.5">{formatTime(item.clickTime)}</div>
                         </td>
-                        <td className="py-3 px-4 text-sm">{item.cardName}</td>
-                        <td className="py-3 px-4">
-                          <span className={`px-2 py-1 rounded text-xs ${
-                            item.status === 'approval'    ? 'bg-green-100 text-green-800' :
-                            item.status === 'application' ? 'bg-blue-100 text-blue-800'  :
-                            'bg-gray-100 text-gray-800'
+                        <td className="py-3.5 px-4 text-sm text-slate-700">{item.cardName}</td>
+                        <td className="py-3.5 px-4">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                            item.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
+                            item.status === 'application' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70' :
+                            'bg-slate-100 text-slate-600'
                           }`}>
                             {item.status}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-sm text-right font-medium">
-                          {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : '-'}
+                        <td className="py-3.5 px-4 text-sm text-right font-semibold text-slate-900">
+                          {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
                         </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">{item.deviceType || '-'}</td>
-                        <td className="py-3 px-4 text-sm text-gray-600">{item.state || '-'}</td>
+                        <td className="py-3.5 px-4 text-sm text-slate-500">{item.deviceType || '—'}</td>
+                        <td className="py-3.5 px-4 text-sm text-slate-500">{item.state || '—'}</td>
                       </tr>
                     ))}
                   </tbody>

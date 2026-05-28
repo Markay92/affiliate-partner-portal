@@ -124,30 +124,31 @@ export function Login({ onLogin }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <div className="flex justify-center mb-6">
-            <div className="bg-indigo-600 p-3 rounded-full">
-              <CreditCard className="w-8 h-8 text-white" />
-            </div>
+    <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4">
+      <div className="w-full max-w-sm">
+        {/* Logo mark above card */}
+        <div className="flex justify-center mb-8">
+          <div className="bg-indigo-500 p-3 rounded-2xl shadow-lg shadow-indigo-500/30">
+            <CreditCard className="w-7 h-7 text-white" />
           </div>
+        </div>
 
-          <h1 className="text-center mb-2">Affiliate Partner Portal</h1>
-          <p className="text-center text-gray-600 mb-8">
-            {isForgotPassword ? 'Reset your password' : (isSignup ? 'Create your account' : 'Sign in to access your dashboard')}
+        <div className="bg-white rounded-2xl shadow-2xl p-8 ring-1 ring-white/10">
+          <h1 className="text-center text-xl font-semibold text-slate-900 mb-1">Affiliate Partner Portal</h1>
+          <p className="text-center text-sm text-slate-500 mb-7">
+            {isForgotPassword ? 'Reset your password' : (isSignup ? 'Create your account' : 'Sign in to your dashboard')}
           </p>
 
           {error && (
-            <div className={`mb-4 p-3 rounded-lg ${error.includes('created') || error.includes('successful') ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+            <div className={`mb-5 p-3 rounded-xl text-sm ${error.includes('created') || error.includes('successful') ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200/60' : 'bg-red-50 text-red-700 ring-1 ring-red-200/60'}`}>
               {error}
             </div>
           )}
 
           {isForgotPassword ? (
-            <form onSubmit={handlePasswordReset} className="space-y-6">
+            <form onSubmit={handlePasswordReset} className="space-y-5">
               <div>
-                <label htmlFor="resetEmail" className="block mb-2 text-gray-700">
+                <label htmlFor="resetEmail" className="block text-sm font-medium text-slate-700 mb-1.5">
                   Email Address
                 </label>
                 <input
@@ -155,11 +156,11 @@ export function Login({ onLogin }: LoginProps) {
                   type="email"
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="Enter your email"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 text-sm"
+                  placeholder="you@example.com"
                   required
                 />
-                <p className="text-sm text-gray-600 mt-2">
+                <p className="text-xs text-slate-500 mt-1.5">
                   We'll send you a link to reset your password
                 </p>
               </div>
@@ -167,9 +168,9 @@ export function Login({ onLogin }: LoginProps) {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                className="w-full bg-indigo-600 text-white py-2.5 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm font-medium"
               >
-                {loading ? 'Sending...' : 'Send Reset Link'}
+                {loading ? 'Sending…' : 'Send Reset Link'}
               </button>
 
               <div className="text-center">
@@ -180,7 +181,7 @@ export function Login({ onLogin }: LoginProps) {
                     setError('');
                     setResetEmail('');
                   }}
-                  className="text-indigo-600 hover:text-indigo-700"
+                  className="text-sm text-indigo-600 hover:text-indigo-700"
                 >
                   Back to sign in
                 </button>
@@ -188,10 +189,10 @@ export function Login({ onLogin }: LoginProps) {
             </form>
           ) : (
             <>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-5">
             {isSignup && (
               <div>
-                <label htmlFor="name" className="block mb-2 text-gray-700">
+                <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1.5">
                   Full Name
                 </label>
                 <input
@@ -199,7 +200,7 @@ export function Login({ onLogin }: LoginProps) {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 text-sm"
                   placeholder="John Doe"
                   required
                 />
@@ -207,7 +208,7 @@ export function Login({ onLogin }: LoginProps) {
             )}
 
             <div>
-              <label htmlFor="email" className="block mb-2 text-gray-700">
+              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">
                 Email Address
               </label>
               <input
@@ -215,14 +216,14 @@ export function Login({ onLogin }: LoginProps) {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 text-sm"
                 placeholder="partner@example.com"
                 required
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block mb-2 text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5">
                 Password
               </label>
               <div className="relative">
@@ -231,29 +232,29 @@ export function Login({ onLogin }: LoginProps) {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent pr-12"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 pr-11 text-sm"
                   placeholder="Enter your password"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
             {!isSignup && (
-              <div className="flex justify-end">
+              <div className="flex justify-end -mt-1">
                 <button
                   type="button"
                   onClick={() => {
                     setIsForgotPassword(true);
                     setError('');
                   }}
-                  className="text-indigo-600 hover:text-indigo-700"
+                  className="text-xs text-indigo-600 hover:text-indigo-700"
                 >
                   Forgot password?
                 </button>
@@ -263,20 +264,20 @@ export function Login({ onLogin }: LoginProps) {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                className="w-full bg-indigo-600 text-white py-2.5 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm font-medium"
               >
-                {loading ? 'Please wait...' : (isSignup ? 'Create Account' : 'Sign In')}
+                {loading ? 'Please wait…' : (isSignup ? 'Create Account' : 'Sign In')}
               </button>
             </form>
 
-            <div className="mt-6 text-center">
+            <div className="mt-5 text-center">
               <button
                 onClick={() => {
                   setIsSignup(!isSignup);
                   setIsForgotPassword(false);
                   setError('');
                 }}
-                className="text-indigo-600 hover:text-indigo-700"
+                className="text-sm text-indigo-600 hover:text-indigo-700"
               >
                 {isSignup ? 'Already have an account? Sign in' : 'Need an account? Sign up'}
               </button>
