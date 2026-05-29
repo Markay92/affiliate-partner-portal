@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   CreditCard,
   TrendingUp,
@@ -11,7 +12,9 @@ import {
   RefreshCw,
   ChevronUp,
   ChevronDown,
-  ChevronsUpDown
+  ChevronsUpDown,
+  ArrowLeft,
+  ShieldCheck
 } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
@@ -245,6 +248,19 @@ function SortTh({
 // ── Dashboard component ───────────────────────────────────────────────────────
 
 export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) {
+  const navigate = useNavigate();
+
+  // Detect manager impersonation: imp_ token + manager session still in storage
+  const isImpersonating = accessToken?.startsWith('imp_') &&
+    !!sessionStorage.getItem('managerSessionToken');
+
+  const handleBackToAdmin = () => {
+    // Clear impersonated affiliate credentials, leave manager session intact
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('userEmail');
+    navigate('/manage/dashboard');
+  };
+
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [links, setLinks]       = useState<Link[]>([]);
   const [payouts, setPayouts]   = useState<Payout[]>([]);
@@ -504,6 +520,23 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           </div>
         </div>
       </header>
+
+      {/* Manager impersonation banner */}
+      {isImpersonating && (
+        <div className="bg-amber-500 px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-amber-950 text-sm font-medium">
+            <ShieldCheck className="w-4 h-4 flex-shrink-0" />
+            <span>Viewing as <strong>{userEmail}</strong> — Manager mode</span>
+          </div>
+          <button
+            onClick={handleBackToAdmin}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-950/10 hover:bg-amber-950/20 text-amber-950 rounded-lg text-xs font-semibold transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Back to Admin Dashboard
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 border-b border-red-100 px-4 sm:px-6 lg:px-8 py-3 text-red-700 text-sm max-w-7xl mx-auto">
