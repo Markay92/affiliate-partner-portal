@@ -64,6 +64,36 @@ async function fetchCards() {
   }
 }
 
+/**
+ * Build a correctly-formatted affiliate tracking URL.
+ *
+ * cardbenefit.com requires the `ref=` query parameter.
+ * Some legacy slugs/links stored in Airtable or the CardBenefit API
+ * contain `uv=` instead (an older/incorrect parameter name).
+ * This helper normalises every URL: removes `uv=` and sets `ref=<affiliateId>`.
+ */
+function buildAffiliateUrl(rawLink: string | undefined, affiliateId: string, cardName?: string): string {
+  const fallback = `https://apply.cards/${(cardName || 'card').toLowerCase().replace(/\s+/g, '-')}?ref=${affiliateId}`;
+  if (!rawLink) return fallback;
+
+  try {
+    // Ensure it's an absolute URL so the URL constructor works
+    const absolute = rawLink.startsWith('http')
+      ? rawLink
+      : `https://www.cardbenefit.com/${rawLink.replace(/^\//, '')}`;
+
+    const u = new URL(absolute);
+    u.searchParams.delete('uv');             // remove wrong param
+    u.searchParams.set('ref', affiliateId);  // set correct param
+    return u.toString();
+  } catch {
+    // URL constructor failed (malformed) — fall back to string surgery
+    const stripped = rawLink.replace(/([?&])uv=[^&]*/g, '$1').replace(/[?&]$/, '');
+    const sep = stripped.includes('?') ? '&' : '?';
+    return `${stripped}${sep}ref=${affiliateId}`;
+  }
+}
+
 // Get user from access token or impersonation token
 async function getUserFromToken(accessToken, impersonationToken = null) {
   // Check if it's an impersonation token (either from header or from Authorization)
@@ -294,7 +324,7 @@ app.post("/make-server-8dc4138c/signup", async (c) => {
     const cardsArray = Array.isArray(cards) ? cards : [];
     const trackingLinks = cardsArray.slice(0, 10).map((item, index) => {
       const card = item.card;
-      const url = card.link ? card.link.replace(/ref=[^&]+/, `ref=${affiliateId}`) : `https://apply.cards/${card.name.toLowerCase().replace(/\s+/g, '-')}?ref=${affiliateId}`;
+      const url = buildAffiliateUrl(card.link, affiliateId, card.name);
       return {
         id: index + 1,
         name: card.name,
@@ -428,9 +458,10 @@ app.get("/make-server-8dc4138c/links", async (c) => {
       const bankCpa  = parseFloat(String(f['Net CPA 60%'] ?? '0').replace(/[^0-9.]/g, '')) || 0;
       const slug     = (f['slug'] ?? '').trim();
 
-      // Build tracking URL from slug; fall back to a slug derived from card name
+      // Build tracking URL from slug; fall back to a slug derived from card name.
+      // Use buildAffiliateUrl so any legacy uv= param in the slug gets replaced with ref=.
       const urlSlug  = slug || cardName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-      const url      = `https://www.cardbenefit.com/${urlSlug}/?ref=${affiliateId}`;
+      const url      = buildAffiliateUrl(urlSlug, affiliateId, cardName);
 
       const prev = clickMap[cardName] || { clicks: 0, conversions: 0 };
 
@@ -969,7 +1000,7 @@ app.post("/make-server-8dc4138c/manager/sync-airtable", async (c) => {
           const cardsArray = Array.isArray(cards) ? cards : [];
           const trackingLinks = cardsArray.slice(0, 10).map((item, index) => {
             const card = item.card;
-            const url = card.link ? card.link.replace(/ref=[^&]+/, `ref=${newAffiliateId}`) : `https://apply.cards/${card.name.toLowerCase().replace(/\s+/g, '-')}?ref=${newAffiliateId}`;
+            const url = buildAffiliateUrl(card.link, newAffiliateId, card.name);
             return {
               id: index + 1,
               name: card.name,
@@ -1728,7 +1759,7 @@ app.post("/make-server-8dc4138c/manager/login-as/:userId", async (c) => {
 
       links = cardsArray.slice(0, 10).map((item, index) => {
         const card = item.card;
-        const url = card.link ? card.link.replace(/ref=[^&]+/, `ref=${kvUserData.affiliateId}`) : `https://apply.cards/${card.name.toLowerCase().replace(/\s+/g, '-')}?ref=${kvUserData.affiliateId}`;
+        const url = buildAffiliateUrl(card.link, kvUserData.affiliateId, card.name);
         return {
           id: index + 1,
           name: card.name,
@@ -1897,7 +1928,7 @@ app.post("/make-server-8dc4138c/manager/user", async (c) => {
 
     const trackingLinks = cardsArray.slice(0, 10).map((item, index) => {
       const card = item.card;
-      const url = card.link ? card.link.replace(/ref=[^&]+/, `ref=${affiliateId}`) : `https://apply.cards/${card.name.toLowerCase().replace(/\s+/g, '-')}?ref=${affiliateId}`;
+      const url = buildAffiliateUrl(card.link, affiliateId, card.name);
       return {
         id: index + 1,
         name: card.name,
