@@ -14,7 +14,6 @@ import {
   ChevronDown,
   ChevronsUpDown,
   ArrowLeft,
-  ShieldCheck
 } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
@@ -521,27 +520,22 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         </div>
       </header>
 
-      {/* Manager impersonation banner */}
-      {isImpersonating && (
-        <div className="bg-amber-500 px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-amber-950 text-sm font-medium">
-            <ShieldCheck className="w-4 h-4 flex-shrink-0" />
-            <span>Viewing as <strong>{userEmail}</strong> — Manager mode</span>
-          </div>
-          <button
-            onClick={handleBackToAdmin}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-950/10 hover:bg-amber-950/20 text-amber-950 rounded-lg text-xs font-semibold transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Back to Admin Dashboard
-          </button>
-        </div>
-      )}
-
       {error && (
         <div className="bg-red-50 border-b border-red-100 px-4 sm:px-6 lg:px-8 py-3 text-red-700 text-sm max-w-7xl mx-auto">
           {error} — try refreshing the page or logging out and back in.
         </div>
+      )}
+
+      {/* Floating exit pill for manager impersonation */}
+      {isImpersonating && (
+        <button
+          onClick={handleBackToAdmin}
+          title="Exit back to Admin Dashboard"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-full shadow-lg hover:bg-slate-700 transition-all text-xs font-semibold"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Exit to Admin
+        </button>
       )}
 
       {/* Main Content */}
