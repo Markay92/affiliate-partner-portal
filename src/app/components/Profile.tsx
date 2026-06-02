@@ -15,7 +15,8 @@ export function Profile({ accessToken }: ProfileProps) {
 
   const [formData, setFormData] = useState({
     email: '',
-    name: '',
+    firstName: '',
+    lastName: '',
     phone: '',
     address: '',
     city: '',
@@ -57,15 +58,17 @@ export function Profile({ accessToken }: ProfileProps) {
       }
 
       setUserData(data.user);
+      const nameParts = (data.user.name || '').trim().split(/\s+/);
       setFormData({
-        email: data.user.email || '',
-        name: data.user.name || '',
-        phone: data.user.phone || '',
-        address: data.user.address || '',
-        city: data.user.city || '',
-        state: data.user.state || '',
-        zip: data.user.zip || '',
-        country: data.user.country || ''
+        email:     data.user.email   || '',
+        firstName: nameParts[0]      || '',
+        lastName:  nameParts.slice(1).join(' ') || '',
+        phone:     data.user.phone   || '',
+        address:   data.user.address || '',
+        city:      data.user.city    || '',
+        state:     data.user.state   || '',
+        zip:       data.user.zip     || '',
+        country:   data.user.country || '',
       });
     } catch (error) {
       // userData stays null → error UI shown
@@ -85,7 +88,10 @@ export function Profile({ accessToken }: ProfileProps) {
         {
           method: 'PUT',
           headers: buildHeaders(),
-          body: JSON.stringify(formData)
+          body: JSON.stringify({
+            ...formData,
+            name: `${formData.firstName} ${formData.lastName}`.trim(),
+          })
         }
       );
 
@@ -120,20 +126,23 @@ export function Profile({ accessToken }: ProfileProps) {
     }
   };
 
+  const inputCls = "w-full px-3.5 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 text-sm text-slate-900 bg-white";
+  const labelCls = "block text-sm font-medium text-slate-700 mb-1.5";
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <p className="text-gray-600">Loading profile...</p>
+      <div className="flex items-center justify-center py-16">
+        <p className="text-slate-500 text-sm">Loading profile…</p>
       </div>
     );
   }
 
   if (!userData) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center py-16">
         <div className="text-center">
-          <p className="text-red-600 mb-2">Failed to load profile data</p>
-          <p className="text-gray-600 text-sm">Check the browser console for error details</p>
+          <p className="text-red-600 text-sm mb-1">Failed to load profile data</p>
+          <p className="text-slate-500 text-xs">Check the browser console for details</p>
         </div>
       </div>
     );
@@ -143,187 +152,172 @@ export function Profile({ accessToken }: ProfileProps) {
     <div className="p-6">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
-          <User className="w-6 h-6 text-indigo-600" />
-          <h2 className="text-2xl">Affiliate Profile</h2>
+          <div className="p-2 bg-indigo-50 rounded-xl">
+            <User className="w-5 h-5 text-indigo-600" />
+          </div>
+          <h2 className="text-lg font-semibold text-slate-900">Affiliate Profile</h2>
         </div>
 
         {successMessage && (
-          <div className="mb-6 p-4 bg-green-50 text-green-800 rounded-lg">
+          <div className="mb-5 p-3.5 bg-emerald-50 text-emerald-800 rounded-xl text-sm ring-1 ring-emerald-200/60">
             {successMessage}
           </div>
         )}
 
-        {/* Affiliate ID Section */}
-        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 mb-6 border border-indigo-200">
-          <label className="block text-sm text-gray-700 mb-2">Your Affiliate ID</label>
+        {/* Affiliate ID */}
+        <div className="bg-gradient-to-r from-indigo-50 to-violet-50 rounded-2xl p-6 mb-5 ring-1 ring-indigo-200/60">
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Your Affiliate ID</label>
           <div className="flex items-center gap-3">
-            <code className="flex-1 text-2xl font-bold text-indigo-900">
+            <code className="flex-1 text-2xl font-bold text-indigo-900 tracking-tight">
               {userData?.affiliateId || 'N/A'}
             </code>
             <button
               onClick={copyAffiliateId}
-              className="p-3 bg-white hover:bg-gray-50 rounded-lg transition-colors border border-indigo-200"
+              className="p-2.5 bg-white hover:bg-slate-50 rounded-xl transition-colors ring-1 ring-indigo-200"
               title="Copy Affiliate ID"
             >
-              {copiedId ? (
-                <CheckCircle className="w-5 h-5 text-green-600" />
-              ) : (
-                <Copy className="w-5 h-5 text-indigo-600" />
-              )}
+              {copiedId
+                ? <CheckCircle className="w-5 h-5 text-emerald-600" />
+                : <Copy className="w-5 h-5 text-indigo-600" />}
             </button>
           </div>
-          <p className="text-sm text-gray-600 mt-2">
-            This ID is used in all your tracking links
-          </p>
+          <p className="text-xs text-slate-500 mt-2">This ID is embedded in all your tracking links</p>
         </div>
 
-        {/* Contact Information Form */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="mb-6">Contact Information</h3>
+        {/* Contact Form */}
+        <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-6">
+          <h3 className="text-base font-semibold text-slate-900 mb-5">Contact Information</h3>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Email */}
             <div>
-              <label htmlFor="email" className="block mb-2 text-gray-700">
-                Email Address *
-              </label>
+              <label htmlFor="email" className={labelCls}>Email Address *</label>
               <input
-                id="email"
-                type="email"
+                id="email" type="email" required
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                required
+                className={inputCls}
               />
-              <p className="text-sm text-gray-500 mt-1">
-                Changing your email will update your login credentials
-              </p>
+              <p className="text-xs text-slate-400 mt-1.5">Changing your email updates your login credentials</p>
             </div>
 
+            {/* First Name + Last Name */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="name" className="block mb-2 text-gray-700">
-                  Full Name *
-                </label>
+                <label htmlFor="firstName" className={labelCls}>First Name *</label>
                 <input
-                  id="name"
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  required
+                  id="firstName" type="text" required
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  className={inputCls}
+                  placeholder="John"
                 />
               </div>
-
               <div>
-                <label htmlFor="phone" className="block mb-2 text-gray-700">
-                  Phone Number
-                </label>
+                <label htmlFor="lastName" className={labelCls}>Last Name *</label>
                 <input
-                  id="phone"
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="+1 (555) 123-4567"
+                  id="lastName" type="text" required
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  className={inputCls}
+                  placeholder="Doe"
                 />
               </div>
             </div>
 
+            {/* Phone */}
             <div>
-              <label htmlFor="address" className="block mb-2 text-gray-700">
-                Street Address
-              </label>
+              <label htmlFor="phone" className={labelCls}>Phone Number</label>
               <input
-                id="address"
-                type="text"
+                id="phone" type="tel"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className={inputCls}
+                placeholder="+1 (555) 123-4567"
+              />
+            </div>
+
+            {/* Address */}
+            <div>
+              <label htmlFor="address" className={labelCls}>Street Address</label>
+              <input
+                id="address" type="text"
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className={inputCls}
                 placeholder="123 Main Street"
               />
             </div>
 
+            {/* City / State / ZIP */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label htmlFor="city" className="block mb-2 text-gray-700">
-                  City
-                </label>
+                <label htmlFor="city" className={labelCls}>City</label>
                 <input
-                  id="city"
-                  type="text"
+                  id="city" type="text"
                   value={formData.city}
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className={inputCls}
                 />
               </div>
-
               <div>
-                <label htmlFor="state" className="block mb-2 text-gray-700">
-                  State/Province
-                </label>
+                <label htmlFor="state" className={labelCls}>State / Province</label>
                 <input
-                  id="state"
-                  type="text"
+                  id="state" type="text"
                   value={formData.state}
                   onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className={inputCls}
                 />
               </div>
-
               <div>
-                <label htmlFor="zip" className="block mb-2 text-gray-700">
-                  ZIP/Postal Code
-                </label>
+                <label htmlFor="zip" className={labelCls}>ZIP / Postal Code</label>
                 <input
-                  id="zip"
-                  type="text"
+                  id="zip" type="text"
                   value={formData.zip}
                   onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className={inputCls}
                 />
               </div>
             </div>
 
+            {/* Country */}
             <div>
-              <label htmlFor="country" className="block mb-2 text-gray-700">
-                Country
-              </label>
+              <label htmlFor="country" className={labelCls}>Country</label>
               <input
-                id="country"
-                type="text"
+                id="country" type="text"
                 value={formData.country}
                 onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className={inputCls}
                 placeholder="United States"
               />
             </div>
 
-            <div className="pt-4">
+            <div className="pt-2">
               <button
                 type="submit"
                 disabled={saving}
-                className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm font-medium"
               >
                 <Save className="w-4 h-4" />
-                {saving ? 'Saving...' : 'Save Changes'}
+                {saving ? 'Saving…' : 'Save Changes'}
               </button>
             </div>
           </form>
         </div>
 
         {/* Account Details */}
-        <div className="mt-6 bg-gray-50 rounded-xl p-6 border border-gray-200">
-          <h3 className="mb-4">Account Details</h3>
+        <div className="mt-5 bg-slate-50 rounded-2xl p-5 ring-1 ring-slate-200/60">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">Account Details</h3>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-600">Member Since:</span>
-              <span className="font-medium">
+              <span className="text-slate-500">Member Since:</span>
+              <span className="font-medium text-slate-900">
                 {userData?.createdAt ? new Date(userData.createdAt).toLocaleDateString() : 'N/A'}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Last Updated:</span>
-              <span className="font-medium">
+              <span className="text-slate-500">Last Updated:</span>
+              <span className="font-medium text-slate-900">
                 {userData?.updatedAt ? new Date(userData.updatedAt).toLocaleDateString() : 'Never'}
               </span>
             </div>
