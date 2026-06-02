@@ -342,6 +342,13 @@ app.post("/make-server-8dc4138c/signup", async (c) => {
     await kv.set(`activity:${data.user.id}`, []);
     await kv.set(`payouts:${data.user.id}`, []);
 
+    // Sync new affiliate to Airtable and store the returned record ID
+    const newUserData = await kv.get(`user:${data.user.id}`);
+    const airtableRecordId = await syncToAirtable(null, newUserData, data.user.id);
+    if (airtableRecordId) {
+      console.log('Signup: created Airtable record', airtableRecordId);
+    }
+
     return c.json({ success: true, user: data.user });
   } catch (error) {
     console.log(`Signup error: ${error.message}`);
@@ -993,6 +1000,10 @@ app.put("/make-server-8dc4138c/user", async (c) => {
     };
 
     await kv.set(`user:${user.id}`, updatedUser);
+
+    // Sync updated profile to Airtable
+    await syncToAirtable(updatedUser.airtableRecordId, updatedUser, user.id);
+
     return c.json({ success: true, user: updatedUser });
   } catch (error) {
     console.log(`Update user error: ${error.message}`);
