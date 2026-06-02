@@ -777,6 +777,145 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
   }
 });
 
+// ── Affiliate Invoices ────────────────────────────────────────────────────────
+
+const INVOICES_BASE  = 'apphsOm1RQvOeiAEl';
+const INVOICES_TABLE = 'tblMKN6vPd8750asu';
+
+/** Extract the first value from an Airtable lookup/linked-record field. */
+function getLookupValue(fieldValue: any): string {
+  if (!fieldValue) return '';
+  if (typeof fieldValue === 'string') return fieldValue;
+  if (fieldValue.valuesByLinkedRecordId) {
+    const vals = Object.values(fieldValue.valuesByLinkedRecordId) as any[][];
+    return vals[0]?.[0] != null ? String(vals[0][0]) : '';
+  }
+  return String(fieldValue);
+}
+
+/** Normalise a raw Airtable Affiliate Invoices record into a clean shape. */
+function parseInvoice(record: any) {
+  const f = record.cellValuesByFieldId || record.fields || {};
+  return {
+    id:            record.id,
+    name:          f['fldpph5qUumSAsmXi'] || '',
+    month:         f['fldGRagNyYA6vALjQ']?.name  || f['fldGRagNyYA6vALjQ']  || '',
+    date:          f['fldrH2uVerdMI1uzE'] || '',
+    amount:        typeof f['fldveSxf590VvfmqQ'] === 'number' ? f['fldveSxf590VvfmqQ'] : 0,
+    approvals:     typeof f['fldDrYvhw37hQUB9P'] === 'number' ? f['fldDrYvhw37hQUB9P'] : 0,
+    totalEarnings: typeof f['fldWlaNrlSKYBjcc9']  === 'number' ? f['fldWlaNrlSKYBjcc9']  : 0,
+    status:        f['fldeTOEK0bjT2Ma4y']?.name  || f['fldeTOEK0bjT2Ma4y']  || '',
+    sent:          !!f['fldehPk4tasjkWuzp'],
+    sentZelle:     !!f['fldkQqKK5bjGlgWUL'],
+    email:         getLookupValue(f['fldr887GwDk8Q4oih']),
+    zelle:         getLookupValue(f['fldh7HculBfNbYHSp']),
+    notes:         f['fldddHfcW4Q11w6FO'] || '',
+  };
+}
+
+/** Fetch all records from the Affiliate Invoices Airtable table. */
+async function fetchAllInvoices(airtableToken: string): Promise<any[]> {
+  const fields = [
+    'fldpph5qUumSAsmXi','fldGRagNyYA6vALjQ','fldrH2uVerdMI1uzE',
+    'fldveSxf590VvfmqQ','fldDrYvhw37hQUB9P','fldWlaNrlSKYBjcc9',
+    'fldeTOEK0bjT2Ma4y','fldehPk4tasjkWuzp','fldkQqKK5bjGlgWUL',
+    'fldr887GwDk8Q4oih','fldh7HculBfNbYHSp','fldddHfcW4Q11w6FO',
+  ].map(id => `fields[]=${id}`).join('&');
+  const sort = 'sort[0][field]=fldrH2uVerdMI1uzE&sort[0][direction]=desc';
+  return fetchAllAirtableRecords(airtableToken, INVOICES_BASE, INVOICES_TABLE, `${fields}&${sort}`);
+}
+
+// GET /invoices — affiliate's own invoices
+app.get("/make-server-8dc4138c/invoices", async (c) => {
+  try {
+    const accessToken       = c.req.header('Authorization')?.split(' ')[1];
+    const impersonationToken = c.req.header('X-Impersonation-Token');
+    const { user, error }   = await getUserFromToken(accessToken, impersonationToken);
+    if (!user?.id) return c.json({ error: 'Unauthorized' }, 401);
+
+    const userData: any = await kv.get(`user:${user.id}`) || {};
+    const userEmail = (userData.email || '').toLowerCase().trim();
+
+    const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
+    if (!airtableToken) return c.json({ invoices: [], error: 'Airtable not configured' });
+
+    const records  = await fetchAllInvoices(airtableToken);
+    const invoices = records
+      .map(parseInvoice)
+      .filter(inv => inv.email.toLowerCase().trim() === userEmail);
+
+    return c.json({ invoices });
+  } catch (err: any) {
+    console.log('GET /invoices error:', err.message);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// GET /manager/invoices — all invoices (manager only)
+app.get("/make-server-8dc4138c/manager/invoices", async (c) => {
+  try {
+    const sessionToken = c.req.header('X-Manager-Session');
+    if (!sessionToken) return c.json({ error: 'Unauthorized' }, 401);
+    const session: any = await kv.get(`manager:session:${sessionToken}`);
+    if (!session?.managerId) return c.json({ error: 'Unauthorized' }, 401);
+
+    const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
+    if (!airtableToken) return c.json({ invoices: [], error: 'Airtable not configured' });
+
+    const records  = await fetchAllInvoices(airtableToken);
+    const invoices = records.map(parseInvoice);
+
+    return c.json({ invoices, total: invoices.length });
+  } catch (err: any) {
+    console.log('GET /manager/invoices error:', err.message);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// PUT /manager/invoices/:id — update an invoice (manager only)
+app.put("/make-server-8dc4138c/manager/invoices/:id", async (c) => {
+  try {
+    const sessionToken = c.req.header('X-Manager-Session');
+    if (!sessionToken) return c.json({ error: 'Unauthorized' }, 401);
+    const session: any = await kv.get(`manager:session:${sessionToken}`);
+    if (!session?.managerId) return c.json({ error: 'Unauthorized' }, 401);
+
+    const recordId = c.req.param('id');
+    const body: any = await c.req.json();
+
+    // Build Airtable fields update — only include fields that were sent
+    const fields: Record<string, any> = {};
+    if (body.status    !== undefined) fields['fldeTOEK0bjT2Ma4y'] = body.status || null;
+    if (body.sent      !== undefined) fields['fldehPk4tasjkWuzp'] = !!body.sent;
+    if (body.sentZelle !== undefined) fields['fldkQqKK5bjGlgWUL'] = !!body.sentZelle;
+    if (body.notes     !== undefined) fields['fldddHfcW4Q11w6FO'] = body.notes;
+
+    if (Object.keys(fields).length === 0) {
+      return c.json({ error: 'No updatable fields provided' }, 400);
+    }
+
+    const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
+    const url = `https://api.airtable.com/v0/${INVOICES_BASE}/${INVOICES_TABLE}/${recordId}`;
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${airtableToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      console.log('Airtable invoice update error:', res.status, err);
+      return c.json({ error: `Airtable error: ${res.status}` }, 500);
+    }
+
+    const updated = await res.json();
+    return c.json({ success: true, invoice: parseInvoice(updated) });
+  } catch (err: any) {
+    console.log('PUT /manager/invoices/:id error:', err.message);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 // Get user info
 app.get("/make-server-8dc4138c/user", async (c) => {
   try {

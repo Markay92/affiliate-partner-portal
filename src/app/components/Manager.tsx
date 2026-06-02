@@ -14,7 +14,10 @@ import {
   LogIn,
   ChevronUp,
   ChevronDown,
-  ChevronsUpDown
+  ChevronsUpDown,
+  FileText,
+  CheckCircle,
+  Send,
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -313,6 +316,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [cpaAffiliateFilter, setCpaAffiliateFilter] = useState('all');
   const [cpaSort,           setCpaSort]           = useState<SortState>({ field: 'card', dir: 'asc' });
   const [cpaAffiliateLabel, setCpaAffiliateLabel] = useState('');
+
+  // Invoices tab
+  const [invoices,              setInvoices]              = useState<any[]>([]);
+  const [invoicesLoading,       setInvoicesLoading]       = useState(false);
+  const [invoiceAffiliateFilter, setInvoiceAffiliateFilter] = useState('all');
+  const [invoiceStatusFilter,   setInvoiceStatusFilter]   = useState('all');
+  const [invoiceMonthFilter,    setInvoiceMonthFilter]    = useState('all');
+  const [invoiceSort,           setInvoiceSort]           = useState<SortState>({ field: 'date', dir: 'desc' });
+  const [updatingInvoice,       setUpdatingInvoice]       = useState<string | null>(null);
 
   // ── Derived display data ────────────────────────────────────────────────────
   const displayUsers = sortUsers(
@@ -681,12 +693,67 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     }
   };
 
+  const fetchInvoices = async () => {
+    setInvoicesLoading(true);
+    try {
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/invoices`,
+        {
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'X-Manager-Session': sessionToken,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+      const data = await res.json();
+      if (data.invoices) setInvoices(data.invoices);
+      else setMessageWithTimeout(data.error || 'Failed to fetch invoices', 8000);
+    } catch (err: any) {
+      setMessageWithTimeout(`Failed to fetch invoices: ${err.message}`, 8000);
+    } finally {
+      setInvoicesLoading(false);
+    }
+  };
+
+  const updateInvoice = async (recordId: string, patch: Record<string, any>) => {
+    setUpdatingInvoice(recordId);
+    try {
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/invoices/${recordId}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'X-Manager-Session': sessionToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(patch),
+        },
+      );
+      const data = await res.json();
+      if (data.success) {
+        setInvoices(prev => prev.map(inv => inv.id === recordId ? { ...inv, ...data.invoice } : inv));
+        setMessageWithTimeout('Invoice updated', 4000);
+      } else {
+        setMessageWithTimeout(data.error || 'Failed to update invoice', 8000);
+      }
+    } catch (err: any) {
+      setMessageWithTimeout(`Update failed: ${err.message}`, 8000);
+    } finally {
+      setUpdatingInvoice(null);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'tracking' && trackingActivity.length === 0) {
       fetchTrackingActivity();
     }
     if (activeTab === 'cpa-rates' && cpaRates.length === 0) {
       fetchCpaRates(cpaAffiliateFilter);
+    }
+    if (activeTab === 'invoices' && invoices.length === 0) {
+      fetchInvoices();
     }
   }, [activeTab]);
 
@@ -816,6 +883,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               className="px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-slate-800 transition-colors -mb-px"
             >
               CPA Rates
+            </Tabs.Trigger>
+            <Tabs.Trigger
+              value="invoices"
+              className="px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-slate-800 transition-colors -mb-px"
+            >
+              <span className="flex items-center gap-1.5">
+                Invoices
+                {invoices.length > 0 && <span className="bg-indigo-100 text-indigo-700 text-xs font-semibold px-1.5 py-0.5 rounded-full">{invoices.length}</span>}
+              </span>
             </Tabs.Trigger>
           </Tabs.List>
 
@@ -1234,6 +1310,170 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               )}
             </div>
           </Tabs.Content>
+          {/* ── Invoices Tab ── */}
+          <Tabs.Content value="invoices">
+            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
+              {/* Toolbar */}
+              <div className="p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Affiliate filter */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-slate-500">Affiliate:</span>
+                    <select
+                      value={invoiceAffiliateFilter}
+                      onChange={e => setInvoiceAffiliateFilter(e.target.value)}
+                      className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                    >
+                      <option value="all">All affiliates</option>
+                      {Array.from(new Set(invoices.map((inv: any) => inv.email).filter(Boolean))).sort().map((email: any) => (
+                        <option key={email} value={email}>{invoices.find((inv: any) => inv.email === email)?.name || email}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Month filter */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-slate-500">Month:</span>
+                    <select
+                      value={invoiceMonthFilter}
+                      onChange={e => setInvoiceMonthFilter(e.target.value)}
+                      className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                    >
+                      <option value="all">All months</option>
+                      {Array.from(new Set(invoices.map((inv: any) => inv.month).filter(Boolean))).map((m: any) => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Status filter */}
+                  {Array.from(new Set(invoices.map((inv: any) => inv.status).filter(Boolean))).length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-slate-500">Status:</span>
+                      <select
+                        value={invoiceStatusFilter}
+                        onChange={e => setInvoiceStatusFilter(e.target.value)}
+                        className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                      >
+                        <option value="all">All statuses</option>
+                        {Array.from(new Set(invoices.map((inv: any) => inv.status).filter(Boolean))).map((s: any) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={fetchInvoices}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${invoicesLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
+              </div>
+
+              {invoicesLoading ? (
+                <div className="text-center py-16">
+                  <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <RefreshCw className="w-5 h-5 animate-spin text-indigo-600" />
+                  </div>
+                  <p className="text-slate-500 text-sm">Loading invoices…</p>
+                </div>
+              ) : (() => {
+                const filtered = applySort(
+                  invoices.filter((inv: any) =>
+                    (invoiceAffiliateFilter === 'all' || inv.email === invoiceAffiliateFilter) &&
+                    (invoiceMonthFilter     === 'all' || inv.month === invoiceMonthFilter) &&
+                    (invoiceStatusFilter    === 'all' || inv.status === invoiceStatusFilter)
+                  ),
+                  invoiceSort,
+                );
+                if (filtered.length === 0) return (
+                  <div className="text-center py-16">
+                    <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <FileText className="w-7 h-7 text-slate-300" />
+                    </div>
+                    <p className="text-slate-500 text-sm">No invoices match the selected filters.</p>
+                  </div>
+                );
+                return (
+                  <div className="overflow-x-auto">
+                    <p className="text-xs text-slate-400 px-5 py-2">{filtered.length}{invoices.length !== filtered.length ? ` of ${invoices.length}` : ''} invoices</p>
+                    <table className="w-full">
+                      <thead className="bg-slate-50/80 border-b border-slate-100">
+                        <tr>
+                          <SortThSm label="Affiliate"  field="name"      sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} />
+                          <SortThSm label="Month"      field="month"     sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} />
+                          <SortThSm label="Amount"     field="amount"    sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} align="right" />
+                          <SortThSm label="Approvals"  field="approvals" sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} align="right" />
+                          <SortThSm label="Status"     field="status"    sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} />
+                          <th className="py-3 px-4 text-slate-500 text-xs font-semibold uppercase tracking-wider text-center">Sent</th>
+                          <th className="py-3 px-4 text-slate-500 text-xs font-semibold uppercase tracking-wider text-center">Zelle</th>
+                          <th className="py-3 px-4 text-slate-500 text-xs font-semibold uppercase tracking-wider">Contact</th>
+                          <th className="py-3 px-4 text-slate-500 text-xs font-semibold uppercase tracking-wider text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.map((inv: any) => {
+                          const busy = updatingInvoice === inv.id;
+                          return (
+                            <tr key={inv.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                              <td className="py-3.5 px-4">
+                                <div className="font-medium text-sm text-slate-900">{inv.name}</div>
+                                <div className="text-xs text-slate-400 mt-0.5">{inv.email}</div>
+                              </td>
+                              <td className="py-3.5 px-4 text-sm text-slate-700">{inv.month}</td>
+                              <td className="py-3.5 px-4 text-right font-semibold text-sm text-slate-900">
+                                {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}` : <span className="text-slate-300 font-normal">—</span>}
+                              </td>
+                              <td className="py-3.5 px-4 text-right text-sm text-slate-600">{inv.approvals}</td>
+                              <td className="py-3.5 px-4">
+                                {inv.status ? (
+                                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                                    inv.status.toLowerCase().includes('paid')
+                                      ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70'
+                                      : inv.status.toLowerCase().includes('pending')
+                                      ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/70'
+                                      : 'bg-slate-100 text-slate-600'
+                                  }`}>{inv.status}</span>
+                                ) : <span className="text-slate-300 text-xs">—</span>}
+                              </td>
+                              {/* Sent toggle */}
+                              <td className="py-3.5 px-4 text-center">
+                                <button
+                                  disabled={busy}
+                                  onClick={() => updateInvoice(inv.id, { sent: !inv.sent })}
+                                  title={inv.sent ? 'Mark unsent' : 'Mark sent'}
+                                  className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sent ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                </button>
+                              </td>
+                              {/* Sent Zelle toggle */}
+                              <td className="py-3.5 px-4 text-center">
+                                <button
+                                  disabled={busy}
+                                  onClick={() => updateInvoice(inv.id, { sentZelle: !inv.sentZelle })}
+                                  title={inv.sentZelle ? 'Unmark Zelle sent' : 'Mark Zelle sent'}
+                                  className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sentZelle ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+                                >
+                                  <Send className="w-4 h-4" />
+                                </button>
+                              </td>
+                              <td className="py-3.5 px-4 text-xs text-slate-500">{inv.zelle || '—'}</td>
+                              {/* Notes / status edit could go here */}
+                              <td className="py-3.5 px-4 text-right">
+                                {busy && <RefreshCw className="w-4 h-4 animate-spin text-indigo-400 ml-auto" />}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
+          </Tabs.Content>
+
         </Tabs.Root>
 
         {/* ── Modals ── */}

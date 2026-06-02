@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronsUpDown,
   ArrowLeft,
+  FileText,
 } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
@@ -44,6 +45,21 @@ interface Payout {
   card: string;
   issuer?: string;
   status: string;
+}
+
+interface Invoice {
+  id: string;
+  name: string;
+  month: string;
+  date: string;
+  amount: number;
+  approvals: number;
+  totalEarnings: number;
+  status: string;
+  sent: boolean;
+  sentZelle: boolean;
+  zelle: string;
+  notes: string;
 }
 
 interface TrackingItem {
@@ -264,6 +280,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [links, setLinks]       = useState<Link[]>([]);
   const [payouts, setPayouts]   = useState<Payout[]>([]);
   const [tracking, setTracking] = useState<TrackingItem[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState('');
 
@@ -348,10 +365,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     setError('');
     try {
       const headers = buildHeaders();
-      const [linksRes, payoutsRes, trackingRes] = await Promise.all([
+      const [linksRes, payoutsRes, trackingRes, invoicesRes] = await Promise.all([
         fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/links`,    { headers }),
         fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/payouts`,  { headers }),
         fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/tracking`, { headers }),
+        fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/invoices`, { headers }),
       ]);
 
       if (linksRes.status === 401) { onLogout(); return; }
@@ -361,13 +379,14 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         throw new Error(err.error || `Server error (${linksRes.status}) — try logging out and back in.`);
       }
 
-      const [linksData, payoutsData, trackingData] = await Promise.all([
-        linksRes.json(), payoutsRes.json(), trackingRes.json(),
+      const [linksData, payoutsData, trackingData, invoicesData] = await Promise.all([
+        linksRes.json(), payoutsRes.json(), trackingRes.json(), invoicesRes.json().catch(() => ({})),
       ]);
 
-      setLinks(linksData.links       || []);
+      setLinks(linksData.links         || []);
       setTracking(trackingData.tracking || []);
-      setPayouts(payoutsData.payouts   || []);
+      setPayouts(payoutsData.payouts    || []);
+      setInvoices(invoicesData.invoices || []);
 
       // Surface Airtable errors so they're visible rather than silently empty
       if (payoutsData.error) {
@@ -612,13 +631,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         {/* Tabs */}
         <Tabs.Root defaultValue="cards" className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-900/5">
           <Tabs.List className="flex border-b border-slate-100 overflow-x-auto px-2 pt-1">
-            {['cards', 'activity', 'profile'].map((tab) => (
+            {['cards', 'activity', 'invoices', 'profile'].map((tab) => (
               <Tabs.Trigger
                 key={tab}
                 value={tab}
                 className="px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-slate-800 transition-colors whitespace-nowrap capitalize -mb-px"
               >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {tab === 'invoices'
+                  ? <span className="flex items-center gap-1.5">Invoices{invoices.length > 0 && <span className="bg-indigo-100 text-indigo-700 text-xs font-semibold px-1.5 py-0.5 rounded-full">{invoices.length}</span>}</span>
+                  : tab.charAt(0).toUpperCase() + tab.slice(1)}
               </Tabs.Trigger>
             ))}
           </Tabs.List>
@@ -837,6 +858,67 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         </td>
                         <td className="py-3.5 px-4 text-sm text-slate-500">{item.deviceType || '—'}</td>
                         <td className="py-3.5 px-4 text-sm text-slate-500">{item.state || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Tabs.Content>
+
+          {/* ── Invoices Tab ── */}
+          <Tabs.Content value="invoices" className="p-6">
+            {invoices.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <FileText className="w-7 h-7 text-slate-300" />
+                </div>
+                <p className="text-slate-500 text-sm">No invoices found for your account.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="py-3 px-4 text-left text-slate-500 text-xs font-semibold uppercase tracking-wider">Month</th>
+                      <th className="py-3 px-4 text-right text-slate-500 text-xs font-semibold uppercase tracking-wider">Amount</th>
+                      <th className="py-3 px-4 text-right text-slate-500 text-xs font-semibold uppercase tracking-wider">Approvals</th>
+                      <th className="py-3 px-4 text-left text-slate-500 text-xs font-semibold uppercase tracking-wider">Status</th>
+                      <th className="py-3 px-4 text-left text-slate-500 text-xs font-semibold uppercase tracking-wider">Paid</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoices.map(inv => (
+                      <tr key={inv.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3.5 px-4">
+                          <div className="font-medium text-sm text-slate-900">{inv.month}</div>
+                          {inv.date && <div className="text-xs text-slate-400 mt-0.5">{formatDate(inv.date)}</div>}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-semibold text-sm text-slate-900">
+                          {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-slate-300 font-normal">—</span>}
+                        </td>
+                        <td className="py-3.5 px-4 text-right text-sm text-slate-600">{inv.approvals}</td>
+                        <td className="py-3.5 px-4">
+                          {inv.status ? (
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                              inv.status.toLowerCase().includes('paid')
+                                ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70'
+                                : inv.status.toLowerCase().includes('pending')
+                                ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/70'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}>{inv.status}</span>
+                          ) : <span className="text-slate-300 text-sm">—</span>}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {inv.sent || inv.sentZelle ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70">
+                              <CheckCircle className="w-3 h-3" />
+                              {inv.sentZelle ? 'Zelle sent' : 'Sent'}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-xs">Pending</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
