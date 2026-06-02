@@ -281,6 +281,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [payouts, setPayouts]   = useState<Payout[]>([]);
   const [tracking, setTracking] = useState<TrackingItem[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [firstName, setFirstName] = useState('');
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState('');
 
@@ -365,11 +366,12 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     setError('');
     try {
       const headers = buildHeaders();
-      const [linksRes, payoutsRes, trackingRes, invoicesRes] = await Promise.all([
+      const [linksRes, payoutsRes, trackingRes, invoicesRes, userRes] = await Promise.all([
         fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/links`,    { headers }),
         fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/payouts`,  { headers }),
         fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/tracking`, { headers }),
         fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/invoices`, { headers }),
+        fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/user`,     { headers }),
       ]);
 
       if (linksRes.status === 401) { onLogout(); return; }
@@ -379,14 +381,19 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         throw new Error(err.error || `Server error (${linksRes.status}) — try logging out and back in.`);
       }
 
-      const [linksData, payoutsData, trackingData, invoicesData] = await Promise.all([
-        linksRes.json(), payoutsRes.json(), trackingRes.json(), invoicesRes.json().catch(() => ({})),
+      const [linksData, payoutsData, trackingData, invoicesData, userData] = await Promise.all([
+        linksRes.json(), payoutsRes.json(), trackingRes.json(),
+        invoicesRes.json().catch(() => ({})),
+        userRes.json().catch(() => ({})),
       ]);
 
       setLinks(linksData.links         || []);
       setTracking(trackingData.tracking || []);
       setPayouts(payoutsData.payouts    || []);
       setInvoices(invoicesData.invoices || []);
+
+      const name = userData.user?.name || '';
+      setFirstName(name.split(' ')[0] || '');
 
       // Surface Airtable errors so they're visible rather than silently empty
       if (payoutsData.error) {
@@ -526,7 +533,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               >
                 <RefreshCw className="w-4 h-4 text-slate-400" />
               </button>
-              <span className="hidden sm:inline text-slate-400 text-sm">{userEmail}</span>
+              <span className="hidden sm:inline text-slate-400 text-sm">
+                {firstName ? `Hi, ${firstName}` : userEmail}
+              </span>
               <button
                 onClick={onLogout}
                 className="flex items-center gap-2 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors text-sm"
