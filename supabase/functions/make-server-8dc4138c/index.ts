@@ -199,30 +199,48 @@ async function syncToAirtable(airtableRecordId, userData, userId = null) {
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
 
-    const fields = {
-      'Email': userData.email,
-      'First Name': firstName,
-      'Last Name': lastName,
-      'Phone': userData.phone || '',
+    const fields: Record<string, any> = {
+      'Email':        userData.email,
+      'Name':         userData.name  || `${firstName} ${lastName}`.trim(),
+      'First Name':   firstName,
+      'Last Name':    lastName,
+      'Phone':        userData.phone || '',
       'Affiliate-ID': userData.affiliateId || '',
-      'Aff Cut': userData.commissionRate ? String(userData.commissionRate) : '50',
-      'Activity': true // Mark as active
+      // 'Aff Cut' is a number field — must send a number, not a string
+      'Aff Cut':      Number(userData.commissionRate) || 50,
+      'Activity':     true,
     };
+
+    // If no Airtable record ID yet, try to find existing record by email
+    // to avoid creating duplicates
+    if (!airtableRecordId && userData.email) {
+      const searchUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}?filterByFormula=${encodeURIComponent(`{Email}="${userData.email}"`)}`;
+      const searchRes = await fetch(searchUrl, {
+        headers: { 'Authorization': `Bearer ${airtableToken}` }
+      });
+      if (searchRes.ok) {
+        const searchData = await searchRes.json();
+        if (searchData.records?.length > 0) {
+          airtableRecordId = searchData.records[0].id;
+          console.log('Found existing Airtable record by email:', airtableRecordId);
+          // Persist the found ID back to KV
+          if (userId) {
+            const cur = await kv.get(`user:${userId}`);
+            if (cur) { cur.airtableRecordId = airtableRecordId; await kv.set(`user:${userId}`, cur); }
+          }
+        }
+      }
+    }
 
     if (airtableRecordId) {
       // Update existing record
-      console.log('Updating Airtable record:', airtableRecordId, fields);
-
+      console.log('Updating Airtable record:', airtableRecordId);
       const airtableUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${airtableRecordId}`;
       const response = await fetch(airtableUrl, {
         method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${airtableToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Authorization': `Bearer ${airtableToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ fields })
       });
-
       if (!response.ok) {
         const errorText = await response.text();
         console.log('Airtable update error:', response.status, errorText);
@@ -232,37 +250,29 @@ async function syncToAirtable(airtableRecordId, userData, userId = null) {
       return airtableRecordId;
     } else {
       // Create new record in Airtable
-      console.log('Creating new Airtable record:', fields);
-
+      console.log('Creating new Airtable record for:', userData.email);
       const airtableUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`;
       const response = await fetch(airtableUrl, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${airtableToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Authorization': `Bearer ${airtableToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ fields })
       });
-
       if (!response.ok) {
         const errorText = await response.text();
         console.log('Airtable create error:', response.status, errorText);
         return null;
-      } else {
-        const result = await response.json();
-        console.log('Successfully created Airtable record:', result.id);
-
-        // Update user data with the new Airtable record ID
-        if (userId) {
-          const currentUserData = await kv.get(`user:${userId}`);
-          if (currentUserData) {
-            currentUserData.airtableRecordId = result.id;
-            await kv.set(`user:${userId}`, currentUserData);
-          }
-        }
-
-        return result.id;
       }
+      const result = await response.json();
+      console.log('Successfully created Airtable record:', result.id);
+      // Persist the new record ID back to KV
+      if (userId) {
+        const currentUserData = await kv.get(`user:${userId}`);
+        if (currentUserData) {
+          currentUserData.airtableRecordId = result.id;
+          await kv.set(`user:${userId}`, currentUserData);
+        }
+      }
+      return result.id;
     }
   } catch (error) {
     console.log('Error syncing to Airtable:', error.message);
@@ -1047,23 +1057,23 @@ app.post("/make-server-8dc4138c/manager/sync-airtable", async (c) => {
       return c.json({ error: 'Airtable API key not configured' }, 500);
     }
 
-    // Fetch all records from Airtable
-    const airtableUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`;
-    const airtableResponse = await fetch(airtableUrl, {
-      headers: {
-        'Authorization': `Bearer ${airtableToken}`,
-        'Content-Type': 'application/json'
+    // Fetch ALL records from Airtable with pagination (100 per page)
+    const records: any[] = [];
+    let offset: string | null = null;
+    do {
+      const pageUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}?pageSize=100${offset ? `&offset=${offset}` : ''}`;
+      const airtableResponse = await fetch(pageUrl, {
+        headers: { 'Authorization': `Bearer ${airtableToken}`, 'Content-Type': 'application/json' }
+      });
+      if (!airtableResponse.ok) {
+        const errorText = await airtableResponse.text();
+        console.log('Airtable API error:', errorText);
+        return c.json({ error: `Airtable API error: ${airtableResponse.status}` }, 500);
       }
-    });
-
-    if (!airtableResponse.ok) {
-      const errorText = await airtableResponse.text();
-      console.log('Airtable API error:', errorText);
-      return c.json({ error: `Airtable API error: ${airtableResponse.status}` }, 500);
-    }
-
-    const airtableData = await airtableResponse.json();
-    const records = airtableData.records || [];
+      const page = await airtableResponse.json();
+      records.push(...(page.records || []));
+      offset = page.offset ?? null;
+    } while (offset);
     console.log(`Fetched ${records.length} records from Airtable`);
 
     if (records.length > 0) {
