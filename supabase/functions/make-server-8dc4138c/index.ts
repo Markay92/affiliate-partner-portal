@@ -864,8 +864,8 @@ app.get("/make-server-8dc4138c/manager/invoices", async (c) => {
   try {
     const sessionToken = c.req.header('X-Manager-Session');
     if (!sessionToken) return c.json({ error: 'Unauthorized' }, 401);
-    const session: any = await kv.get(`manager:session:${sessionToken}`);
-    if (!session?.managerId) return c.json({ error: 'Unauthorized' }, 401);
+    const session: any = await kv.get(`manager_session:${sessionToken}`);
+    if (!session) return c.json({ error: 'Unauthorized' }, 401);
 
     const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
     if (!airtableToken) return c.json({ invoices: [], error: 'Airtable not configured' });
@@ -885,8 +885,8 @@ app.put("/make-server-8dc4138c/manager/invoices/:id", async (c) => {
   try {
     const sessionToken = c.req.header('X-Manager-Session');
     if (!sessionToken) return c.json({ error: 'Unauthorized' }, 401);
-    const session: any = await kv.get(`manager:session:${sessionToken}`);
-    if (!session?.managerId) return c.json({ error: 'Unauthorized' }, 401);
+    const session: any = await kv.get(`manager_session:${sessionToken}`);
+    if (!session) return c.json({ error: 'Unauthorized' }, 401);
 
     const recordId = c.req.param('id');
     const body: any = await c.req.json();
