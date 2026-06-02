@@ -816,7 +816,7 @@ function parseInvoice(record: any) {
     sentZelle:     !!f['fldkQqKK5bjGlgWUL'],
     email:         getLookupValue(f['fldr887GwDk8Q4oih']),
     zelle:         getLookupValue(f['fldh7HculBfNbYHSp']),
-    notes:         f['fldddHfcW4Q11w6FO'] || '',
+    notes:         typeof f['fldddHfcW4Q11w6FO'] === 'string' ? f['fldddHfcW4Q11w6FO'] : '',
   };
 }
 
@@ -828,7 +828,8 @@ async function fetchAllInvoices(airtableToken: string): Promise<any[]> {
     'fldeTOEK0bjT2Ma4y','fldehPk4tasjkWuzp','fldkQqKK5bjGlgWUL',
     'fldr887GwDk8Q4oih','fldh7HculBfNbYHSp','fldddHfcW4Q11w6FO',
   ].map(id => `fields[]=${id}`).join('&');
-  const sort = 'sort[0][field]=fldrH2uVerdMI1uzE&sort[0][direction]=desc';
+  // Use percent-encoded brackets to match the pattern used elsewhere in this codebase
+  const sort = 'sort%5B0%5D%5Bfield%5D=fldrH2uVerdMI1uzE&sort%5B0%5D%5Bdirection%5D=desc';
   return fetchAllAirtableRecords(airtableToken, INVOICES_BASE, INVOICES_TABLE, `${fields}&${sort}`);
 }
 
