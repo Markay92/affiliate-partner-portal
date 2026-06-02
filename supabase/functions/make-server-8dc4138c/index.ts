@@ -822,15 +822,17 @@ function parseInvoice(record: any) {
 
 /** Fetch all records from the Affiliate Invoices Airtable table. */
 async function fetchAllInvoices(airtableToken: string): Promise<any[]> {
+  // Request specific fields by ID. returnFieldsByFieldId=true makes Airtable
+  // key the response record.fields by field ID instead of field name, which
+  // is required for parseInvoice to find values by ID.
   const fields = [
     'fldpph5qUumSAsmXi','fldGRagNyYA6vALjQ','fldrH2uVerdMI1uzE',
     'fldveSxf590VvfmqQ','fldDrYvhw37hQUB9P','fldWlaNrlSKYBjcc9',
     'fldeTOEK0bjT2Ma4y','fldehPk4tasjkWuzp','fldkQqKK5bjGlgWUL',
     'fldr887GwDk8Q4oih','fldh7HculBfNbYHSp','fldddHfcW4Q11w6FO',
   ].map(id => `fields[]=${id}`).join('&');
-  // Use percent-encoded brackets to match the pattern used elsewhere in this codebase
   const sort = 'sort%5B0%5D%5Bfield%5D=fldrH2uVerdMI1uzE&sort%5B0%5D%5Bdirection%5D=desc';
-  return fetchAllAirtableRecords(airtableToken, INVOICES_BASE, INVOICES_TABLE, `${fields}&${sort}`);
+  return fetchAllAirtableRecords(airtableToken, INVOICES_BASE, INVOICES_TABLE, `${fields}&${sort}&returnFieldsByFieldId=true`);
 }
 
 // GET /invoices — affiliate's own invoices
