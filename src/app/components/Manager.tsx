@@ -331,7 +331,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [mgTrackingSort,             setMgTrackingSort]             = useState<SortState>({ field: 'clickDate', dir: 'desc' });
   const [mgTrackingStatusFilter,     setMgTrackingStatusFilter]     = useState('all');
   const [mgTrackingAffiliateFilter,  setMgTrackingAffiliateFilter]  = useState('all');
-  const [trackingGroupBy,            setTrackingGroupBy]            = useState(false);
+  const [trackingGroupBy,            setTrackingGroupBy]            = useState<'none' | 'month' | 'affiliate'>('none');
   const [trackingCollapsed,          setTrackingCollapsed]          = useState<Set<string>>(new Set());
 
   // CPA Rates tab
@@ -1194,23 +1194,33 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {/* Group by Month/Year */}
-                    <button
-                      onClick={() => { setTrackingGroupBy(g => !g); setTrackingCollapsed(new Set()); }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
-                        trackingGroupBy
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                          : 'text-slate-600 bg-white border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
-                      }`}
-                    >
-                      <Layers className="w-3.5 h-3.5" />
-                      Group by Month
-                    </button>
-                    {trackingGroupBy && displayTrackingActivity.length > 0 && (() => {
-                      const allKeys = Array.from(new Set(displayTrackingActivity.map((a: any) => {
-                        const d = parseLocalDate(a.clickDate);
-                        return isNaN(d.getTime()) ? 'Unknown' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-                      })));
+                    {/* Group by segmented control */}
+                    <div className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl p-1 text-xs font-medium">
+                      {([
+                        { value: 'none',      label: 'No Group' },
+                        { value: 'month',     label: 'Month' },
+                        { value: 'affiliate', label: 'Affiliate' },
+                      ] as { value: 'none'|'month'|'affiliate'; label: string }[]).map(({ value, label }) => (
+                        <button
+                          key={value}
+                          onClick={() => { setTrackingGroupBy(value); setTrackingCollapsed(new Set()); }}
+                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all ${
+                            trackingGroupBy === value
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          {value !== 'none' && <Layers className="w-3 h-3" />}
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {trackingGroupBy !== 'none' && displayTrackingActivity.length > 0 && (() => {
+                      const allKeys = Array.from(new Set(displayTrackingActivity.map((a: any) =>
+                        trackingGroupBy === 'month'
+                          ? (() => { const d = parseLocalDate(a.clickDate); return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })()
+                          : (a.affiliateId || 'unknown')
+                      )));
                       const allCollapsed = allKeys.every(k => trackingCollapsed.has(k));
                       return (
                         <button onClick={() => setTrackingCollapsed(allCollapsed ? new Set() : new Set(allKeys))}
@@ -1299,36 +1309,80 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </tr>
                   </thead>
                   <tbody>
-                    {trackingGroupBy ? (
+                    {trackingGroupBy !== 'none' ? (
                       (() => {
-                        // Build month/year groups sorted newest first
-                        const getKey = (a: any) => {
-                          const d = parseLocalDate(a.clickDate);
-                          return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+                        // Shared row renderer
+                        const TrackRow = ({ activity }: { activity: any }) => (
+                          <tr key={activity.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                            <td className="py-3.5 px-4 text-sm">
+                              <div className="font-medium text-slate-900">{formatDate(activity.clickDate)}</div>
+                              <div className="text-xs text-slate-400 mt-0.5">{formatTime(activity.clickTime)}</div>
+                            </td>
+                            <td className="py-3.5 px-4 text-sm">
+                              <div className="font-medium text-slate-900">{activity.memberName}</div>
+                              <div className="text-xs text-slate-400 mt-0.5">{activity.affiliateId}</div>
+                            </td>
+                            <td className="py-3.5 px-4 text-sm text-slate-700">{activity.cardName}</td>
+                            <td className="py-3.5 px-4">
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                                activity.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
+                                activity.status === 'application' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70' :
+                                'bg-slate-100 text-slate-600'
+                              }`}>{activity.status}</span>
+                            </td>
+                            <td className="py-3.5 px-4 text-sm text-right font-semibold text-slate-900">
+                              {activity.totalEarnings > 0 ? `$${activity.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
+                            </td>
+                            <td className="py-3.5 px-4 text-sm text-slate-500">{activity.deviceType || '—'}</td>
+                            <td className="py-3.5 px-4 text-sm text-slate-500">{activity.state || '—'}</td>
+                          </tr>
+                        );
+
+                        // Build groups based on mode
+                        const getKey = (a: any) => trackingGroupBy === 'month'
+                          ? (() => { const d = parseLocalDate(a.clickDate); return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })()
+                          : (a.affiliateId || 'unknown');
+
+                        const getLabel = (key: string) => {
+                          if (trackingGroupBy === 'month') {
+                            if (key === '0000-00') return 'Unknown Date';
+                            const [y, m] = key.split('-');
+                            return new Date(parseInt(y), parseInt(m)-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                          }
+                          // affiliate — find name from first matching record
+                          const sample = displayTrackingActivity.find((a: any) => (a.affiliateId || 'unknown') === key);
+                          return sample?.memberName || key;
                         };
-                        const formatKey = (key: string) => {
-                          if (key === '0000-00') return 'Unknown';
-                          const [y, m] = key.split('-');
-                          return new Date(parseInt(y), parseInt(m)-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                        };
+
+                        const getSublabel = (key: string) =>
+                          trackingGroupBy === 'affiliate' ? key : undefined;
+
                         const groups: Record<string, any[]> = {};
                         displayTrackingActivity.forEach((a: any) => {
                           const k = getKey(a);
                           if (!groups[k]) groups[k] = [];
                           groups[k].push(a);
                         });
-                        return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a)).map(([key, rows]) => {
+
+                        // Sort: month → newest first; affiliate → alphabetical by name
+                        const sortedEntries = Object.entries(groups).sort(([ka], [kb]) =>
+                          trackingGroupBy === 'month'
+                            ? kb.localeCompare(ka)
+                            : (getLabel(ka) || '').localeCompare(getLabel(kb) || '')
+                        );
+
+                        return sortedEntries.map(([key, rows]) => {
                           const isCollapsed = trackingCollapsed.has(key);
                           const toggle = () => setTrackingCollapsed(prev => {
                             const next = new Set(prev);
                             next.has(key) ? next.delete(key) : next.add(key);
                             return next;
                           });
-                          // Summary stats for the group header
-                          const grpClicks   = rows.reduce((s: number, r: any) => s + (r.clicks || 0), 0);
-                          const grpApps     = rows.reduce((s: number, r: any) => s + (r.applications || 0), 0);
-                          const grpApprovals= rows.reduce((s: number, r: any) => s + (r.approvals || 0), 0);
-                          const grpEarnings = rows.reduce((s: number, r: any) => s + (r.totalEarnings || 0), 0);
+                          const grpClicks    = rows.reduce((s: number, r: any) => s + (r.clicks || 0), 0);
+                          const grpApps      = rows.reduce((s: number, r: any) => s + (r.applications || 0), 0);
+                          const grpApprovals = rows.reduce((s: number, r: any) => s + (r.approvals || 0), 0);
+                          const grpEarnings  = rows.reduce((s: number, r: any) => s + (r.totalEarnings || 0), 0);
+                          const sublabel     = getSublabel(key);
                           return (
                             <React.Fragment key={key}>
                               <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors select-none">
@@ -1336,43 +1390,20 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                   <div className="flex items-center gap-3 flex-wrap">
                                     <div className="flex items-center gap-2">
                                       <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
-                                      <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{formatKey(key)}</span>
+                                      <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{getLabel(key)}</span>
+                                      {sublabel && <span className="text-xs text-slate-400 font-mono normal-case">{sublabel}</span>}
                                       <span className="text-xs font-normal text-slate-400">({rows.length} records)</span>
                                     </div>
                                     <div className="flex items-center gap-3 ml-2 text-xs text-slate-500">
-                                      {grpClicks > 0    && <span>{grpClicks.toLocaleString()} clicks</span>}
-                                      {grpApps > 0      && <span>{grpApps} apps</span>}
+                                      {grpClicks    > 0 && <span>{grpClicks.toLocaleString()} clicks</span>}
+                                      {grpApps      > 0 && <span>{grpApps} apps</span>}
                                       {grpApprovals > 0 && <span>{grpApprovals} approvals</span>}
-                                      {grpEarnings > 0  && <span className="font-medium text-emerald-600">${grpEarnings.toFixed(2)}</span>}
+                                      {grpEarnings  > 0 && <span className="font-medium text-emerald-600">${grpEarnings.toFixed(2)}</span>}
                                     </div>
                                   </div>
                                 </td>
                               </tr>
-                              {!isCollapsed && rows.map((activity: any) => (
-                                <tr key={activity.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
-                                  <td className="py-3.5 px-4 text-sm">
-                                    <div className="font-medium text-slate-900">{formatDate(activity.clickDate)}</div>
-                                    <div className="text-xs text-slate-400 mt-0.5">{formatTime(activity.clickTime)}</div>
-                                  </td>
-                                  <td className="py-3.5 px-4 text-sm">
-                                    <div className="font-medium text-slate-900">{activity.memberName}</div>
-                                    <div className="text-xs text-slate-400 mt-0.5">{activity.affiliateId}</div>
-                                  </td>
-                                  <td className="py-3.5 px-4 text-sm text-slate-700">{activity.cardName}</td>
-                                  <td className="py-3.5 px-4">
-                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                                      activity.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
-                                      activity.status === 'application' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70' :
-                                      'bg-slate-100 text-slate-600'
-                                    }`}>{activity.status}</span>
-                                  </td>
-                                  <td className="py-3.5 px-4 text-sm text-right font-semibold text-slate-900">
-                                    {activity.totalEarnings > 0 ? `$${activity.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
-                                  </td>
-                                  <td className="py-3.5 px-4 text-sm text-slate-500">{activity.deviceType || '—'}</td>
-                                  <td className="py-3.5 px-4 text-sm text-slate-500">{activity.state || '—'}</td>
-                                </tr>
-                              ))}
+                              {!isCollapsed && rows.map((activity: any) => <TrackRow key={activity.id} activity={activity} />)}
                             </React.Fragment>
                           );
                         });
