@@ -438,22 +438,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
   useEffect(() => { fetchData(); }, []);
 
-  // Prefer Airtable tracking data (real-time from API Output table) for stats.
-  // Fall back to KV-derived values for users who haven't synced yet.
-  const totalClicks       = tracking.length > 0
-    ? tracking.reduce((s, t) => s + (t.clicks || 0), 0)
-    : links.reduce((s, l) => s + l.clicks, 0);
-  const totalConversions  = tracking.length > 0
-    ? tracking.reduce((s, t) => s + (t.approvals || 0), 0)
-    : links.reduce((s, l) => s + l.conversions, 0);
-  const totalApplications = tracking.reduce((s, t) => s + (t.applications || 0), 0);
-  const totalCommissions  = tracking.reduce((s, t) => s + (t.totalEarnings || 0), 0);
-  const totalPayouts      = payouts.reduce((s, p) => s + p.amount, 0);
-  const avgEPC            = totalClicks > 0 ? totalCommissions / totalClicks : 0;
-
-  // ── Period-over-period stats from tracking records ────────────────────────
+  // ── Period helpers ────────────────────────────────────────────────────────
   const _now = new Date();
-  const _today = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate()); // midnight local
+  const _today = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate());
 
   const _getDayOffset = (d: Date): number =>
     Math.floor((_today.getTime() - d.getTime()) / 86_400_000);
@@ -464,20 +451,21 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     return offset >= endDaysAgo && offset < startDaysAgo;
   };
 
-  let _thisT: TrackingItem[], _lastT: TrackingItem[], _periodLabel: string;
-
   const _inMonth = (dateStr: string, m: number, y: number) => {
     if (!dateStr) return false;
     const d = parseLocalDate(dateStr);
     return d.getMonth() === m && d.getFullYear() === y;
   };
 
+  // _thisT = records in the selected period (drives both the card numbers AND the % badge)
+  // _lastT = records in the prior period (drives the % badge comparison)
+  let _thisT: TrackingItem[], _lastT: TrackingItem[], _periodLabel: string;
+
   if (statPeriod === 'yesterday') {
-    _thisT = tracking.filter(t => _inRange(t.clickDate, 2, 1)); // yesterday
-    _lastT = tracking.filter(t => _inRange(t.clickDate, 3, 2)); // day before
+    _thisT = tracking.filter(t => _inRange(t.clickDate, 2, 1));
+    _lastT = tracking.filter(t => _inRange(t.clickDate, 3, 2));
     _periodLabel = 'vs day before';
   } else if (statPeriod === 'mtd') {
-    // MTD = 1st of current month to today; compare vs same # of days in prior month
     const dayOfMonth = _now.getDate();
     const _thisM = _now.getMonth(), _thisY = _now.getFullYear();
     const _lastM = _thisM === 0 ? 11 : _thisM - 1;
@@ -514,6 +502,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     _lastT = tracking.filter(t => _inRange(t.clickDate, days * 2, days));
     _periodLabel = `vs prior ${days} days`;
   }
+
+  // ── Stat card numbers — computed from the selected period (_thisT) ─────────
+  // This means clicking "Month" shows this month's totals, "7D" shows last 7 days, etc.
+  const totalClicks       = _thisT.reduce((s, t) => s + (t.clicks       || 0), 0);
+  const totalConversions  = _thisT.reduce((s, t) => s + (t.approvals    || 0), 0);
+  const totalApplications = _thisT.reduce((s, t) => s + (t.applications || 0), 0);
+  const totalCommissions  = _thisT.reduce((s, t) => s + (t.totalEarnings|| 0), 0);
+  const totalPayouts      = payouts.reduce((s, p) => s + p.amount, 0);
+  const avgEPC            = totalClicks > 0 ? totalCommissions / totalClicks : 0;
 
   const _calcPct = (cur: number, prev: number): number | null =>
     prev === 0 ? (cur > 0 ? 100 : null) : Math.round(((cur - prev) / prev) * 100);
@@ -637,7 +634,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         {/* Stats header: period picker */}
         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <p className="text-xs text-slate-400">
-            Comparing <span className="font-medium text-slate-500">{STAT_PERIOD_LABELS[statPeriod].toLowerCase()}</span>
+            Showing <span className="font-medium text-slate-500">{STAT_PERIOD_LABELS[statPeriod].split(' vs ')[0]}</span>
+            {' '}· comparing <span className="font-medium text-slate-500">{_periodLabel}</span>
           </p>
           <div className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl p-1 text-xs font-medium shadow-sm">
             {([
