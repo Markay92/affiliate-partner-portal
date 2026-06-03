@@ -20,6 +20,7 @@ import {
   Send,
   Search,
   Layers,
+  Activity,
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -388,15 +389,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   // fall back to KV-cached user.stats for the period before the first tracking fetch completes.
   const totalStats = trackingActivity.length > 0
     ? trackingActivity.reduce((acc: any, row: any) => ({
-        clicks:      acc.clicks      + (row.clicks      || 0),
-        conversions: acc.conversions + ((row.applications || 0) + (row.approvals || 0)),
-        commissions: acc.commissions + (row.totalEarnings || 0),
-      }), { clicks: 0, conversions: 0, commissions: 0 })
+        clicks:       acc.clicks       + (row.clicks       || 0),
+        applications: acc.applications + (row.applications || 0),
+        conversions:  acc.conversions  + (row.approvals    || 0),
+        commissions:  acc.commissions  + (row.totalEarnings || 0),
+      }), { clicks: 0, applications: 0, conversions: 0, commissions: 0 })
     : users.reduce((acc: any, user: any) => ({
-        clicks:      acc.clicks      + (user.stats?.totalClicks      || 0),
-        conversions: acc.conversions + (user.stats?.totalConversions  || 0),
-        commissions: acc.commissions + (user.stats?.totalCommissions  || 0),
-      }), { clicks: 0, conversions: 0, commissions: 0 });
+        clicks:       acc.clicks       + (user.stats?.totalClicks      || 0),
+        applications: acc.applications + 0, // not in KV cache
+        conversions:  acc.conversions  + (user.stats?.totalConversions  || 0),
+        commissions:  acc.commissions  + (user.stats?.totalCommissions  || 0),
+      }), { clicks: 0, applications: 0, conversions: 0, commissions: 0 });
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -987,49 +990,73 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           {/* ── Affiliates Tab ── */}
           <Tabs.Content value="affiliates">
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+              <div className="bg-white rounded-2xl p-5 shadow-sm ring-1 ring-slate-900/5">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-slate-500">
-                    {affiliatesFilter !== 'all' ? 'Filtered Affiliates' : 'Total Affiliates'}
+                  <span className="text-xs font-medium text-slate-500">
+                    {affiliatesFilter !== 'all' ? 'Filtered' : 'Affiliates'}
                   </span>
-                  <div className="p-2 bg-indigo-50 rounded-xl">
-                    <Users className="w-4 h-4 text-indigo-600" />
+                  <div className="p-1.5 bg-indigo-50 rounded-xl">
+                    <Users className="w-3.5 h-3.5 text-indigo-600" />
                   </div>
                 </div>
-                <div className="text-3xl font-bold text-slate-900">
+                <div className="text-2xl font-bold text-slate-900">
                   {displayUsers.length}
                   {affiliatesFilter !== 'all' && (
-                    <span className="text-base font-normal text-slate-400 ml-1">/ {users.length}</span>
+                    <span className="text-sm font-normal text-slate-400 ml-1">/ {users.length}</span>
                   )}
                 </div>
               </div>
-              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
+              <div className="bg-white rounded-2xl p-5 shadow-sm ring-1 ring-slate-900/5">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-slate-500">Total Clicks</span>
-                  <div className="p-2 bg-blue-50 rounded-xl">
-                    <TrendingUp className="w-4 h-4 text-blue-600" />
+                  <span className="text-xs font-medium text-slate-500">Clicks</span>
+                  <div className="p-1.5 bg-blue-50 rounded-xl">
+                    <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
                   </div>
                 </div>
-                <div className="text-3xl font-bold text-slate-900">{totalStats.clicks.toLocaleString()}</div>
+                <div className="text-2xl font-bold text-slate-900">{totalStats.clicks.toLocaleString()}</div>
               </div>
-              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
+              <div className="bg-white rounded-2xl p-5 shadow-sm ring-1 ring-slate-900/5">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-slate-500">Total Conversions</span>
-                  <div className="p-2 bg-emerald-50 rounded-xl">
-                    <TrendingUp className="w-4 h-4 text-emerald-600" />
+                  <span className="text-xs font-medium text-slate-500">Applications</span>
+                  <div className="p-1.5 bg-orange-50 rounded-xl">
+                    <Activity className="w-3.5 h-3.5 text-orange-500" />
                   </div>
                 </div>
-                <div className="text-3xl font-bold text-slate-900">{totalStats.conversions}</div>
+                <div className="text-2xl font-bold text-slate-900">{totalStats.applications.toLocaleString()}</div>
+                {totalStats.clicks > 0 && totalStats.applications > 0 && (
+                  <div className="text-xs text-slate-400 mt-1">
+                    {((totalStats.applications / totalStats.clicks) * 100).toFixed(1)}% click→app
+                  </div>
+                )}
               </div>
-              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
+              <div className="bg-white rounded-2xl p-5 shadow-sm ring-1 ring-slate-900/5">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-slate-500">Total Commissions</span>
-                  <div className="p-2 bg-violet-50 rounded-xl">
-                    <DollarSign className="w-4 h-4 text-violet-600" />
+                  <span className="text-xs font-medium text-slate-500">Approvals</span>
+                  <div className="p-1.5 bg-emerald-50 rounded-xl">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
                   </div>
                 </div>
-                <div className="text-3xl font-bold text-slate-900">${totalStats.commissions.toLocaleString()}</div>
+                <div className="text-2xl font-bold text-slate-900">{totalStats.conversions.toLocaleString()}</div>
+                {totalStats.clicks > 0 && totalStats.conversions > 0 && (
+                  <div className="text-xs text-slate-400 mt-1">
+                    {((totalStats.conversions / totalStats.clicks) * 100).toFixed(1)}% conv.
+                  </div>
+                )}
+              </div>
+              <div className="bg-white rounded-2xl p-5 shadow-sm ring-1 ring-slate-900/5 col-span-2">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-medium text-slate-500">Total Commissions</span>
+                  <div className="p-1.5 bg-violet-50 rounded-xl">
+                    <DollarSign className="w-3.5 h-3.5 text-violet-600" />
+                  </div>
+                </div>
+                <div className="text-2xl font-bold text-slate-900">${totalStats.commissions.toLocaleString()}</div>
+                {totalStats.clicks > 0 && totalStats.commissions > 0 && (
+                  <div className="text-xs text-slate-400 mt-1">
+                    EPC: ${(totalStats.commissions / totalStats.clicks).toFixed(2)}
+                  </div>
+                )}
               </div>
             </div>
 
