@@ -1368,7 +1368,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         const sortedEntries = Object.entries(groups).sort(([ka], [kb]) =>
                           trackingGroupBy === 'month'
                             ? kb.localeCompare(ka)
-                            : (getLabel(ka) || '').localeCompare(getLabel(kb) || '')
+                            : String(getLabel(ka) || '').localeCompare(String(getLabel(kb) || ''))
                         );
 
                         return sortedEntries.map(([key, rows]) => {
