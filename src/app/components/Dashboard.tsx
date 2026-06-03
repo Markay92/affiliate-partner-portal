@@ -296,7 +296,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     navigate('/manage/dashboard');
   };
 
-  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [copiedId, setCopiedId] = useState<number | null>(null); // kept for masterLink copy (-1)
   const [links, setLinks]       = useState<Link[]>([]);
   const [payouts, setPayouts]   = useState<Payout[]>([]);
   const [tracking, setTracking] = useState<TrackingItem[]>([]);
@@ -744,117 +744,99 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
           {/* ── Cards Tab ── */}
           <Tabs.Content value="cards" className="p-6">
-            {/* Master affiliate link banner */}
-            {masterLink && (
-              <div className="mb-6 p-4 bg-indigo-50 rounded-2xl ring-1 ring-indigo-200/60">
-                <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wider mb-2.5">Your Affiliate Link</p>
+
+            {/* ── Master affiliate link ── */}
+            {masterLink ? (
+              <div className="mb-6 p-5 bg-indigo-50 rounded-2xl ring-1 ring-indigo-200/60">
+                <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wider mb-3">Your Affiliate Link</p>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 text-xs text-indigo-900 bg-white px-3 py-2.5 rounded-xl ring-1 ring-indigo-200 truncate font-mono">
+                  <code className="flex-1 text-sm text-indigo-900 bg-white px-4 py-3 rounded-xl ring-1 ring-indigo-200 truncate font-mono">
                     {masterLink}
                   </code>
                   <button
                     onClick={() => copyToClipboard(masterLink, -1)}
-                    className="flex-shrink-0 p-2.5 bg-white ring-1 ring-indigo-200 rounded-xl hover:bg-indigo-50 transition-colors"
-                    title="Copy affiliate link"
+                    className="flex-shrink-0 p-3 bg-white ring-1 ring-indigo-200 rounded-xl hover:bg-indigo-50 transition-colors"
+                    title="Copy link"
                   >
                     {copiedId === -1
-                      ? <CheckCircle className="w-4 h-4 text-emerald-600" />
-                      : <Copy className="w-4 h-4 text-indigo-600" />}
+                      ? <CheckCircle className="w-5 h-5 text-emerald-600" />
+                      : <Copy className="w-5 h-5 text-indigo-600" />}
                   </button>
-                  <a
-                    href={masterLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-shrink-0 p-2.5 bg-white ring-1 ring-indigo-200 rounded-xl hover:bg-indigo-50 transition-colors"
-                    title="Open link"
-                  >
-                    <ExternalLink className="w-4 h-4 text-indigo-600" />
+                  <a href={masterLink} target="_blank" rel="noopener noreferrer"
+                    className="flex-shrink-0 p-3 bg-white ring-1 ring-indigo-200 rounded-xl hover:bg-indigo-50 transition-colors"
+                    title="Open link">
+                    <ExternalLink className="w-5 h-5 text-indigo-600" />
                   </a>
                 </div>
               </div>
+            ) : (
+              <div className="mb-6 p-4 bg-slate-50 rounded-2xl ring-1 ring-slate-200/60 text-sm text-slate-500">
+                No affiliate link configured yet — contact your manager to set up your link.
+              </div>
             )}
 
-            {/* Toolbar */}
-            <div className="space-y-3 mb-5">
-              {/* Row 1: Search + Group toggle */}
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="relative flex-1 min-w-[180px]">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    placeholder="Search cards or issuer…"
-                    value={cardsSearch}
-                    onChange={e => setCardsSearch(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
-                  />
-                </div>
-                <div className="flex items-center gap-2 ml-auto">
-                  <button
-                    onClick={() => { setCardsGroupBy(g => !g); setCardsCollapsed(new Set()); }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
-                      cardsGroupBy
-                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                        : 'text-slate-600 bg-white border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
-                    }`}
-                  >
-                    <Layers className="w-3.5 h-3.5" />
-                    Group by Issuer
-                  </button>
-                  {cardsGroupBy && displayCards.length > 0 && (() => {
-                    const allIssuers = Array.from(new Set(displayCards.map(c => c.issuer || 'Other')));
-                    const allCollapsed = allIssuers.every(i => cardsCollapsed.has(i));
-                    return (
-                      <button onClick={() => setCardsCollapsed(allCollapsed ? new Set() : new Set(allIssuers))}
-                        className="text-xs text-slate-500 hover:text-indigo-600 transition-colors">
-                        {allCollapsed ? 'Expand All' : 'Collapse All'}
-                      </button>
-                    );
-                  })()}
-                </div>
+            {/* ── CPA Reference Table ── */}
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              {/* Search */}
+              <div className="relative flex-1 min-w-[180px]">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <input type="text" placeholder="Search cards or issuer…" value={cardsSearch}
+                  onChange={e => setCardsSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700" />
               </div>
-
-              {/* Row 2: Issuer + CPA range */}
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-slate-400">Issuer:</span>
-                  <select value={cardsIssuerFilter} onChange={e => setCardsIssuerFilter(e.target.value)}
-                    className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700">
-                    <option value="all">All issuers</option>
-                    {cardIssuers.map(issuer => <option key={issuer} value={issuer}>{issuer}</option>)}
-                  </select>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-medium text-slate-400">Your CPA:</span>
-                  {([
-                    { value: 'all', label: 'All' }, { value: 'zero', label: '$0' },
-                    { value: 'lt50', label: '<$50' }, { value: '50-200', label: '$50–$200' },
-                    { value: '200plus', label: '$200+' },
-                  ]).map(({ value, label }) => (
-                    <button key={value} onClick={() => setCardsPayoutFilter(value)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                        cardsPayoutFilter === value
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
-                      }`}>{label}</button>
-                  ))}
-                </div>
+              {/* Issuer */}
+              <select value={cardsIssuerFilter} onChange={e => setCardsIssuerFilter(e.target.value)}
+                className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700">
+                <option value="all">All issuers</option>
+                {cardIssuers.map(issuer => <option key={issuer} value={issuer}>{issuer}</option>)}
+              </select>
+              {/* CPA range */}
+              <div className="flex items-center gap-1.5">
+                {([
+                  { value: 'all', label: 'All CPA' }, { value: 'zero', label: '$0' },
+                  { value: 'lt50', label: '<$50' }, { value: '50-200', label: '$50–$200' },
+                  { value: '200plus', label: '$200+' },
+                ]).map(({ value, label }) => (
+                  <button key={value} onClick={() => setCardsPayoutFilter(value)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                      cardsPayoutFilter === value
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                    }`}>{label}</button>
+                ))}
+              </div>
+              {/* Group by issuer */}
+              <div className="flex items-center gap-2 ml-auto">
+                <button onClick={() => { setCardsGroupBy(g => !g); setCardsCollapsed(new Set()); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                    cardsGroupBy ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'text-slate-600 bg-white border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                  }`}>
+                  <Layers className="w-3.5 h-3.5" />
+                  Group by Issuer
+                </button>
+                {cardsGroupBy && displayCards.length > 0 && (() => {
+                  const allIssuers = Array.from(new Set(displayCards.map(c => c.issuer || 'Other')));
+                  const allCollapsed = allIssuers.every(i => cardsCollapsed.has(i));
+                  return (
+                    <button onClick={() => setCardsCollapsed(allCollapsed ? new Set() : new Set(allIssuers))}
+                      className="text-xs text-slate-500 hover:text-indigo-600 transition-colors">
+                      {allCollapsed ? 'Expand All' : 'Collapse All'}
+                    </button>
+                  );
+                })()}
                 {(cardsSearch || cardsIssuerFilter !== 'all' || cardsPayoutFilter !== 'all') && (
-                  <div className="flex items-center gap-2 ml-auto">
-                    <span className="text-xs text-slate-400">{displayCards.length} of {allCards.length} cards</span>
-                    <button onClick={() => { setCardsSearch(''); setCardsIssuerFilter('all'); setCardsPayoutFilter('all'); }}
-                      className="text-xs text-indigo-600 hover:underline">Clear</button>
-                  </div>
+                  <button onClick={() => { setCardsSearch(''); setCardsIssuerFilter('all'); setCardsPayoutFilter('all'); }}
+                    className="text-xs text-indigo-600 hover:underline">Clear</button>
                 )}
               </div>
             </div>
 
-            {/* Table */}
             {displayCards.length === 0 ? (
-              <div className="text-center py-16 text-slate-400">
+              <div className="text-center py-16">
                 <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <CreditCard className="w-7 h-7 text-slate-300" />
                 </div>
-                <p className="text-sm">{links.length === 0 ? 'No cards loaded yet — try refreshing.' : 'No cards match the selected filters.'}</p>
+                <p className="text-sm text-slate-500">{links.length === 0 ? 'No cards loaded yet — try refreshing.' : 'No cards match the filters.'}</p>
               </div>
             ) : (() => {
               const CardRow = ({ card }: { card: any }) => (
@@ -866,51 +848,29 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   </td>
                   <td className="py-3.5 px-4 text-right text-sm text-slate-600">{card.clicks}</td>
                   <td className="py-3.5 px-4 text-right text-sm text-slate-600">{card.conversions}</td>
-                  <td className="py-3.5 px-4 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => copyToClipboard(card.url, card.id)}
-                        className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors" title="Copy link">
-                        {copiedId === card.id ? <CheckCircle className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-400" />}
-                      </button>
-                      <a href={card.url} target="_blank" rel="noopener noreferrer"
-                        className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors" title="Open link">
-                        <ExternalLink className="w-4 h-4 text-slate-400" />
-                      </a>
-                    </div>
-                  </td>
                 </tr>
               );
-
-              const colCount = cardsGroupBy ? 5 : 6;
+              const colCount = cardsGroupBy ? 4 : 5;
               return (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-slate-100">
-                        <SortTh label="Card"     field="name"        sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />
+                        <SortTh label="Card"      field="name"        sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />
                         {!cardsGroupBy && <SortTh label="Issuer" field="issuer" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />}
-                        <SortTh label="Your CPA" field="cpa"         sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
-                        <SortTh label="Clicks"   field="clicks"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
+                        <SortTh label="Your CPA"  field="cpa"         sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
+                        <SortTh label="Clicks"    field="clicks"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
                         <SortTh label="Approvals" field="conversions" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
-                        <th className="py-3 px-4 text-right text-slate-500 text-xs font-semibold uppercase tracking-wider">Link</th>
                       </tr>
                     </thead>
                     <tbody>
                       {cardsGroupBy ? (
                         (() => {
                           const groups: Record<string, any[]> = {};
-                          displayCards.forEach(c => {
-                            const key = c.issuer || 'Other';
-                            if (!groups[key]) groups[key] = [];
-                            groups[key].push(c);
-                          });
-                          return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([issuer, cards]) => {
+                          displayCards.forEach(c => { const k = c.issuer || 'Other'; if (!groups[k]) groups[k] = []; groups[k].push(c); });
+                          return Object.entries(groups).sort(([a],[b]) => a.localeCompare(b)).map(([issuer, cards]) => {
                             const isCollapsed = cardsCollapsed.has(issuer);
-                            const toggle = () => setCardsCollapsed(prev => {
-                              const next = new Set(prev);
-                              next.has(issuer) ? next.delete(issuer) : next.add(issuer);
-                              return next;
-                            });
+                            const toggle = () => setCardsCollapsed(prev => { const next = new Set(prev); next.has(issuer) ? next.delete(issuer) : next.add(issuer); return next; });
                             return (
                               <React.Fragment key={`g-${issuer}`}>
                                 <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors select-none">
@@ -918,7 +878,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                                     <div className="flex items-center gap-2">
                                       <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
                                       <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{issuer}</span>
-                                      <span className="text-xs font-normal text-slate-400 ml-0.5">({cards.length} {cards.length === 1 ? 'card' : 'cards'})</span>
+                                      <span className="text-xs font-normal text-slate-400 ml-0.5">({cards.length})</span>
                                     </div>
                                   </td>
                                 </tr>
