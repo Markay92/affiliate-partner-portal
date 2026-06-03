@@ -34,12 +34,13 @@ interface ManagerProps {
 
 // ── Filter / sort types & helpers ────────────────────────────────────────────
 
-type DateFilter = 'all' | 'today' | '7d' | '30d' | '90d' | 'custom';
+type DateFilter = 'all' | 'today' | 'yesterday' | 'mtd' | '7d' | '30d' | '90d' | 'lm' | 'custom';
 type SortState  = { field: string; dir: 'asc' | 'desc' };
 
 const DATE_LABELS: Record<DateFilter, string> = {
-  all: 'All time', today: 'Today', '7d': '7 days',
-  '30d': '30 days', '90d': '90 days', custom: 'Custom',
+  all: 'All time', today: 'Today', yesterday: 'Yesterday',
+  mtd: 'This Month', '7d': '7 days', '30d': '30 days',
+  '90d': '90 days', lm: 'Last Month', custom: 'Custom',
 };
 
 function parseLocalDate(str: string): Date {
@@ -71,10 +72,25 @@ function getDateBounds(filter: DateFilter, customFrom: string, customTo: string)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   switch (filter) {
-    case 'today': return { from: today, to: null };
-    case '7d':    return { from: new Date(today.getTime() - 6  * 86400000), to: null };
-    case '30d':   return { from: new Date(today.getTime() - 29 * 86400000), to: null };
-    case '90d':   return { from: new Date(today.getTime() - 89 * 86400000), to: null };
+    case 'today':     return { from: today, to: null };
+    case 'yesterday': {
+      const yest = new Date(today.getTime() - 86400000);
+      const yestEnd = new Date(yest); yestEnd.setHours(23, 59, 59, 999);
+      return { from: yest, to: yestEnd };
+    }
+    case 'mtd': {
+      const first = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { from: first, to: null };
+    }
+    case 'lm': {
+      const firstOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const lastOfLastMonth  = new Date(today.getFullYear(), today.getMonth(), 0);
+      lastOfLastMonth.setHours(23, 59, 59, 999);
+      return { from: firstOfLastMonth, to: lastOfLastMonth };
+    }
+    case '7d':  return { from: new Date(today.getTime() - 6  * 86400000), to: null };
+    case '30d': return { from: new Date(today.getTime() - 29 * 86400000), to: null };
+    case '90d': return { from: new Date(today.getTime() - 89 * 86400000), to: null };
     case 'custom': {
       const to = customTo ? parseLocalDate(customTo) : null;
       if (to) to.setHours(23, 59, 59, 999);
@@ -175,7 +191,7 @@ function FilterBar({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs font-medium text-slate-400 mr-1">Period:</span>
-      {(['all', 'today', '7d', '30d', '90d', 'custom'] as DateFilter[]).map((f) => (
+      {(['all', 'today', 'yesterday', 'mtd', '7d', '30d', '90d', 'lm', 'custom'] as DateFilter[]).map((f) => (
         <button
           key={f}
           onClick={() => setFilter(f)}

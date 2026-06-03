@@ -17,6 +17,7 @@ import {
   FileText,
   Search,
   Layers,
+  Activity,
 } from 'lucide-react';
 import React from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
@@ -81,12 +82,13 @@ interface TrackingItem {
 
 // ── Filter / sort types & helpers ────────────────────────────────────────────
 
-type DateFilter = 'all' | 'today' | '7d' | '30d' | '90d' | 'custom';
+type DateFilter = 'all' | 'today' | 'yesterday' | 'mtd' | '7d' | '30d' | '90d' | 'lm' | 'custom';
 type SortState  = { field: string; dir: 'asc' | 'desc' };
 
 const DATE_LABELS: Record<DateFilter, string> = {
-  all: 'All time', today: 'Today', '7d': '7 days',
-  '30d': '30 days', '90d': '90 days', custom: 'Custom',
+  all: 'All time', today: 'Today', yesterday: 'Yesterday',
+  mtd: 'This Month', '7d': '7 days', '30d': '30 days',
+  '90d': '90 days', lm: 'Last Month', custom: 'Custom',
 };
 
 /** Decode common HTML entities in card names coming from external APIs */
@@ -134,10 +136,25 @@ function getDateBounds(filter: DateFilter, customFrom: string, customTo: string)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   switch (filter) {
-    case 'today': return { from: today, to: null };
-    case '7d':    return { from: new Date(today.getTime() - 6  * 86400000), to: null };
-    case '30d':   return { from: new Date(today.getTime() - 29 * 86400000), to: null };
-    case '90d':   return { from: new Date(today.getTime() - 89 * 86400000), to: null };
+    case 'today':     return { from: today, to: null };
+    case 'yesterday': {
+      const yest = new Date(today.getTime() - 86400000);
+      const yestEnd = new Date(yest); yestEnd.setHours(23, 59, 59, 999);
+      return { from: yest, to: yestEnd };
+    }
+    case 'mtd': {
+      const first = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { from: first, to: null };
+    }
+    case 'lm': {
+      const firstOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const lastOfLastMonth  = new Date(today.getFullYear(), today.getMonth(), 0);
+      lastOfLastMonth.setHours(23, 59, 59, 999);
+      return { from: firstOfLastMonth, to: lastOfLastMonth };
+    }
+    case '7d':  return { from: new Date(today.getTime() - 6  * 86400000), to: null };
+    case '30d': return { from: new Date(today.getTime() - 29 * 86400000), to: null };
+    case '90d': return { from: new Date(today.getTime() - 89 * 86400000), to: null };
     case 'custom': {
       const to = customTo ? parseLocalDate(customTo) : null;
       if (to) to.setHours(23, 59, 59, 999);
@@ -205,7 +222,7 @@ function FilterBar({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs font-medium text-slate-400 mr-1">Period:</span>
-      {(['all', 'today', '7d', '30d', '90d', 'custom'] as DateFilter[]).map((f) => (
+      {(['all', 'today', 'yesterday', 'mtd', '7d', '30d', '90d', 'lm', 'custom'] as DateFilter[]).map((f) => (
         <button
           key={f}
           onClick={() => setFilter(f)}
@@ -418,14 +435,16 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
   // Prefer Airtable tracking data (real-time from API Output table) for stats.
   // Fall back to KV-derived values for users who haven't synced yet.
-  const totalClicks      = tracking.length > 0
+  const totalClicks       = tracking.length > 0
     ? tracking.reduce((s, t) => s + (t.clicks || 0), 0)
     : links.reduce((s, l) => s + l.clicks, 0);
-  const totalConversions = tracking.length > 0
+  const totalConversions  = tracking.length > 0
     ? tracking.reduce((s, t) => s + (t.approvals || 0), 0)
     : links.reduce((s, l) => s + l.conversions, 0);
-  const totalCommissions = tracking.reduce((s, t) => s + (t.totalEarnings || 0), 0);
-  const totalPayouts     = payouts.reduce((s, p) => s + p.amount, 0);
+  const totalApplications = tracking.reduce((s, t) => s + (t.applications || 0), 0);
+  const totalCommissions  = tracking.reduce((s, t) => s + (t.totalEarnings || 0), 0);
+  const totalPayouts      = payouts.reduce((s, p) => s + p.amount, 0);
+  const avgEPC            = totalClicks > 0 ? totalCommissions / totalClicks : 0;
 
   // ── Period-over-period stats from tracking records ────────────────────────
   const _now = new Date();
@@ -464,15 +483,19 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const _calcPct = (cur: number, prev: number): number | null =>
     prev === 0 ? (cur > 0 ? 100 : null) : Math.round(((cur - prev) / prev) * 100);
 
-  const clicksPct      = _calcPct(
+  const clicksPct        = _calcPct(
     _thisT.reduce((s, t) => s + t.clicks, 0),
     _lastT.reduce((s, t) => s + t.clicks, 0),
   );
-  const approvalsPct   = _calcPct(
+  const approvalsPct     = _calcPct(
     _thisT.reduce((s, t) => s + t.approvals, 0),
     _lastT.reduce((s, t) => s + t.approvals, 0),
   );
-  const commissionsPct = _calcPct(
+  const applicationsPct  = _calcPct(
+    _thisT.reduce((s, t) => s + (t.applications || 0), 0),
+    _lastT.reduce((s, t) => s + (t.applications || 0), 0),
+  );
+  const commissionsPct   = _calcPct(
     _thisT.reduce((s, t) => s + t.totalEarnings, 0),
     _lastT.reduce((s, t) => s + t.totalEarnings, 0),
   );
@@ -620,6 +643,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             </div>
             <div className="text-3xl font-bold text-slate-900 mb-1">{totalConversions}</div>
             <PctBadge pct={approvalsPct} />
+            {totalClicks > 0 && (
+              <div className="text-xs text-slate-400 mt-1">
+                {((totalConversions / totalClicks) * 100).toFixed(1)}% conv. rate
+              </div>
+            )}
           </div>
 
           <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
@@ -631,17 +659,27 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             </div>
             <div className="text-3xl font-bold text-slate-900 mb-1">${totalCommissions.toLocaleString()}</div>
             <PctBadge pct={commissionsPct} />
+            {avgEPC > 0 && (
+              <div className="text-xs text-slate-400 mt-1">
+                EPC: ${avgEPC.toFixed(2)}
+              </div>
+            )}
           </div>
 
           <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-slate-500">CPA Rates</span>
-              <div className="p-2 bg-violet-50 rounded-xl">
-                <DollarSign className="w-4 h-4 text-violet-600" />
+              <span className="text-sm font-medium text-slate-500">Applications</span>
+              <div className="p-2 bg-orange-50 rounded-xl">
+                <Activity className="w-4 h-4 text-orange-500" />
               </div>
             </div>
-            <div className="text-3xl font-bold text-slate-900 mb-1">{payouts.length}</div>
-            <div className="text-xs text-slate-500">Active cards</div>
+            <div className="text-3xl font-bold text-slate-900 mb-1">{totalApplications}</div>
+            <PctBadge pct={applicationsPct} />
+            {totalClicks > 0 && (
+              <div className="text-xs text-slate-400 mt-1">
+                {((totalApplications / totalClicks) * 100).toFixed(1)}% click→app
+              </div>
+            )}
           </div>
         </div>
 
