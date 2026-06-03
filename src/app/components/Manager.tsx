@@ -354,6 +354,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [invoiceMonthFilter,    setInvoiceMonthFilter]    = useState('all');
   const [invoiceSort,           setInvoiceSort]           = useState<SortState>({ field: 'date', dir: 'desc' });
   const [updatingInvoice,       setUpdatingInvoice]       = useState<string | null>(null);
+  const [invoiceGroupBy,        setInvoiceGroupBy]        = useState<'none' | 'month' | 'affiliate'>('none');
+  const [invoiceCollapsed,      setInvoiceCollapsed]      = useState<Set<string>>(new Set());
 
   // ── Derived display data ────────────────────────────────────────────────────
   const displayUsers = sortUsers(
@@ -1741,13 +1743,56 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={fetchInvoices}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${invoicesLoading ? 'animate-spin' : ''}`} />
-                  Refresh
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* Group by segmented control */}
+                  <div className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl p-1 text-xs font-medium">
+                    {([
+                      { value: 'none',      label: 'No Group' },
+                      { value: 'month',     label: 'Month' },
+                      { value: 'affiliate', label: 'Affiliate' },
+                    ] as { value: 'none'|'month'|'affiliate'; label: string }[]).map(({ value, label }) => (
+                      <button
+                        key={value}
+                        onClick={() => { setInvoiceGroupBy(value); setInvoiceCollapsed(new Set()); }}
+                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all ${
+                          invoiceGroupBy === value
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {value !== 'none' && <Layers className="w-3 h-3" />}
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {invoiceGroupBy !== 'none' && (() => {
+                    const allKeys = Array.from(new Set((applySort(
+                      invoices.filter((inv: any) =>
+                        (invoiceAffiliateFilter === 'all' || inv.email === invoiceAffiliateFilter) &&
+                        (invoiceMonthFilter === 'all' || inv.month === invoiceMonthFilter) &&
+                        (invoiceStatusFilter === 'all' || inv.status === invoiceStatusFilter)
+                      ), invoiceSort)
+                    ).map((inv: any) =>
+                      invoiceGroupBy === 'month'
+                        ? (inv.date?.substring(0, 7) || inv.month || 'unknown')
+                        : (inv.email || 'unknown')
+                    )));
+                    const allCollapsed = allKeys.every(k => invoiceCollapsed.has(k));
+                    return (
+                      <button onClick={() => setInvoiceCollapsed(allCollapsed ? new Set() : new Set(allKeys))}
+                        className="text-xs text-slate-500 hover:text-indigo-600 transition-colors">
+                        {allCollapsed ? 'Expand All' : 'Collapse All'}
+                      </button>
+                    );
+                  })()}
+                  <button
+                    onClick={fetchInvoices}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${invoicesLoading ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </button>
+                </div>
               </div>
 
               {invoicesLoading ? (
@@ -1792,60 +1837,110 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         </tr>
                       </thead>
                       <tbody>
-                        {filtered.map((inv: any) => {
-                          const busy = updatingInvoice === inv.id;
-                          return (
-                            <tr key={inv.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
-                              <td className="py-3.5 px-4">
-                                <div className="font-medium text-sm text-slate-900">{inv.name}</div>
-                                <div className="text-xs text-slate-400 mt-0.5">{inv.email}</div>
-                              </td>
-                              <td className="py-3.5 px-4 text-sm text-slate-700">{inv.month}</td>
-                              <td className="py-3.5 px-4 text-right font-semibold text-sm text-slate-900">
-                                {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}` : <span className="text-slate-300 font-normal">—</span>}
-                              </td>
-                              <td className="py-3.5 px-4 text-right text-sm text-slate-600">{inv.approvals}</td>
-                              <td className="py-3.5 px-4">
-                                {inv.status ? (
-                                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                                    inv.status.toLowerCase().includes('paid')
-                                      ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70'
-                                      : inv.status.toLowerCase().includes('pending')
-                                      ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/70'
-                                      : 'bg-slate-100 text-slate-600'
-                                  }`}>{inv.status}</span>
-                                ) : <span className="text-slate-300 text-xs">—</span>}
-                              </td>
-                              {/* Sent toggle */}
-                              <td className="py-3.5 px-4 text-center">
-                                <button
-                                  disabled={busy}
-                                  onClick={() => updateInvoice(inv.id, { sent: !inv.sent })}
-                                  title={inv.sent ? 'Mark unsent' : 'Mark sent'}
-                                  className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sent ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
-                                >
-                                  <CheckCircle className="w-4 h-4" />
-                                </button>
-                              </td>
-                              {/* Sent Zelle toggle */}
-                              <td className="py-3.5 px-4 text-center">
-                                <button
-                                  disabled={busy}
-                                  onClick={() => updateInvoice(inv.id, { sentZelle: !inv.sentZelle })}
-                                  title={inv.sentZelle ? 'Unmark Zelle sent' : 'Mark Zelle sent'}
-                                  className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sentZelle ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
-                                >
-                                  <Send className="w-4 h-4" />
-                                </button>
-                              </td>
-                              <td className="py-3.5 px-4 text-xs text-slate-500">{inv.zelle || '—'}</td>
-                              {/* Notes / status edit could go here */}
-                              <td className="py-3.5 px-4 text-right">
-                                {busy && <RefreshCw className="w-4 h-4 animate-spin text-indigo-400 ml-auto" />}
-                              </td>
-                            </tr>
+                        {(() => {
+                          const InvRow = ({ inv }: { inv: any }) => {
+                            const busy = updatingInvoice === inv.id;
+                            return (
+                              <tr key={inv.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                                <td className="py-3.5 px-4">
+                                  <div className="font-medium text-sm text-slate-900">{inv.name}</div>
+                                  <div className="text-xs text-slate-400 mt-0.5">{inv.email}</div>
+                                </td>
+                                <td className="py-3.5 px-4 text-sm text-slate-700">{inv.month}</td>
+                                <td className="py-3.5 px-4 text-right font-semibold text-sm text-slate-900">
+                                  {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}` : <span className="text-slate-300 font-normal">—</span>}
+                                </td>
+                                <td className="py-3.5 px-4 text-right text-sm text-slate-600">{inv.approvals}</td>
+                                <td className="py-3.5 px-4">
+                                  {inv.status ? (
+                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                                      inv.status.toLowerCase().includes('paid')
+                                        ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70'
+                                        : inv.status.toLowerCase().includes('pending')
+                                        ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/70'
+                                        : 'bg-slate-100 text-slate-600'
+                                    }`}>{inv.status}</span>
+                                  ) : <span className="text-slate-300 text-xs">—</span>}
+                                </td>
+                                <td className="py-3.5 px-4 text-center">
+                                  <button disabled={busy} onClick={() => updateInvoice(inv.id, { sent: !inv.sent })}
+                                    className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sent ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
+                                    <CheckCircle className="w-4 h-4" />
+                                  </button>
+                                </td>
+                                <td className="py-3.5 px-4 text-center">
+                                  <button disabled={busy} onClick={() => updateInvoice(inv.id, { sentZelle: !inv.sentZelle })}
+                                    className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sentZelle ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
+                                    <Send className="w-4 h-4" />
+                                  </button>
+                                </td>
+                                <td className="py-3.5 px-4 text-xs text-slate-500">{inv.zelle || '—'}</td>
+                                <td className="py-3.5 px-4 text-right">
+                                  {busy && <RefreshCw className="w-4 h-4 animate-spin text-indigo-400 ml-auto" />}
+                                </td>
+                              </tr>
+                            );
+                          };
+
+                          if (invoiceGroupBy === 'none') return filtered.map((inv: any) => <InvRow key={inv.id} inv={inv} />);
+
+                          // Build groups
+                          const getKey = (inv: any) => invoiceGroupBy === 'month'
+                            ? (inv.date?.substring(0, 7) || inv.month || 'unknown')
+                            : (inv.email || 'unknown');
+                          const getLabel = (key: string, rows: any[]) => invoiceGroupBy === 'month'
+                            ? (rows[0]?.month || key)
+                            : String(rows[0]?.name || key);
+                          const getSub = (key: string) => invoiceGroupBy === 'affiliate' ? key : undefined;
+
+                          const groups: Record<string, any[]> = {};
+                          filtered.forEach((inv: any) => {
+                            const k = getKey(inv);
+                            if (!groups[k]) groups[k] = [];
+                            groups[k].push(inv);
+                          });
+
+                          const sortedEntries = Object.entries(groups).sort(([ka, ra], [kb, rb]) =>
+                            invoiceGroupBy === 'month'
+                              ? kb.localeCompare(ka)  // newest month first
+                              : String(getLabel(ka, ra)).localeCompare(String(getLabel(kb, rb)))
                           );
-                        })}
+
+                          return sortedEntries.map(([key, rows]) => {
+                            const isCollapsed = invoiceCollapsed.has(key);
+                            const toggle = () => setInvoiceCollapsed(prev => {
+                              const next = new Set(prev);
+                              next.has(key) ? next.delete(key) : next.add(key);
+                              return next;
+                            });
+                            const grpAmount    = rows.reduce((s: number, r: any) => s + (r.amount || 0), 0);
+                            const grpApprovals = rows.reduce((s: number, r: any) => s + (r.approvals || 0), 0);
+                            const grpSent      = rows.filter((r: any) => r.sent || r.sentZelle).length;
+                            const sublabel     = getSub(key);
+                            return (
+                              <React.Fragment key={key}>
+                                <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors select-none">
+                                  <td colSpan={9} className="py-2.5 px-4">
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                      <div className="flex items-center gap-2">
+                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                                        <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{getLabel(key, rows)}</span>
+                                        {sublabel && <span className="text-xs text-slate-400 font-mono normal-case">{sublabel}</span>}
+                                        <span className="text-xs font-normal text-slate-400">({rows.length} invoice{rows.length !== 1 ? 's' : ''})</span>
+                                      </div>
+                                      <div className="flex items-center gap-3 ml-2 text-xs text-slate-500">
+                                        {grpAmount    > 0 && <span className="font-medium text-emerald-600">${grpAmount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}</span>}
+                                        {grpApprovals > 0 && <span>{grpApprovals} approvals</span>}
+                                        {grpSent      > 0 && <span>{grpSent} paid</span>}
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {!isCollapsed && rows.map((inv: any) => <InvRow key={inv.id} inv={inv} />)}
+                              </React.Fragment>
+                            );
+                          });
+                        })()}
                       </tbody>
                     </table>
                   </div>
