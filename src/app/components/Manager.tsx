@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Users,
   TrendingUp,
@@ -322,6 +322,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [cpaIssuerFilter,   setCpaIssuerFilter]   = useState('all');
   const [cpaCpaRange,       setCpaCpaRange]       = useState('all');
   const [cpaGroupBy,        setCpaGroupBy]        = useState(false);
+  const [cpaCollapsed,      setCpaCollapsed]      = useState<Set<string>>(new Set());
 
   // Invoices tab
   const [invoices,              setInvoices]              = useState<any[]>([]);
@@ -1268,7 +1269,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   <div className="flex items-center gap-2 ml-auto">
                     {/* Group by issuer toggle */}
                     <button
-                      onClick={() => setCpaGroupBy(g => !g)}
+                      onClick={() => { setCpaGroupBy(g => !g); setCpaCollapsed(new Set()); }}
                       title="Group by issuer"
                       className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
                         cpaGroupBy
@@ -1279,6 +1280,19 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <Layers className="w-3.5 h-3.5" />
                       Group by Issuer
                     </button>
+                    {/* Collapse All / Expand All — only when grouped */}
+                    {cpaGroupBy && cpaRates.length > 0 && (() => {
+                      const allIssuers = Array.from(new Set(cpaRates.map(r => r.issuer || 'Other')));
+                      const allCollapsed = allIssuers.every(i => cpaCollapsed.has(i));
+                      return (
+                        <button
+                          onClick={() => setCpaCollapsed(allCollapsed ? new Set() : new Set(allIssuers))}
+                          className="text-xs text-slate-500 hover:text-indigo-600 transition-colors"
+                        >
+                          {allCollapsed ? 'Expand All' : 'Collapse All'}
+                        </button>
+                      );
+                    })()}
                     <button
                       onClick={() => fetchCpaRates(cpaAffiliateFilter)}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all"
@@ -1416,7 +1430,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       </thead>
                       <tbody>
                         {cpaGroupBy ? (
-                          // Grouped by issuer
+                          // Grouped by issuer with collapse/expand
                           (() => {
                             const groups: Record<string, any[]> = {};
                             filtered.forEach(r => {
@@ -1424,16 +1438,32 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               if (!groups[key]) groups[key] = [];
                               groups[key].push(r);
                             });
-                            return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([issuer, rates]) => (
-                              <>
-                                <tr key={`group-${issuer}`} className="bg-slate-50 border-b border-slate-200">
-                                  <td colSpan={cpaAffiliateFilter !== 'all' ? 4 : 3} className="py-2 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                                    {issuer} <span className="font-normal text-slate-400 normal-case ml-1">({rates.length})</span>
-                                  </td>
-                                </tr>
-                                {rates.map(r => <CpaRow key={r.id} rate={r} />)}
-                              </>
-                            ));
+                            const colCount = cpaAffiliateFilter !== 'all' ? 4 : 3;
+                            return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([issuer, rates]) => {
+                              const isCollapsed = cpaCollapsed.has(issuer);
+                              const toggle = () => setCpaCollapsed(prev => {
+                                const next = new Set(prev);
+                                next.has(issuer) ? next.delete(issuer) : next.add(issuer);
+                                return next;
+                              });
+                              return (
+                                <React.Fragment key={`group-${issuer}`}>
+                                  <tr
+                                    onClick={toggle}
+                                    className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                                  >
+                                    <td colSpan={colCount} className="py-2.5 px-4">
+                                      <div className="flex items-center gap-2">
+                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                                        <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{issuer}</span>
+                                        <span className="text-xs font-normal text-slate-400 ml-0.5">({rates.length} {rates.length === 1 ? 'card' : 'cards'})</span>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                  {!isCollapsed && rates.map(r => <CpaRow key={r.id} rate={r} />)}
+                                </React.Fragment>
+                              );
+                            });
                           })()
                         ) : (
                           filtered.map(r => <CpaRow key={r.id} rate={r} />)
