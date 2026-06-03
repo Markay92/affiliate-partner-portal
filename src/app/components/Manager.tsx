@@ -303,6 +303,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [affiliatesCustomFrom, setAffiliatesCustomFrom] = useState('');
   const [affiliatesCustomTo,   setAffiliatesCustomTo]   = useState('');
   const [affiliatesSort,       setAffiliatesSort]       = useState<SortState>({ field: 'name', dir: 'asc' });
+  const [affiliateSearch,      setAffiliateSearch]      = useState('');
+  const [affiliateGroupBy,     setAffiliateGroupBy]     = useState(false);
+  const [affiliateCollapsed,   setAffiliateCollapsed]   = useState<Set<string>>(new Set());
 
   // ── Tracking Activity filter / sort ────────────────────────────────────────
   const [mgTrackingFilter,           setMgTrackingFilter]           = useState<DateFilter>('all');
@@ -335,7 +338,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
   // ── Derived display data ────────────────────────────────────────────────────
   const displayUsers = sortUsers(
-    users.filter((u: any) => inDateRange(u.createdAt, affiliatesFilter, affiliatesCustomFrom, affiliatesCustomTo)),
+    users.filter((u: any) => {
+      if (!inDateRange(u.createdAt, affiliatesFilter, affiliatesCustomFrom, affiliatesCustomTo)) return false;
+      if (affiliateSearch) {
+        const q = affiliateSearch.toLowerCase();
+        if (!(u.name || '').toLowerCase().includes(q) && !(u.email || '').toLowerCase().includes(q)) return false;
+      }
+      return true;
+    }),
     affiliatesSort,
   );
 
@@ -764,6 +774,62 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     }
   }, [activeTab]);
 
+  // Renders a single affiliate table row — defined as a closure so it
+  // captures all state/callbacks without prop drilling.
+  const renderUserRow = (user: any) => (
+    <tr key={user.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+      <td className="py-4 px-6">
+        <div className="font-medium text-slate-900">{user.name || 'N/A'}</div>
+        <div className="text-xs text-slate-500 mt-0.5">{user.email}</div>
+      </td>
+      <td className="py-4 px-6">
+        <div className="text-sm">
+          {user.phone   && <div className="text-slate-700">📞 {user.phone}</div>}
+          {user.address && <div className="text-slate-500">{user.address}</div>}
+          {(user.city || user.state || user.zip) && (
+            <div className="text-slate-500">{[user.city, user.state, user.zip].filter(Boolean).join(', ')}</div>
+          )}
+          {user.country && <div className="text-slate-500">{user.country}</div>}
+          {!user.phone && !user.address && !user.city && !user.state && !user.zip && !user.country && (
+            <span className="text-slate-400 text-xs">No contact info</span>
+          )}
+        </div>
+      </td>
+      <td className="py-4 px-6">
+        <code className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded-lg font-mono">{user.affiliateId || 'N/A'}</code>
+      </td>
+      <td className="py-4 px-6 text-right">
+        {editingCommission === user.id ? (
+          <div className="flex items-center justify-end gap-2">
+            <input type="number" value={commissionValue} onChange={e => setCommissionValue(e.target.value)}
+              className="w-20 px-2 py-1 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" min="0" max="100" />
+            <button onClick={() => updateCommission(user.id, parseInt(commissionValue))} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"><Save className="w-4 h-4" /></button>
+            <button onClick={() => setEditingCommission(null)} className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-end gap-2">
+            <span className="text-sm font-medium text-slate-700">{user.commissionRate || 100}%</span>
+            <button onClick={() => { setEditingCommission(user.id); setCommissionValue((user.commissionRate || 100).toString()); }}
+              className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"><Edit className="w-4 h-4" /></button>
+          </div>
+        )}
+      </td>
+      <td className="py-4 px-6 text-right text-sm text-slate-700">{user.stats?.totalClicks || 0}</td>
+      <td className="py-4 px-6 text-right text-sm text-slate-700">{user.stats?.totalConversions || 0}</td>
+      <td className="py-4 px-6 text-right text-sm font-semibold text-slate-900">${(user.stats?.totalCommissions || 0).toLocaleString()}</td>
+      <td className="py-4 px-6 text-right text-xs text-slate-500">{formatDate(user.createdAt)}</td>
+      <td className="py-4 px-6">
+        <div className="flex items-center justify-end gap-1">
+          <button onClick={() => loginAsUser(user.id, user.email)} className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Login as this affiliate"><LogIn className="w-4 h-4" /></button>
+          <button onClick={() => { setSelectedUser(user); setEditName(user.name||''); setEditEmail(user.email||''); setEditPhone(user.phone||''); setEditAddress(user.address||''); setEditCity(user.city||''); setEditState(user.state||''); setEditZip(user.zip||''); setEditCountry(user.country||''); setShowEditModal(true); }}
+            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Edit affiliate"><Edit className="w-4 h-4" /></button>
+          <button onClick={() => { setSelectedUser(user); setShowResetModal(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Reset password"><Key className="w-4 h-4" /></button>
+          <button onClick={() => deleteUser(user.id, user.email)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete affiliate"><Trash2 className="w-4 h-4" /></button>
+        </div>
+      </td>
+    </tr>
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -951,27 +1017,71 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               </div>
             </div>
 
-            {/* Filter + Create row */}
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <FilterBar
-                filter={affiliatesFilter}     setFilter={setAffiliatesFilter}
-                customFrom={affiliatesCustomFrom} setCustomFrom={setAffiliatesCustomFrom}
-                customTo={affiliatesCustomTo}     setCustomTo={setAffiliatesCustomTo}
-              />
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium shadow-sm"
-              >
-                <Plus className="w-4 h-4" />
-                Create Affiliate
-              </button>
-            </div>
+            {/* Toolbar: Search + Date filter + Group + Create */}
+            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 mb-4 space-y-3">
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Search */}
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search by name or email…"
+                    value={affiliateSearch}
+                    onChange={e => setAffiliateSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                  />
+                </div>
 
-            {affiliatesFilter !== 'all' && (
-              <p className="text-xs text-slate-500 mb-3">
-                {displayUsers.length} of {users.length} affiliates (filtered by join date)
-              </p>
-            )}
+                <div className="flex items-center gap-2 ml-auto">
+                  {/* Group by Commission Rate toggle */}
+                  <button
+                    onClick={() => { setAffiliateGroupBy(g => !g); setAffiliateCollapsed(new Set()); }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                      affiliateGroupBy
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                        : 'text-slate-600 bg-white border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                    }`}
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    Group by Rate
+                  </button>
+                  {affiliateGroupBy && users.length > 0 && (() => {
+                    const allRates = Array.from(new Set(displayUsers.map((u: any) => String(u.commissionRate || 50) + '%')));
+                    const allCollapsed = allRates.every(r => affiliateCollapsed.has(r));
+                    return (
+                      <button
+                        onClick={() => setAffiliateCollapsed(allCollapsed ? new Set() : new Set(allRates))}
+                        className="text-xs text-slate-500 hover:text-indigo-600 transition-colors"
+                      >
+                        {allCollapsed ? 'Expand All' : 'Collapse All'}
+                      </button>
+                    );
+                  })()}
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium shadow-sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create Affiliate
+                  </button>
+                </div>
+              </div>
+
+              {/* Date filter row */}
+              <div className="flex flex-wrap items-center gap-3">
+                <FilterBar
+                  filter={affiliatesFilter}     setFilter={setAffiliatesFilter}
+                  customFrom={affiliatesCustomFrom} setCustomFrom={setAffiliatesCustomFrom}
+                  customTo={affiliatesCustomTo}     setCustomTo={setAffiliatesCustomTo}
+                />
+                {(affiliateSearch || affiliatesFilter !== 'all') && (
+                  <span className="text-xs text-slate-500 ml-1">
+                    {displayUsers.length} of {users.length} members
+                    {affiliateSearch && <button onClick={() => setAffiliateSearch('')} className="text-indigo-600 hover:underline ml-2">Clear search</button>}
+                  </span>
+                )}
+              </div>
+            </div>
 
             {/* Affiliates Table */}
             <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
@@ -991,108 +1101,43 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </tr>
                   </thead>
                   <tbody>
-                    {displayUsers.map((user: any) => (
-                      <tr key={user.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
-                        <td className="py-4 px-6">
-                          <div className="font-medium text-slate-900">{user.name || 'N/A'}</div>
-                          <div className="text-xs text-slate-500 mt-0.5">{user.email}</div>
-                        </td>
-                        <td className="py-4 px-6">
-                          <div className="text-sm">
-                            {user.phone    && <div className="text-slate-700">📞 {user.phone}</div>}
-                            {user.address  && <div className="text-slate-500">{user.address}</div>}
-                            {(user.city || user.state || user.zip) && (
-                              <div className="text-slate-500">
-                                {[user.city, user.state, user.zip].filter(Boolean).join(', ')}
-                              </div>
-                            )}
-                            {user.country  && <div className="text-slate-500">{user.country}</div>}
-                            {!user.phone && !user.address && !user.city && !user.state && !user.zip && !user.country && (
-                              <span className="text-slate-400 text-xs">No contact info</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-4 px-6">
-                          <code className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded-lg font-mono">
-                            {user.affiliateId || 'N/A'}
-                          </code>
-                        </td>
-                        <td className="py-4 px-6 text-right">
-                          {editingCommission === user.id ? (
-                            <div className="flex items-center justify-end gap-2">
-                              <input
-                                type="number"
-                                value={commissionValue}
-                                onChange={(e) => setCommissionValue(e.target.value)}
-                                className="w-20 px-2 py-1 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
-                                min="0" max="100"
-                              />
-                              <button onClick={() => updateCommission(user.id, parseInt(commissionValue))} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
-                                <Save className="w-4 h-4" />
-                              </button>
-                              <button onClick={() => setEditingCommission(null)} className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors">
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-end gap-2">
-                              <span className="text-sm font-medium text-slate-700">{user.commissionRate || 100}%</span>
-                              <button
-                                onClick={() => { setEditingCommission(user.id); setCommissionValue((user.commissionRate || 100).toString()); }}
-                                className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                        <td className="py-4 px-6 text-right text-sm text-slate-700">{user.stats?.totalClicks || 0}</td>
-                        <td className="py-4 px-6 text-right text-sm text-slate-700">{user.stats?.totalConversions || 0}</td>
-                        <td className="py-4 px-6 text-right text-sm font-semibold text-slate-900">${(user.stats?.totalCommissions || 0).toLocaleString()}</td>
-                        <td className="py-4 px-6 text-right text-xs text-slate-500">
-                          {formatDate(user.createdAt)}
-                        </td>
-                        <td className="py-4 px-6">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => loginAsUser(user.id, user.email)}
-                              className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                              title="Login as this affiliate"
-                            >
-                              <LogIn className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSelectedUser(user);
-                                setEditName(user.name || ''); setEditEmail(user.email || '');
-                                setEditPhone(user.phone || ''); setEditAddress(user.address || '');
-                                setEditCity(user.city || ''); setEditState(user.state || '');
-                                setEditZip(user.zip || ''); setEditCountry(user.country || '');
-                                setShowEditModal(true);
-                              }}
-                              className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                              title="Edit affiliate"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => { setSelectedUser(user); setShowResetModal(true); }}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Reset password"
-                            >
-                              <Key className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => deleteUser(user.id, user.email)}
-                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete affiliate"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {affiliateGroupBy ? (
+                      // Grouped by commission rate
+                      (() => {
+                        const groups: Record<string, any[]> = {};
+                        displayUsers.forEach((u: any) => {
+                          const key = `${u.commissionRate || 50}%`;
+                          if (!groups[key]) groups[key] = [];
+                          groups[key].push(u);
+                        });
+                        return Object.entries(groups)
+                          .sort(([a], [b]) => Number(b.replace('%','')) - Number(a.replace('%','')))
+                          .map(([rate, members]) => {
+                            const isCollapsed = affiliateCollapsed.has(rate);
+                            const toggle = () => setAffiliateCollapsed(prev => {
+                              const next = new Set(prev);
+                              next.has(rate) ? next.delete(rate) : next.add(rate);
+                              return next;
+                            });
+                            return (
+                              <React.Fragment key={`group-${rate}`}>
+                                <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors select-none">
+                                  <td colSpan={9} className="py-2.5 px-6">
+                                    <div className="flex items-center gap-2">
+                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                                      <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{rate} Commission</span>
+                                      <span className="text-xs font-normal text-slate-400 ml-0.5">({members.length} {members.length === 1 ? 'member' : 'members'})</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {!isCollapsed && members.map((user: any) => renderUserRow(user))}
+                            </React.Fragment>
+                          );
+                        });
+                      })()
+                    ) : (
+                      displayUsers.map((user: any) => renderUserRow(user))
+                    )}
                   </tbody>
                 </table>
               </div>
