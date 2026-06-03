@@ -15,7 +15,10 @@ import {
   ChevronsUpDown,
   ArrowLeft,
   FileText,
+  Search,
+  Layers,
 } from 'lucide-react';
+import React from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { Profile } from './Profile';
@@ -292,10 +295,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [trackingSort,         setTrackingSort]         = useState<SortState>({ field: 'clickDate', dir: 'desc' });
   const [trackingStatusFilter, setTrackingStatusFilter] = useState('all');
 
-  // Cards tab — sort + filters
+  // Cards tab — sort + filters + search + group
   const [cardsSort,         setCardsSort]         = useState<SortState>({ field: 'name', dir: 'asc' });
   const [cardsIssuerFilter, setCardsIssuerFilter] = useState('all');
   const [cardsPayoutFilter, setCardsPayoutFilter] = useState('all');
+  const [cardsSearch,       setCardsSearch]       = useState('');
+  const [cardsGroupBy,      setCardsGroupBy]      = useState(false);
+  const [cardsCollapsed,    setCardsCollapsed]    = useState<Set<string>>(new Set());
 
   // Stats grid comparison period
   type StatPeriod = 'month' | '7d' | '30d' | '90d';
@@ -334,6 +340,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const cardIssuers = Array.from(new Set(allCards.map(c => c.issuer).filter(Boolean))).sort() as string[];
   const displayCards = applySort(
     allCards.filter(c => {
+      if (cardsSearch && !c.name.toLowerCase().includes(cardsSearch.toLowerCase()) &&
+          !(c.issuer || '').toLowerCase().includes(cardsSearch.toLowerCase())) return false;
       if (cardsIssuerFilter !== 'all' && c.issuer !== cardsIssuerFilter) return false;
       if (cardsPayoutFilter !== 'all') {
         const amt = c.cpa;
@@ -656,55 +664,77 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           {/* ── Cards Tab ── */}
           <Tabs.Content value="cards" className="p-6">
             {/* Toolbar */}
-            <div className="flex flex-wrap items-center gap-3 mb-5">
-              {/* Issuer filter */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-slate-500">Issuer:</span>
-                <select
-                  value={cardsIssuerFilter}
-                  onChange={e => setCardsIssuerFilter(e.target.value)}
-                  className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
-                >
-                  <option value="all">All issuers</option>
-                  {cardIssuers.map(issuer => (
-                    <option key={issuer} value={issuer}>{issuer}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* CPA range filter */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-slate-500">Your CPA:</span>
-                {([
-                  { value: 'all',     label: 'All' },
-                  { value: 'zero',    label: '$0' },
-                  { value: 'lt50',    label: '<$50' },
-                  { value: '50-200',  label: '$50–$200' },
-                  { value: '200plus', label: '$200+' },
-                ]).map(({ value, label }) => (
+            <div className="space-y-3 mb-5">
+              {/* Row 1: Search + Group toggle */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative flex-1 min-w-[180px]">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search cards or issuer…"
+                    value={cardsSearch}
+                    onChange={e => setCardsSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                  />
+                </div>
+                <div className="flex items-center gap-2 ml-auto">
                   <button
-                    key={value}
-                    onClick={() => setCardsPayoutFilter(value)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      cardsPayoutFilter === value
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                    onClick={() => { setCardsGroupBy(g => !g); setCardsCollapsed(new Set()); }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                      cardsGroupBy
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                        : 'text-slate-600 bg-white border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
                     }`}
                   >
-                    {label}
+                    <Layers className="w-3.5 h-3.5" />
+                    Group by Issuer
                   </button>
-                ))}
+                  {cardsGroupBy && displayCards.length > 0 && (() => {
+                    const allIssuers = Array.from(new Set(displayCards.map(c => c.issuer || 'Other')));
+                    const allCollapsed = allIssuers.every(i => cardsCollapsed.has(i));
+                    return (
+                      <button onClick={() => setCardsCollapsed(allCollapsed ? new Set() : new Set(allIssuers))}
+                        className="text-xs text-slate-500 hover:text-indigo-600 transition-colors">
+                        {allCollapsed ? 'Expand All' : 'Collapse All'}
+                      </button>
+                    );
+                  })()}
+                </div>
               </div>
 
-              {(cardsIssuerFilter !== 'all' || cardsPayoutFilter !== 'all') && (
-                <div className="flex items-center gap-2 ml-auto">
-                  <span className="text-xs text-slate-500">{displayCards.length} of {allCards.length} cards</span>
-                  <button
-                    onClick={() => { setCardsIssuerFilter('all'); setCardsPayoutFilter('all'); }}
-                    className="text-xs text-indigo-600 hover:underline"
-                  >Clear filters</button>
+              {/* Row 2: Issuer + CPA range */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-slate-400">Issuer:</span>
+                  <select value={cardsIssuerFilter} onChange={e => setCardsIssuerFilter(e.target.value)}
+                    className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700">
+                    <option value="all">All issuers</option>
+                    {cardIssuers.map(issuer => <option key={issuer} value={issuer}>{issuer}</option>)}
+                  </select>
                 </div>
-              )}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-medium text-slate-400">Your CPA:</span>
+                  {([
+                    { value: 'all', label: 'All' }, { value: 'zero', label: '$0' },
+                    { value: 'lt50', label: '<$50' }, { value: '50-200', label: '$50–$200' },
+                    { value: '200plus', label: '$200+' },
+                  ]).map(({ value, label }) => (
+                    <button key={value} onClick={() => setCardsPayoutFilter(value)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                        cardsPayoutFilter === value
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                      }`}>{label}</button>
+                  ))}
+                </div>
+                {(cardsSearch || cardsIssuerFilter !== 'all' || cardsPayoutFilter !== 'all') && (
+                  <div className="flex items-center gap-2 ml-auto">
+                    <span className="text-xs text-slate-400">{displayCards.length} of {allCards.length} cards</span>
+                    <button onClick={() => { setCardsSearch(''); setCardsIssuerFilter('all'); setCardsPayoutFilter('all'); }}
+                      className="text-xs text-indigo-600 hover:underline">Clear</button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Table */}
@@ -715,57 +745,85 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 </div>
                 <p className="text-sm">{links.length === 0 ? 'No cards loaded yet — try refreshing.' : 'No cards match the selected filters.'}</p>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-slate-100">
-                      <SortTh label="Card"     field="name"        sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />
-                      <SortTh label="Issuer"   field="issuer"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />
-                      <SortTh label="Your CPA" field="cpa"         sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
-                      <SortTh label="Clicks"   field="clicks"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
-                      <SortTh label="Approvals" field="conversions" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
-                      <th className="py-3 px-4 text-right text-slate-500 text-xs font-semibold uppercase tracking-wider">Link</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {displayCards.map(card => (
-                      <tr key={card.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
-                        <td className="py-3.5 px-4 font-medium text-sm text-slate-900">{card.name}</td>
-                        <td className="py-3.5 px-4 text-sm text-slate-500">{card.issuer || '—'}</td>
-                        <td className="py-3.5 px-4 text-right text-sm font-semibold text-slate-900">
-                          {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : <span className="text-slate-300 font-normal">—</span>}
-                        </td>
-                        <td className="py-3.5 px-4 text-right text-sm text-slate-600">{card.clicks}</td>
-                        <td className="py-3.5 px-4 text-right text-sm text-slate-600">{card.conversions}</td>
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => copyToClipboard(card.url, card.id)}
-                              className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-                              title="Copy link"
-                            >
-                              {copiedId === card.id
-                                ? <CheckCircle className="w-4 h-4 text-emerald-600" />
-                                : <Copy className="w-4 h-4 text-slate-400" />}
-                            </button>
-                            <a
-                              href={card.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-                              title="Open link"
-                            >
-                              <ExternalLink className="w-4 h-4 text-slate-400" />
-                            </a>
-                          </div>
-                        </td>
+            ) : (() => {
+              const CardRow = ({ card }: { card: any }) => (
+                <tr key={card.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                  <td className="py-3.5 px-4 font-medium text-sm text-slate-900">{card.name}</td>
+                  {!cardsGroupBy && <td className="py-3.5 px-4 text-sm text-slate-500">{card.issuer || '—'}</td>}
+                  <td className="py-3.5 px-4 text-right text-sm font-semibold text-slate-900">
+                    {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : <span className="text-slate-300 font-normal">—</span>}
+                  </td>
+                  <td className="py-3.5 px-4 text-right text-sm text-slate-600">{card.clicks}</td>
+                  <td className="py-3.5 px-4 text-right text-sm text-slate-600">{card.conversions}</td>
+                  <td className="py-3.5 px-4 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => copyToClipboard(card.url, card.id)}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors" title="Copy link">
+                        {copiedId === card.id ? <CheckCircle className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-400" />}
+                      </button>
+                      <a href={card.url} target="_blank" rel="noopener noreferrer"
+                        className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors" title="Open link">
+                        <ExternalLink className="w-4 h-4 text-slate-400" />
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              );
+
+              const colCount = cardsGroupBy ? 5 : 6;
+              return (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-slate-100">
+                        <SortTh label="Card"     field="name"        sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />
+                        {!cardsGroupBy && <SortTh label="Issuer" field="issuer" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />}
+                        <SortTh label="Your CPA" field="cpa"         sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
+                        <SortTh label="Clicks"   field="clicks"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
+                        <SortTh label="Approvals" field="conversions" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
+                        <th className="py-3 px-4 text-right text-slate-500 text-xs font-semibold uppercase tracking-wider">Link</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    </thead>
+                    <tbody>
+                      {cardsGroupBy ? (
+                        (() => {
+                          const groups: Record<string, any[]> = {};
+                          displayCards.forEach(c => {
+                            const key = c.issuer || 'Other';
+                            if (!groups[key]) groups[key] = [];
+                            groups[key].push(c);
+                          });
+                          return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([issuer, cards]) => {
+                            const isCollapsed = cardsCollapsed.has(issuer);
+                            const toggle = () => setCardsCollapsed(prev => {
+                              const next = new Set(prev);
+                              next.has(issuer) ? next.delete(issuer) : next.add(issuer);
+                              return next;
+                            });
+                            return (
+                              <React.Fragment key={`g-${issuer}`}>
+                                <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors select-none">
+                                  <td colSpan={colCount} className="py-2.5 px-4">
+                                    <div className="flex items-center gap-2">
+                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                                      <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{issuer}</span>
+                                      <span className="text-xs font-normal text-slate-400 ml-0.5">({cards.length} {cards.length === 1 ? 'card' : 'cards'})</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {!isCollapsed && cards.map(card => <CardRow key={card.id} card={card} />)}
+                              </React.Fragment>
+                            );
+                          });
+                        })()
+                      ) : (
+                        displayCards.map(card => <CardRow key={card.id} card={card} />)
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
           </Tabs.Content>
 
           {/* ── Activity Tab ── */}
