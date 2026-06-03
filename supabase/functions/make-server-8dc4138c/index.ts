@@ -498,18 +498,14 @@ app.get("/make-server-8dc4138c/links", async (c) => {
       await kv.set(`links:${user.id}`, links);
     }
 
-    // Build the single cardratings.com master link using the affiliate's
-    // ezrxref- number and their assigned shnq card offer IDs.
-    const CARDRATINGS_SRC = '693350';
+    // Build the single cardratings.com master link.
+    // The base URL (src + shnq) is the same for all affiliates —
+    // only var2=ezrxref-{number} changes per affiliate.
+    const MASTER_LINK_BASE = 'https://www.cardratings.com/bestcards/featured-credit-cards?src=693350&shnq=4028089,4048264,5048295,340040,4048084,4048251';
     const ezrxRef = (userData.ezrxRef || '').trim();
-    const shnq    = (userData.shnq    || '').trim();
-    let masterLink = '';
-    if (ezrxRef) {
-      const params = new URLSearchParams({ src: CARDRATINGS_SRC });
-      if (shnq) params.set('shnq', shnq);
-      params.set('var2', `ezrxref-${ezrxRef}`);
-      masterLink = `https://www.cardratings.com/bestcards/featured-credit-cards?${params.toString()}`;
-    }
+    const masterLink = ezrxRef
+      ? `${MASTER_LINK_BASE}&var2=ezrxref-${ezrxRef}`
+      : '';
 
     return c.json({ links, masterLink });
   } catch (error) {
@@ -1123,8 +1119,8 @@ app.post("/make-server-8dc4138c/manager/sync-airtable", async (c) => {
       const affiliateId = fields['Affiliate-ID'] || '';
       const commissionRate = parseInt(fields['Aff Cut']) || 50;
       const phone = fields.Phone || fields.Zelle || '';
+      // ezrxref- is the only per-affiliate variable in the master link URL
       const ezrxRef = (fields['ezrxref-'] || '').trim();
-      const shnq    = (fields['shnq']    || '').trim();
 
       try {
         // Check if user exists
@@ -1143,7 +1139,6 @@ app.post("/make-server-8dc4138c/manager/sync-airtable", async (c) => {
             email,
             airtableRecordId: record.id, // Store Airtable record ID for bidirectional sync
             ...(ezrxRef && { ezrxRef }),
-            ...(shnq    && { shnq }),
           });
           updated++;
           console.log(`Updated user: ${email}`);
@@ -1174,7 +1169,6 @@ app.post("/make-server-8dc4138c/manager/sync-airtable", async (c) => {
             createdAt: new Date().toISOString(),
             airtableRecordId: record.id, // Store Airtable record ID for bidirectional sync
             ...(ezrxRef && { ezrxRef }),
-            ...(shnq    && { shnq }),
           });
 
           // Initialize tracking links
