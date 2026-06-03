@@ -498,7 +498,20 @@ app.get("/make-server-8dc4138c/links", async (c) => {
       await kv.set(`links:${user.id}`, links);
     }
 
-    return c.json({ links });
+    // Build the single cardratings.com master link using the affiliate's
+    // ezrxref- number and their assigned shnq card offer IDs.
+    const CARDRATINGS_SRC = '693350';
+    const ezrxRef = (userData.ezrxRef || '').trim();
+    const shnq    = (userData.shnq    || '').trim();
+    let masterLink = '';
+    if (ezrxRef) {
+      const params = new URLSearchParams({ src: CARDRATINGS_SRC });
+      if (shnq) params.set('shnq', shnq);
+      params.set('var2', `ezrxref-${ezrxRef}`);
+      masterLink = `https://www.cardratings.com/bestcards/featured-credit-cards?${params.toString()}`;
+    }
+
+    return c.json({ links, masterLink });
   } catch (error) {
     console.log(`Get links error: ${error.message}`);
     return c.json({ error: error.message }, 500);
@@ -1110,6 +1123,8 @@ app.post("/make-server-8dc4138c/manager/sync-airtable", async (c) => {
       const affiliateId = fields['Affiliate-ID'] || '';
       const commissionRate = parseInt(fields['Aff Cut']) || 50;
       const phone = fields.Phone || fields.Zelle || '';
+      const ezrxRef = (fields['ezrxref-'] || '').trim();
+      const shnq    = (fields['shnq']    || '').trim();
 
       try {
         // Check if user exists
@@ -1126,7 +1141,9 @@ app.post("/make-server-8dc4138c/manager/sync-airtable", async (c) => {
             commissionRate,
             affiliateId: affiliateId || userData.affiliateId,
             email,
-            airtableRecordId: record.id // Store Airtable record ID for bidirectional sync
+            airtableRecordId: record.id, // Store Airtable record ID for bidirectional sync
+            ...(ezrxRef && { ezrxRef }),
+            ...(shnq    && { shnq }),
           });
           updated++;
           console.log(`Updated user: ${email}`);
@@ -1155,7 +1172,9 @@ app.post("/make-server-8dc4138c/manager/sync-airtable", async (c) => {
             affiliateId: newAffiliateId,
             commissionRate,
             createdAt: new Date().toISOString(),
-            airtableRecordId: record.id // Store Airtable record ID for bidirectional sync
+            airtableRecordId: record.id, // Store Airtable record ID for bidirectional sync
+            ...(ezrxRef && { ezrxRef }),
+            ...(shnq    && { shnq }),
           });
 
           // Initialize tracking links

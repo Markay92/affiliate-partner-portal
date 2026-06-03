@@ -300,10 +300,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [links, setLinks]       = useState<Link[]>([]);
   const [payouts, setPayouts]   = useState<Payout[]>([]);
   const [tracking, setTracking] = useState<TrackingItem[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [firstName, setFirstName] = useState('');
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState('');
+  const [invoices, setInvoices]     = useState<Invoice[]>([]);
+  const [firstName, setFirstName]   = useState('');
+  const [masterLink, setMasterLink] = useState('');
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState('');
 
   // Activity tab (Airtable API Output)
   const [trackingFilter,       setTrackingFilter]       = useState<DateFilter>('all');
@@ -416,6 +417,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       ]);
 
       setLinks(linksData.links         || []);
+      if (linksData.masterLink) setMasterLink(linksData.masterLink);
       setTracking(trackingData.tracking || []);
       setPayouts(payoutsData.payouts    || []);
       setInvoices(invoicesData.invoices || []);
@@ -742,6 +744,36 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
           {/* ── Cards Tab ── */}
           <Tabs.Content value="cards" className="p-6">
+            {/* Master affiliate link banner */}
+            {masterLink && (
+              <div className="mb-6 p-4 bg-indigo-50 rounded-2xl ring-1 ring-indigo-200/60">
+                <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wider mb-2.5">Your Affiliate Link</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs text-indigo-900 bg-white px-3 py-2.5 rounded-xl ring-1 ring-indigo-200 truncate font-mono">
+                    {masterLink}
+                  </code>
+                  <button
+                    onClick={() => copyToClipboard(masterLink, -1)}
+                    className="flex-shrink-0 p-2.5 bg-white ring-1 ring-indigo-200 rounded-xl hover:bg-indigo-50 transition-colors"
+                    title="Copy affiliate link"
+                  >
+                    {copiedId === -1
+                      ? <CheckCircle className="w-4 h-4 text-emerald-600" />
+                      : <Copy className="w-4 h-4 text-indigo-600" />}
+                  </button>
+                  <a
+                    href={masterLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-shrink-0 p-2.5 bg-white ring-1 ring-indigo-200 rounded-xl hover:bg-indigo-50 transition-colors"
+                    title="Open link"
+                  >
+                    <ExternalLink className="w-4 h-4 text-indigo-600" />
+                  </a>
+                </div>
+              </div>
+            )}
+
             {/* Toolbar */}
             <div className="space-y-3 mb-5">
               {/* Row 1: Search + Group toggle */}
