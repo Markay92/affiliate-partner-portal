@@ -18,6 +18,8 @@ import {
   FileText,
   CheckCircle,
   Send,
+  Search,
+  Layers,
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -316,6 +318,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [cpaAffiliateFilter, setCpaAffiliateFilter] = useState('all');
   const [cpaSort,           setCpaSort]           = useState<SortState>({ field: 'card', dir: 'asc' });
   const [cpaAffiliateLabel, setCpaAffiliateLabel] = useState('');
+  const [cpaSearch,         setCpaSearch]         = useState('');
+  const [cpaIssuerFilter,   setCpaIssuerFilter]   = useState('all');
+  const [cpaCpaRange,       setCpaCpaRange]       = useState('all');
+  const [cpaGroupBy,        setCpaGroupBy]        = useState(false);
 
   // Invoices tab
   const [invoices,              setInvoices]              = useState<any[]>([]);
@@ -1221,40 +1227,120 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
           {/* ── CPA Rates Tab ── */}
           <Tabs.Content value="cpa-rates">
-            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-6">
+            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
               {/* Toolbar */}
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="text-xs font-medium text-slate-500">Affiliate:</span>
-                  <select
-                    value={cpaAffiliateFilter}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setCpaAffiliateFilter(val);
-                      fetchCpaRates(val);
-                    }}
-                    className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
-                  >
-                    <option value="all">All (bank CPA only)</option>
-                    {(users as any[]).map((u: any) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name || u.email} ({u.commissionRate || 50}%)
-                      </option>
-                    ))}
-                  </select>
-                  {cpaAffiliateLabel && (
-                    <span className="text-xs text-indigo-600 font-medium">
-                      Showing payouts for: {cpaAffiliateLabel}
-                    </span>
-                  )}
+              <div className="p-5 border-b border-slate-100 space-y-3">
+                {/* Row 1: Search + Affiliate + Refresh */}
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Search */}
+                  <div className="relative flex-1 min-w-[180px]">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Search cards…"
+                      value={cpaSearch}
+                      onChange={e => setCpaSearch(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                    />
+                  </div>
+
+                  {/* Affiliate */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-slate-500">Affiliate:</span>
+                    <select
+                      value={cpaAffiliateFilter}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCpaAffiliateFilter(val);
+                        fetchCpaRates(val);
+                      }}
+                      className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                    >
+                      <option value="all">All (bank CPA only)</option>
+                      {(users as any[]).map((u: any) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name || u.email} ({u.commissionRate || 50}%)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-2 ml-auto">
+                    {/* Group by issuer toggle */}
+                    <button
+                      onClick={() => setCpaGroupBy(g => !g)}
+                      title="Group by issuer"
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                        cpaGroupBy
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                          : 'text-slate-600 bg-white border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                      }`}
+                    >
+                      <Layers className="w-3.5 h-3.5" />
+                      Group by Issuer
+                    </button>
+                    <button
+                      onClick={() => fetchCpaRates(cpaAffiliateFilter)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      Refresh
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={() => fetchCpaRates(cpaAffiliateFilter)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  Refresh
-                </button>
+
+                {/* Row 2: Issuer filter + CPA range */}
+                {cpaRates.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Issuer dropdown */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-slate-400">Issuer:</span>
+                      <select
+                        value={cpaIssuerFilter}
+                        onChange={e => setCpaIssuerFilter(e.target.value)}
+                        className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                      >
+                        <option value="all">All issuers</option>
+                        {Array.from(new Set(cpaRates.map(r => r.issuer).filter(Boolean))).sort().map((iss: any) => (
+                          <option key={iss} value={iss}>{iss}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* CPA range pills */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-medium text-slate-400">Payout:</span>
+                      {([
+                        { value: 'all',    label: 'All' },
+                        { value: 'lt100',  label: '<$100' },
+                        { value: '100-299', label: '$100–$299' },
+                        { value: '300plus', label: '$300+' },
+                      ]).map(({ value, label }) => (
+                        <button
+                          key={value}
+                          onClick={() => setCpaCpaRange(value)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                            cpaCpaRange === value
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Active filter summary */}
+                    {(cpaSearch || cpaIssuerFilter !== 'all' || cpaCpaRange !== 'all') && (
+                      <button
+                        onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); }}
+                        className="text-xs text-indigo-600 hover:underline ml-1"
+                      >
+                        Clear filters
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {cpaRatesLoading ? (
@@ -1271,43 +1357,92 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   </div>
                   <p className="text-slate-500 text-sm">No CPA rates found. Try refreshing.</p>
                 </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <p className="text-xs text-slate-400 mb-3">{cpaRates.length} cards loaded</p>
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50/80 border-b border-slate-100">
-                      <tr>
-                        <SortThSm label="Card"        field="card"             sort={cpaSort} onSort={(f) => setCpaSort(toggleSort(cpaSort, f))} />
-                        <SortThSm label="Issuer"      field="issuer"           sort={cpaSort} onSort={(f) => setCpaSort(toggleSort(cpaSort, f))} />
-                        <SortThSm label="Bank CPA"    field="bankCpa"          sort={cpaSort} onSort={(f) => setCpaSort(toggleSort(cpaSort, f))} align="right" />
-                        {cpaAffiliateFilter !== 'all' && (
-                          <SortThSm label="Affiliate Payout" field="affiliatePayout" sort={cpaSort} onSort={(f) => setCpaSort(toggleSort(cpaSort, f))} align="right" />
-                        )}
-                        <SortThSm label="Rate Date"   field="date"             sort={cpaSort} onSort={(f) => setCpaSort(toggleSort(cpaSort, f))} />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {applySort(cpaRates, cpaSort).map((rate: any) => (
-                        <tr key={rate.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
-                          <td className="py-3 px-4 font-medium text-slate-900">{rate.card}</td>
-                          <td className="py-3 px-4 text-slate-500">{rate.issuer || '—'}</td>
-                          <td className="py-3 px-4 text-right font-semibold text-slate-900">
-                            {rate.bankCpa > 0 ? `$${rate.bankCpa.toLocaleString()}` : <span className="text-slate-300 font-normal">—</span>}
-                          </td>
+              ) : (() => {
+                // Apply all filters + sort
+                const refPayout = (r: any) => cpaAffiliateFilter !== 'all' ? (r.affiliatePayout ?? r.bankCpa) : r.bankCpa;
+                const filtered = applySort(cpaRates, cpaSort).filter(r => {
+                  if (cpaSearch && !r.card.toLowerCase().includes(cpaSearch.toLowerCase()) &&
+                      !(r.issuer || '').toLowerCase().includes(cpaSearch.toLowerCase())) return false;
+                  if (cpaIssuerFilter !== 'all' && r.issuer !== cpaIssuerFilter) return false;
+                  const amt = refPayout(r) || 0;
+                  if (cpaCpaRange === 'lt100'   && !(amt < 100))               return false;
+                  if (cpaCpaRange === '100-299'  && !(amt >= 100 && amt < 300)) return false;
+                  if (cpaCpaRange === '300plus'  && !(amt >= 300))              return false;
+                  return true;
+                });
+
+                const CpaRow = ({ rate }: { rate: any }) => (
+                  <tr className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                    <td className="py-3 px-4 font-medium text-sm text-slate-900">{rate.card}</td>
+                    {!cpaGroupBy && <td className="py-3 px-4 text-sm text-slate-500">{rate.issuer || '—'}</td>}
+                    <td className="py-3 px-4 text-right font-semibold text-sm text-slate-900">
+                      {rate.bankCpa > 0 ? `$${rate.bankCpa.toLocaleString()}` : <span className="text-slate-300 font-normal">—</span>}
+                    </td>
+                    {cpaAffiliateFilter !== 'all' && (
+                      <td className="py-3 px-4 text-right font-semibold text-sm text-indigo-600">
+                        {rate.affiliatePayout != null && rate.affiliatePayout > 0
+                          ? `$${rate.affiliatePayout.toLocaleString()}`
+                          : <span className="text-slate-300 font-normal">—</span>}
+                      </td>
+                    )}
+                    <td className="py-3 px-4 text-sm text-slate-500">{formatDate(rate.date)}</td>
+                  </tr>
+                );
+
+                if (filtered.length === 0) return (
+                  <div className="text-center py-16">
+                    <p className="text-slate-500 text-sm">No cards match the filters.</p>
+                    <button onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); }} className="text-xs text-indigo-600 hover:underline mt-2">Clear filters</button>
+                  </div>
+                );
+
+                return (
+                  <div className="overflow-x-auto">
+                    <p className="text-xs text-slate-400 px-5 py-2">
+                      {filtered.length}{filtered.length !== cpaRates.length ? ` of ${cpaRates.length}` : ''} cards
+                      {cpaAffiliateLabel ? ` · ${cpaAffiliateLabel}` : ''}
+                    </p>
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50/80 border-b border-slate-100">
+                        <tr>
+                          <SortThSm label="Card"     field="card"    sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} />
+                          {!cpaGroupBy && <SortThSm label="Issuer" field="issuer" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} />}
+                          <SortThSm label="Bank CPA" field="bankCpa" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} align="right" />
                           {cpaAffiliateFilter !== 'all' && (
-                            <td className="py-3 px-4 text-right font-semibold text-indigo-600">
-                              {rate.affiliatePayout != null && rate.affiliatePayout > 0
-                                ? `$${rate.affiliatePayout.toLocaleString()}`
-                                : <span className="text-slate-300 font-normal">—</span>}
-                            </td>
+                            <SortThSm label="Affiliate Payout" field="affiliatePayout" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} align="right" />
                           )}
-                          <td className="py-3 px-4 text-slate-500">{formatDate(rate.date)}</td>
+                          <SortThSm label="Rate Date" field="date" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} />
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      </thead>
+                      <tbody>
+                        {cpaGroupBy ? (
+                          // Grouped by issuer
+                          (() => {
+                            const groups: Record<string, any[]> = {};
+                            filtered.forEach(r => {
+                              const key = r.issuer || 'Other';
+                              if (!groups[key]) groups[key] = [];
+                              groups[key].push(r);
+                            });
+                            return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([issuer, rates]) => (
+                              <>
+                                <tr key={`group-${issuer}`} className="bg-slate-50 border-b border-slate-200">
+                                  <td colSpan={cpaAffiliateFilter !== 'all' ? 4 : 3} className="py-2 px-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                                    {issuer} <span className="font-normal text-slate-400 normal-case ml-1">({rates.length})</span>
+                                  </td>
+                                </tr>
+                                {rates.map(r => <CpaRow key={r.id} rate={r} />)}
+                              </>
+                            ));
+                          })()
+                        ) : (
+                          filtered.map(r => <CpaRow key={r.id} rate={r} />)
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
             </div>
           </Tabs.Content>
           {/* ── Invoices Tab ── */}
