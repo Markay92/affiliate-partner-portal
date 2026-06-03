@@ -321,13 +321,16 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [cardsCollapsed,    setCardsCollapsed]    = useState<Set<string>>(new Set());
 
   // Stats grid comparison period
-  type StatPeriod = 'month' | '7d' | '30d' | '90d';
+  type StatPeriod = 'yesterday' | 'mtd' | 'month' | '7d' | '30d' | '90d' | 'lm';
   const [statPeriod, setStatPeriod] = useState<StatPeriod>('month');
   const STAT_PERIOD_LABELS: Record<StatPeriod, string> = {
+    yesterday: 'Yesterday vs day before',
+    mtd:   'Month to date vs same days last month',
     month: 'This month vs last month',
     '7d':  'Last 7 days vs prior 7 days',
     '30d': 'Last 30 days vs prior 30 days',
     '90d': 'Last 90 days vs prior 90 days',
+    lm:    'Last month vs month before',
   };
 
   // ── Derived display data ────────────────────────────────────────────────────
@@ -461,18 +464,48 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
   let _thisT: TrackingItem[], _lastT: TrackingItem[], _periodLabel: string;
 
-  if (statPeriod === 'month') {
+  const _inMonth = (dateStr: string, m: number, y: number) => {
+    if (!dateStr) return false;
+    const d = parseLocalDate(dateStr);
+    return d.getMonth() === m && d.getFullYear() === y;
+  };
+
+  if (statPeriod === 'yesterday') {
+    _thisT = tracking.filter(t => _inRange(t.clickDate, 2, 1)); // yesterday
+    _lastT = tracking.filter(t => _inRange(t.clickDate, 3, 2)); // day before
+    _periodLabel = 'vs day before';
+  } else if (statPeriod === 'mtd') {
+    // MTD = 1st of current month to today; compare vs same # of days in prior month
+    const dayOfMonth = _now.getDate();
     const _thisM = _now.getMonth(), _thisY = _now.getFullYear();
     const _lastM = _thisM === 0 ? 11 : _thisM - 1;
     const _lastY  = _thisM === 0 ? _thisY - 1 : _thisY;
-    const _inMonth = (dateStr: string, m: number, y: number) => {
-      if (!dateStr) return false;
-      const d = parseLocalDate(dateStr);
-      return d.getMonth() === m && d.getFullYear() === y;
-    };
+    _thisT = tracking.filter(t => {
+      if (!t.clickDate) return false;
+      const d = parseLocalDate(t.clickDate);
+      return d.getMonth() === _thisM && d.getFullYear() === _thisY;
+    });
+    _lastT = tracking.filter(t => {
+      if (!t.clickDate) return false;
+      const d = parseLocalDate(t.clickDate);
+      return d.getMonth() === _lastM && d.getFullYear() === _lastY && d.getDate() <= dayOfMonth;
+    });
+    _periodLabel = 'vs same days last month';
+  } else if (statPeriod === 'month') {
+    const _thisM = _now.getMonth(), _thisY = _now.getFullYear();
+    const _lastM = _thisM === 0 ? 11 : _thisM - 1;
+    const _lastY  = _thisM === 0 ? _thisY - 1 : _thisY;
     _thisT = tracking.filter(t => _inMonth(t.clickDate, _thisM, _thisY));
     _lastT = tracking.filter(t => _inMonth(t.clickDate, _lastM, _lastY));
     _periodLabel = 'vs last month';
+  } else if (statPeriod === 'lm') {
+    const _lastM  = _now.getMonth() === 0 ? 11 : _now.getMonth() - 1;
+    const _lastY  = _now.getMonth() === 0 ? _now.getFullYear() - 1 : _now.getFullYear();
+    const _prevM  = _lastM === 0 ? 11 : _lastM - 1;
+    const _prevY  = _lastM === 0 ? _lastY - 1 : _lastY;
+    _thisT = tracking.filter(t => _inMonth(t.clickDate, _lastM, _lastY));
+    _lastT = tracking.filter(t => _inMonth(t.clickDate, _prevM, _prevY));
+    _periodLabel = 'vs month before';
   } else {
     const days = statPeriod === '7d' ? 7 : statPeriod === '30d' ? 30 : 90;
     _thisT = tracking.filter(t => _inRange(t.clickDate, days, 0));
@@ -605,17 +638,25 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             Comparing <span className="font-medium text-slate-500">{STAT_PERIOD_LABELS[statPeriod].toLowerCase()}</span>
           </p>
           <div className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl p-1 text-xs font-medium shadow-sm">
-            {(['month', '7d', '30d', '90d'] as StatPeriod[]).map(p => (
+            {([
+              { value: 'yesterday', label: 'Yest.' },
+              { value: 'mtd',       label: 'MTD' },
+              { value: 'month',     label: 'Month' },
+              { value: '7d',        label: '7D' },
+              { value: '30d',       label: '30D' },
+              { value: '90d',       label: '90D' },
+              { value: 'lm',        label: 'Last Mo.' },
+            ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
               <button
-                key={p}
-                onClick={() => setStatPeriod(p)}
-                className={`px-3 py-1.5 rounded-lg transition-all ${
-                  statPeriod === p
+                key={value}
+                onClick={() => setStatPeriod(value)}
+                className={`px-2.5 py-1.5 rounded-lg transition-all ${
+                  statPeriod === value
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                 }`}
               >
-                {p === 'month' ? 'Month' : p.toUpperCase()}
+                {label}
               </button>
             ))}
           </div>

@@ -989,71 +989,62 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
           {/* ── Affiliates Tab ── */}
           <Tabs.Content value="affiliates">
-            {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-              <div className="bg-white rounded-2xl p-5 shadow-sm ring-1 ring-slate-900/5">
+            {/* Stats — same card design as affiliate dashboard */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-medium text-slate-500">
-                    {affiliatesFilter !== 'all' ? 'Filtered' : 'Affiliates'}
+                  <span className="text-sm font-medium text-slate-500">
+                    {affiliatesFilter !== 'all' ? 'Filtered Affiliates' : 'Total Affiliates'}
                   </span>
-                  <div className="p-1.5 bg-indigo-50 rounded-xl">
-                    <Users className="w-3.5 h-3.5 text-indigo-600" />
+                  <div className="p-2 bg-indigo-50 rounded-xl">
+                    <Users className="w-4 h-4 text-indigo-600" />
                   </div>
                 </div>
-                <div className="text-2xl font-bold text-slate-900">
+                <div className="text-3xl font-bold text-slate-900">
                   {displayUsers.length}
                   {affiliatesFilter !== 'all' && (
-                    <span className="text-sm font-normal text-slate-400 ml-1">/ {users.length}</span>
+                    <span className="text-base font-normal text-slate-400 ml-1">/ {users.length}</span>
                   )}
                 </div>
               </div>
-              <div className="bg-white rounded-2xl p-5 shadow-sm ring-1 ring-slate-900/5">
+              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-medium text-slate-500">Clicks</span>
-                  <div className="p-1.5 bg-blue-50 rounded-xl">
-                    <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
+                  <span className="text-sm font-medium text-slate-500">Total Clicks</span>
+                  <div className="p-2 bg-blue-50 rounded-xl">
+                    <TrendingUp className="w-4 h-4 text-blue-600" />
                   </div>
                 </div>
-                <div className="text-2xl font-bold text-slate-900">{totalStats.clicks.toLocaleString()}</div>
+                <div className="text-3xl font-bold text-slate-900">{totalStats.clicks.toLocaleString()}</div>
               </div>
-              <div className="bg-white rounded-2xl p-5 shadow-sm ring-1 ring-slate-900/5">
+              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-medium text-slate-500">Applications</span>
-                  <div className="p-1.5 bg-orange-50 rounded-xl">
-                    <Activity className="w-3.5 h-3.5 text-orange-500" />
+                  <span className="text-sm font-medium text-slate-500">Approvals</span>
+                  <div className="p-2 bg-emerald-50 rounded-xl">
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
                   </div>
                 </div>
-                <div className="text-2xl font-bold text-slate-900">{totalStats.applications.toLocaleString()}</div>
-                {totalStats.clicks > 0 && totalStats.applications > 0 && (
-                  <div className="text-xs text-slate-400 mt-1">
-                    {((totalStats.applications / totalStats.clicks) * 100).toFixed(1)}% click→app
-                  </div>
-                )}
-              </div>
-              <div className="bg-white rounded-2xl p-5 shadow-sm ring-1 ring-slate-900/5">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-medium text-slate-500">Approvals</span>
-                  <div className="p-1.5 bg-emerald-50 rounded-xl">
-                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                  </div>
-                </div>
-                <div className="text-2xl font-bold text-slate-900">{totalStats.conversions.toLocaleString()}</div>
+                <div className="text-3xl font-bold text-slate-900 mb-1">{totalStats.conversions.toLocaleString()}</div>
                 {totalStats.clicks > 0 && totalStats.conversions > 0 && (
-                  <div className="text-xs text-slate-400 mt-1">
-                    {((totalStats.conversions / totalStats.clicks) * 100).toFixed(1)}% conv.
+                  <div className="text-xs text-slate-400">
+                    {((totalStats.conversions / totalStats.clicks) * 100).toFixed(1)}% conv. rate
+                  </div>
+                )}
+                {totalStats.applications > 0 && (
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    {totalStats.applications.toLocaleString()} applications
                   </div>
                 )}
               </div>
-              <div className="bg-white rounded-2xl p-5 shadow-sm ring-1 ring-slate-900/5 col-span-2">
+              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-medium text-slate-500">Total Commissions</span>
-                  <div className="p-1.5 bg-violet-50 rounded-xl">
-                    <DollarSign className="w-3.5 h-3.5 text-violet-600" />
+                  <span className="text-sm font-medium text-slate-500">Total Commissions</span>
+                  <div className="p-2 bg-violet-50 rounded-xl">
+                    <DollarSign className="w-4 h-4 text-violet-600" />
                   </div>
                 </div>
-                <div className="text-2xl font-bold text-slate-900">${totalStats.commissions.toLocaleString()}</div>
+                <div className="text-3xl font-bold text-slate-900 mb-1">${totalStats.commissions.toLocaleString()}</div>
                 {totalStats.clicks > 0 && totalStats.commissions > 0 && (
-                  <div className="text-xs text-slate-400 mt-1">
+                  <div className="text-xs text-slate-400">
                     EPC: ${(totalStats.commissions / totalStats.clicks).toFixed(2)}
                   </div>
                 )}
