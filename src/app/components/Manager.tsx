@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import {
   Users,
   TrendingUp,
@@ -806,16 +807,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         <div className="text-xs text-slate-500 mt-0.5">{user.email}</div>
       </td>
       <td className="py-4 px-6">
-        <div className="text-sm">
-          {user.phone   && <div className="text-slate-700">📞 {user.phone}</div>}
-          {user.address && <div className="text-slate-500">{user.address}</div>}
-          {(user.city || user.state || user.zip) && (
-            <div className="text-slate-500">{[user.city, user.state, user.zip].filter(Boolean).join(', ')}</div>
-          )}
-          {user.country && <div className="text-slate-500">{user.country}</div>}
-          {!user.phone && !user.address && !user.city && !user.state && !user.zip && !user.country && (
-            <span className="text-slate-400 text-xs">No contact info</span>
-          )}
+        <div className="text-xs text-slate-500 space-y-0.5">
+          {user.phone && <div>{user.phone}</div>}
+          {(user.city || user.state) && <div>{[user.city, user.state].filter(Boolean).join(', ')}</div>}
+          {!user.phone && !user.city && !user.state && <span className="text-slate-300">—</span>}
         </div>
       </td>
       <td className="py-4 px-6">
@@ -837,9 +832,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           </div>
         )}
       </td>
-      <td className="py-4 px-6 text-right text-sm text-slate-700">{user.stats?.totalClicks || 0}</td>
-      <td className="py-4 px-6 text-right text-sm text-slate-700">{user.stats?.totalConversions || 0}</td>
-      <td className="py-4 px-6 text-right text-sm font-semibold text-slate-900">${(user.stats?.totalCommissions || 0).toLocaleString()}</td>
+      <td className="py-4 px-6 text-right text-sm text-slate-700">{(user.stats?.totalClicks || 0).toLocaleString()}</td>
+      <td className="py-4 px-6 text-right text-sm text-slate-700">{(user.stats?.totalConversions || 0).toLocaleString()}</td>
+      <td className="py-4 px-6 text-right text-sm font-semibold text-slate-900">${Math.round(user.stats?.totalCommissions || 0).toLocaleString()}</td>
       <td className="py-4 px-6 text-right text-xs text-slate-500">{formatDate(user.createdAt)}</td>
       <td className="py-4 px-6">
         <div className="flex items-center justify-end gap-1">
@@ -1046,7 +1041,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     <DollarSign className="w-4 h-4 text-violet-600" />
                   </div>
                 </div>
-                <div className="text-3xl font-bold text-slate-900 mb-1">${totalStats.commissions.toLocaleString()}</div>
+                <div className="text-3xl font-bold text-slate-900 mb-1">${Math.round(totalStats.commissions).toLocaleString()}</div>
                 {totalStats.clicks > 0 && totalStats.commissions > 0 && (
                   <div className="text-xs text-slate-400">
                     EPC: ${(totalStats.commissions / totalStats.clicks).toFixed(2)}
@@ -1054,6 +1049,55 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 )}
               </div>
             </div>
+
+            {/* ── Performance Overview chart ── */}
+            {(() => {
+              const chartData = [...users as any[]]
+                .filter(u => (u.stats?.totalCommissions || 0) > 0)
+                .sort((a, b) => (b.stats?.totalCommissions || 0) - (a.stats?.totalCommissions || 0))
+                .slice(0, 8)
+                .map(u => ({
+                  name: (u.name || u.email || '').split(' ')[0],
+                  earnings: Math.round(u.stats?.totalCommissions || 0),
+                  clicks: u.stats?.totalClicks || 0,
+                  approvals: u.stats?.totalConversions || 0,
+                }));
+              if (chartData.length === 0) return null;
+              const CHART_COLORS = ['#6366f1','#8b5cf6','#a78bfa','#818cf8','#c4b5fd','#ddd6fe','#ede9fe','#f5f3ff'];
+              return (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                  <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-5">
+                    <h3 className="text-sm font-semibold text-slate-700 mb-4">Top Earners</h3>
+                    <ResponsiveContainer width="100%" height={180}>
+                      <BarChart data={chartData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
+                        <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false}
+                          tickFormatter={v => v >= 1000 ? `$${(v/1000).toFixed(0)}k` : `$${v}`} width={42} />
+                        <Tooltip
+                          formatter={(val: any) => [`$${Number(val).toLocaleString()}`, 'Earnings']}
+                          contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
+                        />
+                        <Bar dataKey="earnings" radius={[4,4,0,0]}>
+                          {chartData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-5">
+                    <h3 className="text-sm font-semibold text-slate-700 mb-4">Clicks vs Approvals</h3>
+                    <ResponsiveContainer width="100%" height={180}>
+                      <BarChart data={chartData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
+                        <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={32} />
+                        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                        <Bar dataKey="clicks" name="Clicks" fill="#bfdbfe" radius={[3,3,0,0]} />
+                        <Bar dataKey="approvals" name="Approvals" fill="#6366f1" radius={[3,3,0,0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Toolbar: Search + Date filter + Group + Create */}
             <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 mb-4 space-y-3">
