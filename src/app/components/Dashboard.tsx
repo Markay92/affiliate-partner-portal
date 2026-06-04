@@ -632,26 +632,29 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats header: period picker */}
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-          <p className="text-xs text-slate-400">
-            Showing <span className="font-medium text-slate-500">{STAT_PERIOD_LABELS[statPeriod].split(' vs ')[0]}</span>
-            {' '}· comparing <span className="font-medium text-slate-500">{_periodLabel}</span>
+        {/* Stats header: period picker + context label in one row */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          {/* Period label — shows what period the cards reflect */}
+          <p className="text-xs text-slate-400 min-w-0">
+            <span className="font-semibold text-slate-600">{STAT_PERIOD_LABELS[statPeriod].split(' vs ')[0]}</span>
+            <span className="mx-1.5 text-slate-300">·</span>
+            <span>{_periodLabel}</span>
           </p>
-          <div className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl p-1 text-xs font-medium shadow-sm">
+          {/* Period picker */}
+          <div className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl p-1 text-xs font-medium shadow-sm flex-shrink-0">
             {([
-              { value: 'yesterday', label: 'Yest.' },
+              { value: 'yesterday', label: 'Yesterday' },
               { value: 'mtd',       label: 'MTD' },
-              { value: 'month',     label: 'Month' },
-              { value: '7d',        label: '7D' },
-              { value: '30d',       label: '30D' },
-              { value: '90d',       label: '90D' },
-              { value: 'lm',        label: 'Last Mo.' },
+              { value: 'month',     label: 'This Month' },
+              { value: '7d',        label: '7 Days' },
+              { value: '30d',       label: '30 Days' },
+              { value: '90d',       label: '90 Days' },
+              { value: 'lm',        label: 'Last Month' },
             ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
               <button
                 key={value}
                 onClick={() => setStatPeriod(value)}
-                className={`px-2.5 py-1.5 rounded-lg transition-all ${
+                className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
                   statPeriod === value
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
@@ -725,6 +728,14 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           </div>
         </div>
 
+        {/* Empty period notice — shown when no activity in the selected window */}
+        {tracking.length > 0 && totalClicks === 0 && totalCommissions === 0 && (
+          <div className="mb-4 px-4 py-3 bg-slate-50 rounded-xl ring-1 ring-slate-200/60 text-xs text-slate-500 flex items-center gap-2">
+            <span className="text-slate-400">○</span>
+            No activity recorded for <span className="font-semibold text-slate-700 mx-1">{STAT_PERIOD_LABELS[statPeriod].split(' vs ')[0]}</span> — charts below show your all-time performance.
+          </div>
+        )}
+
         {/* ── Performance charts ── */}
         {(() => {
           if (tracking.length === 0) return null;
@@ -757,7 +768,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
               {/* Monthly trend */}
               <div className="lg:col-span-2 bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-5">
-                <h3 className="text-sm font-semibold text-slate-700 mb-4">Monthly Performance</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-slate-700">Monthly Performance</h3>
+                  <span className="text-xs text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full">All time</span>
+                </div>
                 <ResponsiveContainer width="100%" height={170}>
                   <LineChart data={monthlyData} margin={{ top:0, right:8, left:0, bottom:0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
