@@ -666,75 +666,94 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-slate-500">Total Clicks</span>
-              <div className="p-2 bg-blue-50 rounded-xl">
-                <MousePointerClick className="w-4 h-4 text-blue-600" />
+        {/* Empty period notice — above cards so users understand before seeing zeros */}
+        {(() => {
+          const isEmptyPeriod = tracking.length > 0 && totalClicks === 0 && totalCommissions === 0;
+          if (!isEmptyPeriod) return null;
+          return (
+            <div className="mb-4 px-4 py-2.5 bg-slate-50 rounded-xl ring-1 ring-slate-200/60 text-xs text-slate-500 flex items-center gap-2">
+              <RefreshCw className="w-3 h-3 text-slate-400 flex-shrink-0" />
+              No activity for <span className="font-semibold text-slate-700 mx-1">{STAT_PERIOD_LABELS[statPeriod].split(' vs ')[0]}</span> — charts show all-time performance below.
+            </div>
+          );
+        })()}
+
+        {/* Stats Grid — uniform height via reserved sub-metric row */}
+        {(() => {
+          // Suppress comparison badges when the whole period is empty to avoid 4× "No prior-period data"
+          const isEmptyPeriod = tracking.length > 0 && totalClicks === 0 && totalCommissions === 0;
+          const Badge = ({ pct }: { pct: number | null }) =>
+            isEmptyPeriod ? <div className="h-4" /> : <PctBadge pct={pct} />;
+
+          return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              {/* Clicks */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-medium text-slate-500">Total Clicks</span>
+                  <div className="p-2 bg-blue-50 rounded-xl">
+                    <MousePointerClick className="w-4 h-4 text-blue-600" />
+                  </div>
+                </div>
+                <div className="text-3xl font-bold text-slate-900 mb-1">{totalClicks.toLocaleString()}</div>
+                <Badge pct={clicksPct} />
+                {/* reserved row for consistent height */}
+                <div className="text-xs text-slate-400 mt-1 h-4" />
+              </div>
+
+              {/* Approvals */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-medium text-slate-500">Approvals</span>
+                  <div className="p-2 bg-emerald-50 rounded-xl">
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                  </div>
+                </div>
+                <div className="text-3xl font-bold text-slate-900 mb-1">{totalConversions.toLocaleString()}</div>
+                <Badge pct={approvalsPct} />
+                <div className="text-xs text-slate-400 mt-1 h-4">
+                  {totalClicks > 0 && totalConversions > 0
+                    ? `${((totalConversions / totalClicks) * 100).toFixed(1)}% conv. rate`
+                    : ''}
+                </div>
+              </div>
+
+              {/* Commissions */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-medium text-slate-500">Commissions</span>
+                  <div className="p-2 bg-indigo-50 rounded-xl">
+                    <DollarSign className="w-4 h-4 text-indigo-600" />
+                  </div>
+                </div>
+                <div className="text-3xl font-bold text-slate-900 mb-1">
+                  ${Math.round(totalCommissions).toLocaleString()}
+                </div>
+                <Badge pct={commissionsPct} />
+                <div className="text-xs text-slate-400 mt-1 h-4">
+                  {avgEPC > 0 ? `EPC: $${avgEPC.toFixed(2)}` : ''}
+                </div>
+              </div>
+
+              {/* Applications */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-medium text-slate-500">Applications</span>
+                  <div className="p-2 bg-orange-50 rounded-xl">
+                    <Activity className="w-4 h-4 text-orange-500" />
+                  </div>
+                </div>
+                <div className="text-3xl font-bold text-slate-900 mb-1">{totalApplications.toLocaleString()}</div>
+                <Badge pct={applicationsPct} />
+                <div className="text-xs text-slate-400 mt-1 h-4">
+                  {totalClicks > 0 && totalApplications > 0
+                    ? `${((totalApplications / totalClicks) * 100).toFixed(1)}% click→app`
+                    : ''}
+                </div>
               </div>
             </div>
-            <div className="text-3xl font-bold text-slate-900 mb-1">{totalClicks.toLocaleString()}</div>
-            <PctBadge pct={clicksPct} />
-          </div>
-
-          <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-slate-500">Approvals</span>
-              <div className="p-2 bg-emerald-50 rounded-xl">
-                <CheckCircle className="w-4 h-4 text-emerald-600" />
-              </div>
-            </div>
-            <div className="text-3xl font-bold text-slate-900 mb-1">{totalConversions}</div>
-            <PctBadge pct={approvalsPct} />
-            {totalClicks > 0 && (
-              <div className="text-xs text-slate-400 mt-1">
-                {((totalConversions / totalClicks) * 100).toFixed(1)}% conv. rate
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-slate-500">Commissions</span>
-              <div className="p-2 bg-indigo-50 rounded-xl">
-                <DollarSign className="w-4 h-4 text-indigo-600" />
-              </div>
-            </div>
-            <div className="text-3xl font-bold text-slate-900 mb-1">${totalCommissions.toLocaleString()}</div>
-            <PctBadge pct={commissionsPct} />
-            {avgEPC > 0 && (
-              <div className="text-xs text-slate-400 mt-1">
-                EPC: ${avgEPC.toFixed(2)}
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-slate-500">Applications</span>
-              <div className="p-2 bg-orange-50 rounded-xl">
-                <Activity className="w-4 h-4 text-orange-500" />
-              </div>
-            </div>
-            <div className="text-3xl font-bold text-slate-900 mb-1">{totalApplications}</div>
-            <PctBadge pct={applicationsPct} />
-            {totalClicks > 0 && (
-              <div className="text-xs text-slate-400 mt-1">
-                {((totalApplications / totalClicks) * 100).toFixed(1)}% click→app
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Empty period notice — shown when no activity in the selected window */}
-        {tracking.length > 0 && totalClicks === 0 && totalCommissions === 0 && (
-          <div className="mb-4 px-4 py-3 bg-slate-50 rounded-xl ring-1 ring-slate-200/60 text-xs text-slate-500 flex items-center gap-2">
-            <span className="text-slate-400">○</span>
-            No activity recorded for <span className="font-semibold text-slate-700 mx-1">{STAT_PERIOD_LABELS[statPeriod].split(' vs ')[0]}</span> — charts below show your all-time performance.
-          </div>
-        )}
+          );
+        })()}
 
         {/* ── Performance charts ── */}
         {(() => {
