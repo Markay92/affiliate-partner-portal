@@ -20,6 +20,7 @@ import {
   Activity,
 } from 'lucide-react';
 import React from 'react';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } from 'recharts';
 import * as Tabs from '@radix-ui/react-tabs';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { Profile } from './Profile';
@@ -723,6 +724,90 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             )}
           </div>
         </div>
+
+        {/* ── Performance charts ── */}
+        {(() => {
+          if (tracking.length === 0) return null;
+
+          // Group all tracking records by month for the trend chart
+          const monthMap: Record<string, { month: string; clicks: number; approvals: number; applications: number; earnings: number }> = {};
+          tracking.forEach(t => {
+            if (!t.clickDate) return;
+            const d = parseLocalDate(t.clickDate);
+            if (isNaN(d.getTime())) return;
+            const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+            if (!monthMap[key]) monthMap[key] = { month: d.toLocaleDateString('en-US', { month:'short', year:'2-digit' }), clicks: 0, approvals: 0, applications: 0, earnings: 0 };
+            monthMap[key].clicks      += t.clicks       || 0;
+            monthMap[key].approvals   += t.approvals    || 0;
+            monthMap[key].applications+= t.applications || 0;
+            monthMap[key].earnings    += t.totalEarnings|| 0;
+          });
+          const monthlyData = Object.entries(monthMap).sort(([a],[b]) => a.localeCompare(b)).map(([,v]) => v);
+
+          // Status breakdown counts
+          const statusCounts = [
+            { name: 'Clicks',       value: tracking.reduce((s,t) => s+(t.clicks||0), 0),       fill: '#bfdbfe' },
+            { name: 'Applications', value: tracking.reduce((s,t) => s+(t.applications||0), 0),  fill: '#818cf8' },
+            { name: 'Approvals',    value: tracking.reduce((s,t) => s+(t.approvals||0), 0),     fill: '#6366f1' },
+          ];
+
+          if (monthlyData.length < 2) return null;
+
+          return (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+              {/* Monthly trend */}
+              <div className="lg:col-span-2 bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-5">
+                <h3 className="text-sm font-semibold text-slate-700 mb-4">Monthly Performance</h3>
+                <ResponsiveContainer width="100%" height={170}>
+                  <LineChart data={monthlyData} margin={{ top:0, right:8, left:0, bottom:0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="month" tick={{ fontSize:11, fill:'#94a3b8' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize:11, fill:'#94a3b8' }} axisLine={false} tickLine={false} width={28} />
+                    <Tooltip contentStyle={{ fontSize:12, borderRadius:8, border:'1px solid #e2e8f0' }} />
+                    <Legend wrapperStyle={{ fontSize:11 }} />
+                    <Line dataKey="clicks"    name="Clicks"      stroke="#bfdbfe" strokeWidth={2} dot={false} />
+                    <Line dataKey="applications" name="Applications" stroke="#818cf8" strokeWidth={2} dot={false} />
+                    <Line dataKey="approvals" name="Approvals"   stroke="#6366f1" strokeWidth={2} dot={{ r:3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Funnel / status breakdown */}
+              <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-5">
+                <h3 className="text-sm font-semibold text-slate-700 mb-4">All-Time Funnel</h3>
+                <ResponsiveContainer width="100%" height={170}>
+                  <BarChart data={statusCounts} layout="vertical" margin={{ top:0, right:16, left:0, bottom:0 }}>
+                    <XAxis type="number" tick={{ fontSize:11, fill:'#94a3b8' }} axisLine={false} tickLine={false} />
+                    <YAxis dataKey="name" type="category" tick={{ fontSize:11, fill:'#64748b' }} axisLine={false} tickLine={false} width={72} />
+                    <Tooltip contentStyle={{ fontSize:12, borderRadius:8, border:'1px solid #e2e8f0' }} />
+                    <Bar dataKey="value" name="Count" radius={[0,4,4,0]}>
+                      {statusCounts.map((s, i) => <Cell key={i} fill={s.fill} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+                <div className="mt-3 space-y-1.5">
+                  {statusCounts.map(s => (
+                    <div key={s.name} className="flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: s.fill }} />
+                        <span className="text-slate-600">{s.name}</span>
+                      </span>
+                      <span className="font-semibold text-slate-900">{s.value.toLocaleString()}</span>
+                    </div>
+                  ))}
+                  {statusCounts[0].value > 0 && (
+                    <div className="pt-1 border-t border-slate-100 flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Conv. rate</span>
+                      <span className="font-semibold text-emerald-600">
+                        {((statusCounts[2].value / statusCounts[0].value) * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Tabs */}
         <Tabs.Root defaultValue="cards" className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-900/5">
