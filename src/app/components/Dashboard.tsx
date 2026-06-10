@@ -18,6 +18,7 @@ import {
   Search,
   Layers,
   Activity,
+  Award,
 } from 'lucide-react';
 import React from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } from 'recharts';
@@ -83,13 +84,12 @@ interface TrackingItem {
 
 // ── Filter / sort types & helpers ────────────────────────────────────────────
 
-type DateFilter = 'all' | 'today' | 'yesterday' | 'mtd' | '7d' | '30d' | '90d' | 'lm' | 'custom';
+type DateFilter = 'all' | 'today' | 'week' | 'month' | 'lm' | 'custom';
 type SortState  = { field: string; dir: 'asc' | 'desc' };
 
 const DATE_LABELS: Record<DateFilter, string> = {
-  all: 'All time', today: 'Today', yesterday: 'Yesterday',
-  mtd: 'This Month', '7d': '7 days', '30d': '30 days',
-  '90d': '90 days', lm: 'Last Month', custom: 'Custom',
+  today: 'Today', week: 'This Week', month: 'This Month',
+  lm: 'Last Month', all: 'All Time', custom: 'Custom',
 };
 
 /** Decode common HTML entities in card names coming from external APIs */
@@ -112,6 +112,34 @@ function parseLocalDate(str: string): Date {
     return new Date(y, m - 1, d);
   }
   return new Date(str);
+}
+
+// Map of month names (full + abbreviated, lowercased) → month index (0-11).
+// Invoice "month" values are freeform strings like "April 25", "Nov 25", "March 26"
+// — mixing full and abbreviated names — so we normalize before matching.
+const MONTH_NAME_TO_INDEX: Record<string, number> = {};
+for (let m = 0; m < 12; m++) {
+  const full = new Date(2000, m, 1).toLocaleDateString('en-US', { month: 'long' }).toLowerCase();
+  const abbr = new Date(2000, m, 1).toLocaleDateString('en-US', { month: 'short' }).toLowerCase();
+  MONTH_NAME_TO_INDEX[full] = m;
+  MONTH_NAME_TO_INDEX[abbr] = m;
+  MONTH_NAME_TO_INDEX[abbr.replace('.', '')] = m;
+}
+
+/** Parse a freeform invoice "month" string like "April 25" / "Nov 25" / "March 2026"
+ *  into { monthIndex, year }, or null if it can't be parsed. Handles both 2-digit
+ *  and 4-digit years, and both full and abbreviated month names. */
+function parseInvoiceMonth(monthStr: string | undefined): { monthIndex: number; year: number } | null {
+  if (!monthStr) return null;
+  const parts = monthStr.trim().toLowerCase().split(/\s+/);
+  if (parts.length < 2) return null;
+  const [rawMonth, rawYear] = parts;
+  const monthIndex = MONTH_NAME_TO_INDEX[rawMonth];
+  if (monthIndex === undefined) return null;
+  let year = parseInt(rawYear, 10);
+  if (isNaN(year)) return null;
+  if (year < 100) year += 2000;
+  return { monthIndex, year };
 }
 
 /** Format a date string as "Mon, Jan 1, 2026" */
@@ -137,15 +165,13 @@ function getDateBounds(filter: DateFilter, customFrom: string, customTo: string)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   switch (filter) {
-    case 'today':     return { from: today, to: null };
-    case 'yesterday': {
-      const yest = new Date(today.getTime() - 86400000);
-      const yestEnd = new Date(yest); yestEnd.setHours(23, 59, 59, 999);
-      return { from: yest, to: yestEnd };
+    case 'today': return { from: today, to: null };
+    case 'week': {
+      const daysFromMon = (today.getDay() + 6) % 7;
+      return { from: new Date(today.getTime() - daysFromMon * 86400000), to: null };
     }
-    case 'mtd': {
-      const first = new Date(today.getFullYear(), today.getMonth(), 1);
-      return { from: first, to: null };
+    case 'month': {
+      return { from: new Date(today.getFullYear(), today.getMonth(), 1), to: null };
     }
     case 'lm': {
       const firstOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
@@ -153,9 +179,6 @@ function getDateBounds(filter: DateFilter, customFrom: string, customTo: string)
       lastOfLastMonth.setHours(23, 59, 59, 999);
       return { from: firstOfLastMonth, to: lastOfLastMonth };
     }
-    case '7d':  return { from: new Date(today.getTime() - 6  * 86400000), to: null };
-    case '30d': return { from: new Date(today.getTime() - 29 * 86400000), to: null };
-    case '90d': return { from: new Date(today.getTime() - 89 * 86400000), to: null };
     case 'custom': {
       const to = customTo ? parseLocalDate(customTo) : null;
       if (to) to.setHours(23, 59, 59, 999);
@@ -221,36 +244,40 @@ function FilterBar({
   customTo: string;   setCustomTo: (s: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs font-medium text-slate-400 mr-1">Period:</span>
-      {(['all', 'today', 'yesterday', 'mtd', '7d', '30d', '90d', 'lm', 'custom'] as DateFilter[]).map((f) => (
-        <button
-          key={f}
-          onClick={() => setFilter(f)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            filter === f
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
-          }`}
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium text-slate-400 flex-shrink-0">Period:</span>
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value as DateFilter)}
+          className="sm:hidden flex-1 min-w-0 text-xs font-medium bg-slate-100 border border-transparent rounded-lg px-2.5 py-1.5 text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
         >
-          {DATE_LABELS[f]}
-        </button>
-      ))}
+          {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
+            <option key={f} value={f}>{DATE_LABELS[f]}</option>
+          ))}
+        </select>
+        <div className="hidden sm:block overflow-x-auto">
+          <div className="flex items-center gap-1.5 min-w-max">
+            {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
+              <button key={f} onClick={() => setFilter(f)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                  filter === f
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
+                }`}>
+                {DATE_LABELS[f]}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
       {filter === 'custom' && (
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={customFrom}
-            onChange={(e) => setCustomFrom(e.target.value)}
-            className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
-          />
+        <div className="flex flex-wrap items-center gap-2">
+          <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
+            className="flex-1 min-w-[130px] px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" />
           <span className="text-slate-400 text-xs">to</span>
-          <input
-            type="date"
-            value={customTo}
-            onChange={(e) => setCustomTo(e.target.value)}
-            className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
-          />
+          <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)}
+            className="flex-1 min-w-[130px] px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" />
         </div>
       )}
     </div>
@@ -323,17 +350,35 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [cardsCollapsed,    setCardsCollapsed]    = useState<Set<string>>(new Set());
 
   // Stats grid comparison period
-  type StatPeriod = 'yesterday' | 'mtd' | 'month' | '7d' | '30d' | '90d' | 'lm';
+  type StatPeriod = 'today' | 'week' | 'month' | 'lm' | 'year' | 'custom';
   const [statPeriod, setStatPeriod] = useState<StatPeriod>('month');
+  const [statCustomFrom, setStatCustomFrom] = useState('');
+  const [statCustomTo,   setStatCustomTo]   = useState('');
+
+  // Summary panel visibility — persisted in localStorage
+  const [visiblePanels, setVisiblePanels] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('dash-visible-panels');
+      return saved ? new Set(JSON.parse(saved)) : new Set(['stats', 'charts', 'topCards']);
+    } catch { return new Set(['stats', 'charts', 'topCards']); }
+  });
+  const togglePanel = (key: string) => setVisiblePanels(prev => {
+    const next = new Set(prev);
+    next.has(key) ? next.delete(key) : next.add(key);
+    try { localStorage.setItem('dash-visible-panels', JSON.stringify([...next])); } catch {}
+    return next;
+  });
   const STAT_PERIOD_LABELS: Record<StatPeriod, string> = {
-    yesterday: 'Yesterday vs day before',
-    mtd:   'Month to date vs same days last month',
-    month: 'This month vs last month',
-    '7d':  'Last 7 days vs prior 7 days',
-    '30d': 'Last 30 days vs prior 30 days',
-    '90d': 'Last 90 days vs prior 90 days',
-    lm:    'Last month vs month before',
+    today:  'Today vs yesterday',
+    week:   'This week vs last week',
+    month:  'This month vs last month',
+    lm:     'Last month vs month before',
+    year:   'This year vs last year',
+    custom: 'Custom range',
   };
+
+  // Invoices tab — which rows are expanded to reveal their underlying cards
+  const [expandedInvoices, setExpandedInvoices] = useState<Set<string>>(new Set());
 
   // ── Derived display data ────────────────────────────────────────────────────
   const displayTracking = applySort(
@@ -343,6 +388,37 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     ),
     trackingSort,
   );
+
+  // Resolve every card-activity record (clicks/applications/approvals) that
+  // falls within a given invoice's month + year — the items behind that payout.
+  const getInvoiceItems = (inv: Invoice): TrackingItem[] => {
+    if (!inv) return [];
+    const target = parseInvoiceMonth(inv.month) || (inv.date ? (() => {
+      const d = parseLocalDate(inv.date);
+      return isNaN(d.getTime()) ? null : { monthIndex: d.getMonth(), year: d.getFullYear() };
+    })() : null);
+    if (!target) return [];
+    return tracking
+      .filter(t => {
+        const d = parseLocalDate(t.clickDate);
+        if (isNaN(d.getTime())) return false;
+        return d.getMonth() === target.monthIndex && d.getFullYear() === target.year;
+      })
+      .sort((a, b) => parseLocalDate(b.clickDate).getTime() - parseLocalDate(a.clickDate).getTime());
+  };
+
+  // Summary: cards ranked by number of approvals (all-time), for the "Most Approved Cards" card
+  const mostApprovedCards = (() => {
+    const byCard: Record<string, { name: string; approvals: number; earnings: number }> = {};
+    tracking.forEach(t => {
+      if (t.status !== 'approval') return;
+      const key = decodeHtml(t.cardName || 'Unknown');
+      if (!byCard[key]) byCard[key] = { name: key, approvals: 0, earnings: 0 };
+      byCard[key].approvals += 1;
+      byCard[key].earnings  += t.totalEarnings || 0;
+    });
+    return Object.values(byCard).sort((a, b) => b.approvals - a.approvals || b.earnings - a.earnings).slice(0, 5);
+  })();
 
   // Cards tab: join links (URL + stats) with payouts (issuer + CPA amount) by normalised name
   const _norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -462,26 +538,17 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   // _lastT = records in the prior period (drives the % badge comparison)
   let _thisT: TrackingItem[], _lastT: TrackingItem[], _periodLabel: string;
 
-  if (statPeriod === 'yesterday') {
-    _thisT = tracking.filter(t => _inRange(t.clickDate, 2, 1));
-    _lastT = tracking.filter(t => _inRange(t.clickDate, 3, 2));
-    _periodLabel = 'vs day before';
-  } else if (statPeriod === 'mtd') {
-    const dayOfMonth = _now.getDate();
-    const _thisM = _now.getMonth(), _thisY = _now.getFullYear();
-    const _lastM = _thisM === 0 ? 11 : _thisM - 1;
-    const _lastY  = _thisM === 0 ? _thisY - 1 : _thisY;
-    _thisT = tracking.filter(t => {
-      if (!t.clickDate) return false;
-      const d = parseLocalDate(t.clickDate);
-      return d.getMonth() === _thisM && d.getFullYear() === _thisY;
-    });
-    _lastT = tracking.filter(t => {
-      if (!t.clickDate) return false;
-      const d = parseLocalDate(t.clickDate);
-      return d.getMonth() === _lastM && d.getFullYear() === _lastY && d.getDate() <= dayOfMonth;
-    });
-    _periodLabel = 'vs same days last month';
+  if (statPeriod === 'today') {
+    _thisT = tracking.filter(t => _inRange(t.clickDate, 1, 0));
+    _lastT = tracking.filter(t => _inRange(t.clickDate, 2, 1));
+    _periodLabel = 'vs yesterday';
+  } else if (statPeriod === 'week') {
+    const daysFromMon = (_today.getDay() + 6) % 7; // Mon=0 … Sun=6
+    const weekStart   = new Date(_today.getTime() - daysFromMon * 86_400_000);
+    const prevWkStart = new Date(weekStart.getTime() - 7 * 86_400_000);
+    _thisT = tracking.filter(t => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= weekStart && d <= _now; });
+    _lastT = tracking.filter(t => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= prevWkStart && d < weekStart; });
+    _periodLabel = 'vs last week';
   } else if (statPeriod === 'month') {
     const _thisM = _now.getMonth(), _thisY = _now.getFullYear();
     const _lastM = _thisM === 0 ? 11 : _thisM - 1;
@@ -497,11 +564,25 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     _thisT = tracking.filter(t => _inMonth(t.clickDate, _lastM, _lastY));
     _lastT = tracking.filter(t => _inMonth(t.clickDate, _prevM, _prevY));
     _periodLabel = 'vs month before';
+  } else if (statPeriod === 'year') {
+    const thisYrStart = new Date(_now.getFullYear(), 0, 1);
+    const prevYrStart = new Date(_now.getFullYear() - 1, 0, 1);
+    _thisT = tracking.filter(t => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= thisYrStart; });
+    _lastT = tracking.filter(t => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= prevYrStart && d < thisYrStart; });
+    _periodLabel = 'vs last year';
   } else {
-    const days = statPeriod === '7d' ? 7 : statPeriod === '30d' ? 30 : 90;
-    _thisT = tracking.filter(t => _inRange(t.clickDate, days, 0));
-    _lastT = tracking.filter(t => _inRange(t.clickDate, days * 2, days));
-    _periodLabel = `vs prior ${days} days`;
+    // custom
+    const fromD = statCustomFrom ? parseLocalDate(statCustomFrom) : null;
+    const toD   = statCustomTo   ? (() => { const d = parseLocalDate(statCustomTo); d.setDate(d.getDate() + 1); return d; })() : null;
+    _thisT = tracking.filter(t => {
+      if (!t.clickDate) return false;
+      const d = parseLocalDate(t.clickDate);
+      if (fromD && d < fromD) return false;
+      if (toD   && d >= toD)  return false;
+      return true;
+    });
+    _lastT = [];
+    _periodLabel = statCustomFrom || statCustomTo ? `${statCustomFrom || '…'} → ${statCustomTo || '…'}` : 'select dates below';
   }
 
   // ── Stat card numbers — computed from the selected period (_thisT) ─────────
@@ -584,8 +665,23 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
-              <div className="bg-indigo-500 p-2 rounded-xl">
-                <CreditCard className="w-5 h-5 text-white" />
+              <div className="p-1">
+                <svg width="36" height="34" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <g clipPath="url(#clip0_logo)">
+                    <mask id="mask0_logo" style={{maskType:'luminance'}} maskUnits="userSpaceOnUse" x="0" y="0" width="38" height="37">
+                      <path d="M37.9056 0H0.00134277V36.2562H37.9056V0Z" fill="white"/>
+                    </mask>
+                    <g mask="url(#mask0_logo)">
+                      <path d="M17.6325 28.7049C17.6325 27.4888 17.6339 26.2735 17.6306 25.0575C17.6306 24.9135 17.6098 24.7681 17.5877 24.6248C17.5561 24.4184 17.4167 24.2985 17.2145 24.2947C16.9954 24.2908 16.8516 24.4228 16.8153 24.6368C16.7939 24.7605 16.8004 24.8892 16.8023 25.0156C16.8361 27.4471 16.86 29.8777 16.9152 32.3084C16.9249 32.7388 16.7589 33.0015 16.4155 33.2193C15.5412 33.7745 14.5827 34.1421 13.6009 34.4582C12.457 34.8269 11.3106 35.1841 10.1006 35.2964C9.1318 35.386 8.2362 34.9867 7.86482 34.2759C7.60237 33.7733 7.62117 33.289 7.90504 32.7998C8.49669 31.7798 9.38199 31.0157 10.2355 30.2249C10.5491 29.9343 10.8602 29.6422 11.1363 29.3167C11.5011 28.887 11.4959 28.3559 11.5374 27.8455C11.6119 26.9203 11.6573 25.9931 11.7189 25.0663C11.7552 24.5258 11.7377 23.9907 11.5731 23.4683C11.4396 23.0451 11.1505 22.7754 10.728 22.6185C10.0877 22.3799 9.42665 22.3463 8.75463 22.3933C7.93804 22.4503 7.12153 22.5131 6.30496 22.5697C5.16566 22.6484 4.02636 22.7207 2.88706 22.8025C2.42046 22.8361 1.95775 22.8407 1.51577 22.6706C1.09905 22.5107 0.848902 22.2193 0.838535 21.7611C0.817147 20.8199 0.91306 19.8825 0.938341 18.9432C0.953896 18.3841 1.02259 17.8268 1.04203 17.2683C1.09582 15.7172 1.19886 14.1693 1.31617 12.622C1.43865 11.0024 1.55853 9.38268 1.70824 7.76561C1.77303 7.06307 1.80804 6.3573 1.94867 5.66108C2.23382 4.25024 3.05362 3.34013 4.4852 2.96568C5.73077 2.6401 7.00162 2.52332 8.28416 2.47001C9.4604 2.42116 10.6379 2.4478 11.8129 2.3964C13.2108 2.33547 14.6055 2.20029 16.002 2.10699C16.8516 2.04988 17.7031 2.02449 18.5521 1.96039C19.9473 1.85567 21.3472 1.81569 22.7392 1.66083C24.0321 1.51739 25.3276 1.40378 26.6205 1.26098C27.8033 1.13025 28.9912 1.2464 30.1759 1.14929C31.4195 1.0471 32.6688 1.00268 33.9066 0.833222C35.4666 0.619345 36.67 1.37903 37.0141 2.83558C37.1191 3.28048 37.0795 3.74314 37.0343 4.19375C36.9001 5.51575 36.7542 6.83646 36.5949 8.15531C36.4328 9.49376 36.1685 10.8171 35.939 12.1454C35.6883 13.5956 35.4375 15.0458 35.1736 16.4934C35.0176 17.3527 34.8373 18.2077 34.6675 19.0644C34.4724 20.0501 33.8076 20.5889 32.8699 20.8529C31.9859 21.1017 31.0714 21.1645 30.1603 21.2357C28.807 21.3411 27.4532 21.4381 26.1002 21.5389C25.4463 21.5878 24.7917 21.6234 24.1508 21.7865C23.1074 22.0524 22.7691 22.6584 22.7489 23.5463C22.7147 25.0683 22.7379 26.5921 22.7399 28.1146C22.7405 28.727 23.0548 29.1968 23.4663 29.6213C24.0776 30.2523 24.7988 30.7554 25.4785 31.3082C25.7022 31.4898 25.9161 31.6866 26.1111 31.8966C26.7747 32.6118 26.8687 33.4293 26.5369 34.3159C26.4313 34.5977 26.2045 34.7487 25.9369 34.856C25.43 35.059 24.8953 35.1226 24.3562 35.127C22.43 35.1434 20.5979 34.7227 18.8651 33.9122C18.3486 33.6704 17.8743 33.3443 17.7395 32.7268C17.7141 32.6106 17.7084 32.4971 17.7084 32.3821C17.707 31.1559 17.7077 29.9299 17.7077 28.703C17.6831 28.703 17.6584 28.703 17.6339 28.703L17.6325 28.7049ZM18.6416 17.514C18.7906 17.495 18.9396 17.4703 19.0894 17.4575C20.552 17.3369 21.9984 16.1501 22.3907 14.752C22.4521 14.5323 22.3809 14.3712 22.1812 14.2842C21.9836 14.1985 21.7962 14.241 21.6751 14.4333C21.6252 14.5126 21.5974 14.6053 21.5611 14.6923C21.3575 15.1778 21.0627 15.6012 20.6642 15.9533C19.9248 16.6065 19.0452 16.7867 18.0856 16.6674C16.7602 16.503 15.7395 15.933 15.2917 14.616C15.1814 14.293 14.9696 14.1636 14.7155 14.2733C14.4335 14.3953 14.4523 14.632 14.5295 14.8687C14.7266 15.4742 15.059 15.9965 15.5418 16.4244C16.4225 17.2049 17.4951 17.455 18.6416 17.514ZM18.3623 13.7149C18.7789 13.7251 19.1756 13.6438 19.5502 13.4642C20.0854 13.2072 20.3913 12.7147 20.3524 12.1689C20.3077 11.5482 19.974 11.1204 19.357 10.9523C18.6428 10.7574 17.9495 10.8145 17.3072 11.2055C16.4407 11.7329 16.4186 12.8657 17.2606 13.4223C17.5937 13.6425 17.9636 13.7314 18.3623 13.7149ZM12.4538 11.4834C12.8912 11.4879 13.2302 11.1629 13.2341 10.7339C13.238 10.3207 12.8822 9.95521 12.4719 9.95009C12.0559 9.94503 11.6936 10.2966 11.6839 10.7161C11.6742 11.1319 12.0222 11.4784 12.4545 11.4834H12.4538ZM25.4229 10.4458C25.4288 10.0161 25.1119 9.69181 24.6847 9.68865C24.2809 9.68609 23.9149 10.0383 23.9096 10.435C23.9052 10.8119 24.2577 11.1591 24.6555 11.1699C25.0859 11.182 25.4171 10.8697 25.4222 10.4458H25.4229Z" fill="#50C8FD"/>
+                      <path d="M18.3577 12.928C18.0285 12.9438 17.7343 12.8759 17.5379 12.5891C17.394 12.3784 17.4057 12.1766 17.5898 11.9868C17.9487 11.6168 18.8696 11.5039 19.3116 11.7786C19.6428 11.9849 19.6272 12.4857 19.2824 12.7084C19.068 12.8468 18.729 12.9273 18.3577 12.928Z" fill="#50C8FD"/>
+                    </g>
+                  </g>
+                  <defs>
+                    <clipPath id="clip0_logo">
+                      <rect width="38.4" height="36.3765" fill="white"/>
+                    </clipPath>
+                  </defs>
+                </svg>
               </div>
               <h1 className="hidden sm:block text-white font-semibold text-lg tracking-tight">Affiliate Portal</h1>
             </div>
@@ -631,213 +727,192 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       )}
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats header: period picker + context label in one row */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          {/* Period label — shows what period the cards reflect */}
-          <p className="text-xs text-slate-400 min-w-0">
-            <span className="font-semibold text-slate-600">{STAT_PERIOD_LABELS[statPeriod].split(' vs ')[0]}</span>
-            <span className="mx-1.5 text-slate-300">·</span>
-            <span>{_periodLabel}</span>
-          </p>
-          {/* Period picker */}
-          <div className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl p-1 text-xs font-medium shadow-sm flex-shrink-0">
-            {([
-              { value: 'yesterday', label: 'Yesterday' },
-              { value: 'mtd',       label: 'MTD' },
-              { value: 'month',     label: 'This Month' },
-              { value: '7d',        label: '7 Days' },
-              { value: '30d',       label: '30 Days' },
-              { value: '90d',       label: '90 Days' },
-              { value: 'lm',        label: 'Last Month' },
-            ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
-              <button
-                key={value}
-                onClick={() => setStatPeriod(value)}
-                className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
-                  statPeriod === value
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Empty period notice — above cards so users understand before seeing zeros */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* ── Compact summary bar — all panels in one card, max 30vh ── */}
         {(() => {
-          const isEmptyPeriod = tracking.length > 0 && totalClicks === 0 && totalCommissions === 0;
-          if (!isEmptyPeriod) return null;
-          return (
-            <div className="mb-4 px-4 py-2.5 bg-slate-50 rounded-xl ring-1 ring-slate-200/60 text-xs text-slate-500 flex items-center gap-2">
-              <RefreshCw className="w-3 h-3 text-slate-400 flex-shrink-0" />
-              No activity for <span className="font-semibold text-slate-700 mx-1">{STAT_PERIOD_LABELS[statPeriod].split(' vs ')[0]}</span> — charts show all-time performance below.
-            </div>
-          );
-        })()}
-
-        {/* Stats Grid — uniform height via reserved sub-metric row */}
-        {(() => {
-          // Suppress comparison badges when the whole period is empty to avoid 4× "No prior-period data"
-          const isEmptyPeriod = tracking.length > 0 && totalClicks === 0 && totalCommissions === 0;
-          const Badge = ({ pct }: { pct: number | null }) =>
-            isEmptyPeriod ? <div className="h-4" /> : <PctBadge pct={pct} />;
-
-          return (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              {/* Clicks */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-slate-500">Total Clicks</span>
-                  <div className="p-2 bg-blue-50 rounded-xl">
-                    <MousePointerClick className="w-4 h-4 text-blue-600" />
-                  </div>
-                </div>
-                <div className="text-3xl font-bold text-slate-900 mb-1">{totalClicks.toLocaleString()}</div>
-                <Badge pct={clicksPct} />
-                {/* reserved row for consistent height */}
-                <div className="text-xs text-slate-400 mt-1 h-4" />
-              </div>
-
-              {/* Approvals */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-slate-500">Approvals</span>
-                  <div className="p-2 bg-emerald-50 rounded-xl">
-                    <CheckCircle className="w-4 h-4 text-emerald-600" />
-                  </div>
-                </div>
-                <div className="text-3xl font-bold text-slate-900 mb-1">{totalConversions.toLocaleString()}</div>
-                <Badge pct={approvalsPct} />
-                <div className="text-xs text-slate-400 mt-1 h-4">
-                  {totalClicks > 0 && totalConversions > 0
-                    ? `${((totalConversions / totalClicks) * 100).toFixed(1)}% conv. rate`
-                    : ''}
-                </div>
-              </div>
-
-              {/* Commissions */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-slate-500">Commissions</span>
-                  <div className="p-2 bg-indigo-50 rounded-xl">
-                    <DollarSign className="w-4 h-4 text-indigo-600" />
-                  </div>
-                </div>
-                <div className="text-3xl font-bold text-slate-900 mb-1">
-                  ${Math.round(totalCommissions).toLocaleString()}
-                </div>
-                <Badge pct={commissionsPct} />
-                <div className="text-xs text-slate-400 mt-1 h-4">
-                  {avgEPC > 0 ? `EPC: $${avgEPC.toFixed(2)}` : ''}
-                </div>
-              </div>
-
-              {/* Applications */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-slate-500">Applications</span>
-                  <div className="p-2 bg-orange-50 rounded-xl">
-                    <Activity className="w-4 h-4 text-orange-500" />
-                  </div>
-                </div>
-                <div className="text-3xl font-bold text-slate-900 mb-1">{totalApplications.toLocaleString()}</div>
-                <Badge pct={applicationsPct} />
-                <div className="text-xs text-slate-400 mt-1 h-4">
-                  {totalClicks > 0 && totalApplications > 0
-                    ? `${((totalApplications / totalClicks) * 100).toFixed(1)}% click→app`
-                    : ''}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* ── Performance charts ── */}
-        {(() => {
-          if (tracking.length === 0) return null;
-
-          // Group all tracking records by month for the trend chart
-          const monthMap: Record<string, { month: string; clicks: number; approvals: number; applications: number; earnings: number }> = {};
+          // Build monthly data for charts (all-time, not period-filtered)
+          const monthMap: Record<string, { month: string; clicks: number; approvals: number; applications: number }> = {};
           tracking.forEach(t => {
             if (!t.clickDate) return;
             const d = parseLocalDate(t.clickDate);
             if (isNaN(d.getTime())) return;
             const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-            if (!monthMap[key]) monthMap[key] = { month: d.toLocaleDateString('en-US', { month:'short', year:'2-digit' }), clicks: 0, approvals: 0, applications: 0, earnings: 0 };
+            if (!monthMap[key]) monthMap[key] = { month: d.toLocaleDateString('en-US', { month:'short', year:'2-digit' }), clicks: 0, approvals: 0, applications: 0 };
             monthMap[key].clicks      += t.clicks       || 0;
             monthMap[key].approvals   += t.approvals    || 0;
             monthMap[key].applications+= t.applications || 0;
-            monthMap[key].earnings    += t.totalEarnings|| 0;
           });
           const monthlyData = Object.entries(monthMap).sort(([a],[b]) => a.localeCompare(b)).map(([,v]) => v);
 
-          // Status breakdown counts
-          const statusCounts = [
-            { name: 'Clicks',       value: tracking.reduce((s,t) => s+(t.clicks||0), 0),       fill: '#bfdbfe' },
-            { name: 'Applications', value: tracking.reduce((s,t) => s+(t.applications||0), 0),  fill: '#818cf8' },
-            { name: 'Approvals',    value: tracking.reduce((s,t) => s+(t.approvals||0), 0),     fill: '#6366f1' },
+          const anyVisible = visiblePanels.has('stats') || visiblePanels.has('charts') || visiblePanels.has('topCards');
+          const isEmptyPeriod = tracking.length > 0 && totalClicks === 0 && totalCommissions === 0;
+
+          const statRows = [
+            { label: 'Clicks',       value: totalClicks.toLocaleString(),                  iconColor: 'text-blue-600',    bgColor: 'bg-blue-50',    Icon: MousePointerClick, sub: null },
+            { label: 'Approvals',    value: totalConversions.toLocaleString(),              iconColor: 'text-emerald-600', bgColor: 'bg-emerald-50', Icon: CheckCircle,       sub: totalClicks > 0 && totalConversions > 0 ? `${((totalConversions/totalClicks)*100).toFixed(1)}% conv.` : null },
+            { label: 'Commissions',  value: `$${Math.round(totalCommissions).toLocaleString()}`, iconColor: 'text-indigo-600', bgColor: 'bg-indigo-50', Icon: DollarSign,   sub: avgEPC > 0 ? `EPC $${avgEPC.toFixed(2)}` : null },
+            { label: 'Applications', value: totalApplications.toLocaleString(),             iconColor: 'text-orange-500',  bgColor: 'bg-orange-50',  Icon: Activity,          sub: totalClicks > 0 && totalApplications > 0 ? `${((totalApplications/totalClicks)*100).toFixed(1)}% c→a` : null },
           ];
 
-          if (monthlyData.length < 2) return null;
-
           return (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-              {/* Monthly trend */}
-              <div className="lg:col-span-2 bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold text-slate-700">Monthly Performance</h3>
-                  <span className="text-xs text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full">All time</span>
+            <div className="mb-6 bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
+              {/* Toggle chips + period picker in one compact row */}
+              <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-medium text-slate-400 mr-0.5">Show:</span>
+                  {(['stats', 'charts', 'topCards'] as const).map(key => {
+                    const labels = { stats: 'Stats', charts: 'Charts', topCards: 'Top Cards' };
+                    return (
+                      <button key={key} onClick={() => togglePanel(key)}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all border ${
+                          visiblePanels.has(key)
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                        }`}>
+                        {labels[key]}
+                      </button>
+                    );
+                  })}
                 </div>
-                <ResponsiveContainer width="100%" height={170}>
-                  <LineChart data={monthlyData} margin={{ top:0, right:8, left:0, bottom:0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="month" tick={{ fontSize:11, fill:'#94a3b8' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize:11, fill:'#94a3b8' }} axisLine={false} tickLine={false} width={28} />
-                    <Tooltip contentStyle={{ fontSize:12, borderRadius:8, border:'1px solid #e2e8f0' }} />
-                    <Legend wrapperStyle={{ fontSize:11 }} />
-                    <Line dataKey="clicks"    name="Clicks"      stroke="#bfdbfe" strokeWidth={2} dot={false} />
-                    <Line dataKey="applications" name="Applications" stroke="#818cf8" strokeWidth={2} dot={false} />
-                    <Line dataKey="approvals" name="Approvals"   stroke="#6366f1" strokeWidth={2} dot={{ r:3 }} />
-                  </LineChart>
-                </ResponsiveContainer>
+                {/* Period picker — always visible so stats period can be changed regardless */}
+                {/* Mobile: dropdown */}
+                <select
+                  value={statPeriod}
+                  onChange={e => setStatPeriod(e.target.value as StatPeriod)}
+                  className="sm:hidden text-[11px] font-medium bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                >
+                  {([
+                    { value: 'today',  label: 'Today' },
+                    { value: 'week',   label: 'This Week' },
+                    { value: 'month',  label: 'This Month' },
+                    { value: 'lm',     label: 'Last Month' },
+                    { value: 'year',   label: 'This Year' },
+                    { value: 'custom', label: 'Custom' },
+                  ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+                {/* Desktop: pill row */}
+                <div className="hidden sm:flex items-center gap-0.5 bg-slate-50 border border-slate-200 rounded-lg p-0.5 text-[11px] font-medium">
+                  {([
+                    { value: 'today',  label: 'Today' },
+                    { value: 'week',   label: 'This Week' },
+                    { value: 'month',  label: 'This Month' },
+                    { value: 'lm',     label: 'Last Month' },
+                    { value: 'year',   label: 'This Year' },
+                    { value: 'custom', label: 'Custom' },
+                  ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
+                    <button key={value} onClick={() => setStatPeriod(value)}
+                      className={`px-2 py-1 rounded-md transition-all whitespace-nowrap ${
+                        statPeriod === value ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-white'
+                      }`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {/* Custom date inputs */}
+                {statPeriod === 'custom' && (
+                  <div className="flex items-center gap-1.5 px-2">
+                    <input type="date" value={statCustomFrom} onChange={e => setStatCustomFrom(e.target.value)}
+                      className="text-[11px] border border-slate-200 rounded-md px-1.5 py-0.5 text-slate-600 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+                    <span className="text-[10px] text-slate-400">→</span>
+                    <input type="date" value={statCustomTo} onChange={e => setStatCustomTo(e.target.value)}
+                      className="text-[11px] border border-slate-200 rounded-md px-1.5 py-0.5 text-slate-600 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+                  </div>
+                )}
               </div>
 
-              {/* Funnel / status breakdown */}
-              <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-5">
-                <h3 className="text-sm font-semibold text-slate-700 mb-4">All-Time Funnel</h3>
-                <ResponsiveContainer width="100%" height={170}>
-                  <BarChart data={statusCounts} layout="vertical" margin={{ top:0, right:16, left:0, bottom:0 }}>
-                    <XAxis type="number" tick={{ fontSize:11, fill:'#94a3b8' }} axisLine={false} tickLine={false} />
-                    <YAxis dataKey="name" type="category" tick={{ fontSize:11, fill:'#64748b' }} axisLine={false} tickLine={false} width={72} />
-                    <Tooltip contentStyle={{ fontSize:12, borderRadius:8, border:'1px solid #e2e8f0' }} />
-                    <Bar dataKey="value" name="Count" radius={[0,4,4,0]}>
-                      {statusCounts.map((s, i) => <Cell key={i} fill={s.fill} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-                <div className="mt-3 space-y-1.5">
-                  {statusCounts.map(s => (
-                    <div key={s.name} className="flex items-center justify-between text-xs">
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: s.fill }} />
-                        <span className="text-slate-600">{s.name}</span>
-                      </span>
-                      <span className="font-semibold text-slate-900">{s.value.toLocaleString()}</span>
-                    </div>
-                  ))}
-                  {statusCounts[0].value > 0 && (
-                    <div className="pt-1 border-t border-slate-100 flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Conv. rate</span>
-                      <span className="font-semibold text-emerald-600">
-                        {((statusCounts[2].value / statusCounts[0].value) * 100).toFixed(1)}%
-                      </span>
+              {/* Content row — height fills to 30vh minus the toggle row (~44px) */}
+              {anyVisible && (
+                <div className="overflow-x-auto">
+                <div className="flex divide-x divide-slate-100 min-w-max"
+                  style={{ height: 'clamp(120px, calc(30vh - 44px), 220px)' }}>
+
+                  {/* Stats column */}
+                  {visiblePanels.has('stats') && (
+                    <div className="flex-none w-48 flex flex-col justify-center gap-0.5 px-3 py-2 overflow-hidden">
+                      {isEmptyPeriod && (
+                        <div className="text-[10px] text-slate-400 mb-1 flex items-center gap-1">
+                          <RefreshCw className="w-2.5 h-2.5" /> No activity for {STAT_PERIOD_LABELS[statPeriod].split(' vs ')[0]}
+                        </div>
+                      )}
+                      {statRows.map(({ label, value, iconColor, bgColor, Icon, sub }) => (
+                        <div key={label} className="flex items-center gap-2 py-1">
+                          <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${bgColor}`}>
+                            <Icon className={`w-3 h-3 ${iconColor}`} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[10px] text-slate-400 leading-none">{label}</div>
+                            <div className="text-sm font-bold text-slate-900 leading-snug">{value}</div>
+                          </div>
+                          {sub && <div className="text-[10px] text-slate-400 flex-shrink-0">{sub}</div>}
+                        </div>
+                      ))}
                     </div>
                   )}
+
+                  {/* Charts — Monthly Performance + Funnel side by side */}
+                  {visiblePanels.has('charts') && monthlyData.length >= 2 && (
+                    <div className="flex-1 min-w-0 flex divide-x divide-slate-100 overflow-hidden">
+                      <div className="flex-1 min-w-0 px-3 py-2 flex flex-col overflow-hidden">
+                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Monthly Performance</div>
+                        <div className="flex-1 min-h-0">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={monthlyData} margin={{ top:2, right:4, left:0, bottom:0 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                              <XAxis dataKey="month" tick={{ fontSize:9, fill:'#94a3b8' }} axisLine={false} tickLine={false} />
+                              <YAxis tick={{ fontSize:9, fill:'#94a3b8' }} axisLine={false} tickLine={false} width={24} />
+                              <Tooltip contentStyle={{ fontSize:11, borderRadius:6, border:'1px solid #e2e8f0' }} />
+                              <Line dataKey="clicks"       name="Clicks"       stroke="#bfdbfe" strokeWidth={1.5} dot={false} />
+                              <Line dataKey="applications" name="Applications" stroke="#818cf8" strokeWidth={1.5} dot={false} />
+                              <Line dataKey="approvals"    name="Approvals"    stroke="#6366f1" strokeWidth={1.5} dot={{ r:2 }} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                      <div className="flex-none w-44 px-3 py-2 flex flex-col overflow-hidden">
+                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">All-Time Funnel</div>
+                        <div className="flex-1 min-h-0">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={[
+                              { name: 'Clicks',  value: tracking.reduce((s,t)=>s+(t.clicks||0),0),       fill: '#bfdbfe' },
+                              { name: 'Apps',    value: tracking.reduce((s,t)=>s+(t.applications||0),0),  fill: '#818cf8' },
+                              { name: 'Approvd', value: tracking.reduce((s,t)=>s+(t.approvals||0),0),     fill: '#6366f1' },
+                            ]} layout="vertical" margin={{ top:2, right:8, left:0, bottom:2 }}>
+                              <XAxis type="number" tick={{ fontSize:9, fill:'#94a3b8' }} axisLine={false} tickLine={false} />
+                              <YAxis dataKey="name" type="category" tick={{ fontSize:9, fill:'#64748b' }} axisLine={false} tickLine={false} width={44} />
+                              <Tooltip contentStyle={{ fontSize:11, borderRadius:6, border:'1px solid #e2e8f0' }} />
+                              <Bar dataKey="value" name="Count" radius={[0,3,3,0]}>
+                                {[{ fill:'#bfdbfe'},{fill:'#818cf8'},{fill:'#6366f1'}].map((s,i)=><Cell key={i} fill={s.fill}/>)}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Top Cards */}
+                  {visiblePanels.has('topCards') && mostApprovedCards.length > 0 && (
+                    <div className="flex-none w-52 px-3 py-2 overflow-y-auto">
+                      <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                        <Award className="w-3 h-3 text-emerald-500" /> Top Cards
+                      </div>
+                      {mostApprovedCards.map((c, idx) => (
+                        <div key={c.name} className="flex items-center gap-1.5 py-0.5 min-w-0">
+                          <span className={`text-[10px] font-bold flex-shrink-0 w-4 ${
+                            idx === 0 ? 'text-amber-500' : idx === 1 ? 'text-slate-400' : idx === 2 ? 'text-orange-500' : 'text-slate-300'
+                          }`}>#{idx+1}</span>
+                          <span className="text-xs text-slate-700 truncate flex-1 min-w-0">{decodeHtml(c.name)}</span>
+                          <span className="text-[10px] text-slate-400 flex-shrink-0 ml-1">{c.approvals}×</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                 </div>
-              </div>
+                </div>
+              )}
             </div>
           );
         })()}
@@ -859,7 +934,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           </Tabs.List>
 
           {/* ── Cards Tab ── */}
-          <Tabs.Content value="cards" className="p-6">
+          <Tabs.Content value="cards" className="p-4 sm:p-6">
 
             {/* ── Master affiliate link ── */}
             {masterLink ? (
@@ -892,7 +967,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             )}
 
             {/* ── CPA Reference Table ── */}
-            <div className="flex flex-wrap items-center gap-3 mb-4">
+            <div className="flex flex-wrap items-center gap-2 mb-4">
               {/* Search */}
               <div className="relative flex-1 min-w-[180px]">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
@@ -907,22 +982,24 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 {cardIssuers.map(issuer => <option key={issuer} value={issuer}>{issuer}</option>)}
               </select>
               {/* CPA range */}
-              <div className="flex items-center gap-1.5">
-                {([
-                  { value: 'all', label: 'All CPA' }, { value: 'zero', label: '$0' },
-                  { value: 'lt50', label: '<$50' }, { value: '50-200', label: '$50–$200' },
-                  { value: '200plus', label: '$200+' },
-                ]).map(({ value, label }) => (
-                  <button key={value} onClick={() => setCardsPayoutFilter(value)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                      cardsPayoutFilter === value
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
-                    }`}>{label}</button>
-                ))}
+              <div className="overflow-x-auto">
+                <div className="flex items-center gap-1.5 min-w-max">
+                  {([
+                    { value: 'all', label: 'All CPA' }, { value: 'zero', label: '$0' },
+                    { value: 'lt50', label: '<$50' }, { value: '50-200', label: '$50–$200' },
+                    { value: '200plus', label: '$200+' },
+                  ]).map(({ value, label }) => (
+                    <button key={value} onClick={() => setCardsPayoutFilter(value)}
+                      className={`px-2.5 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                        cardsPayoutFilter === value
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
+                      }`}>{label}</button>
+                  ))}
+                </div>
               </div>
               {/* Group by issuer */}
-              <div className="flex items-center gap-2 ml-auto">
+              <div className="flex items-center gap-2 sm:ml-auto">
                 <button onClick={() => { setCardsGroupBy(g => !g); setCardsCollapsed(new Set()); }}
                   className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
                     cardsGroupBy ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'text-slate-600 bg-white border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
@@ -1014,7 +1091,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           </Tabs.Content>
 
           {/* ── Activity Tab ── */}
-          <Tabs.Content value="activity" className="p-6">
+          <Tabs.Content value="activity" className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-5 p-3.5 bg-slate-50 rounded-xl border border-slate-200">
               <p className="text-sm text-slate-600">
                 <span className="font-semibold text-slate-900">{displayTracking.length}</span>
@@ -1121,7 +1198,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           </Tabs.Content>
 
           {/* ── Invoices Tab ── */}
-          <Tabs.Content value="invoices" className="p-6">
+          <Tabs.Content value="invoices" className="p-4 sm:p-6">
             {invoices.length === 0 ? (
               <div className="text-center py-16">
                 <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -1134,6 +1211,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-slate-100">
+                      <th className="py-3 px-4 text-left text-slate-500 text-xs font-semibold uppercase tracking-wider"></th>
                       <th className="py-3 px-4 text-left text-slate-500 text-xs font-semibold uppercase tracking-wider">Month</th>
                       <th className="py-3 px-4 text-right text-slate-500 text-xs font-semibold uppercase tracking-wider">Amount</th>
                       <th className="py-3 px-4 text-right text-slate-500 text-xs font-semibold uppercase tracking-wider">Approvals</th>
@@ -1142,39 +1220,100 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </tr>
                   </thead>
                   <tbody>
-                    {invoices.map(inv => (
-                      <tr key={inv.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <div className="font-medium text-sm text-slate-900">{inv.month}</div>
-                          {inv.date && <div className="text-xs text-slate-400 mt-0.5">{formatDate(inv.date)}</div>}
-                        </td>
-                        <td className="py-3.5 px-4 text-right font-semibold text-sm text-slate-900">
-                          {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-slate-300 font-normal">—</span>}
-                        </td>
-                        <td className="py-3.5 px-4 text-right text-sm text-slate-600">{inv.approvals}</td>
-                        <td className="py-3.5 px-4">
-                          {inv.status ? (
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                              inv.status.toLowerCase().includes('paid')
-                                ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70'
-                                : inv.status.toLowerCase().includes('pending')
-                                ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/70'
-                                : 'bg-slate-100 text-slate-600'
-                            }`}>{inv.status}</span>
-                          ) : <span className="text-slate-300 text-sm">—</span>}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          {inv.sent || inv.sentZelle ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70">
-                              <CheckCircle className="w-3 h-3" />
-                              {inv.sentZelle ? 'Zelle sent' : 'Sent'}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 text-xs">Pending</span>
+                    {invoices.map(inv => {
+                      const isExpanded = expandedInvoices.has(inv.id);
+                      const allItems = getInvoiceItems(inv);
+                      const approvedItems = allItems.filter(i => i.status === 'approval');
+                      const items = isExpanded ? approvedItems : [];
+                      const approvalsCount = approvedItems.length;
+                      return (
+                        <React.Fragment key={inv.id}>
+                          <tr
+                            className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors cursor-pointer"
+                            onClick={() => {
+                              setExpandedInvoices(prev => {
+                                const next = new Set(prev);
+                                if (next.has(inv.id)) next.delete(inv.id); else next.add(inv.id);
+                                return next;
+                              });
+                            }}
+                          >
+                            <td className="py-3.5 pl-4 pr-1 w-8">
+                              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isExpanded ? '' : '-rotate-90'}`} />
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <div className="font-medium text-sm text-slate-900">{inv.month}</div>
+                              {inv.date && <div className="text-xs text-slate-400 mt-0.5">{formatDate(inv.date)}</div>}
+                            </td>
+                            <td className="py-3.5 px-4 text-right font-semibold text-sm text-slate-900">
+                              {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-slate-300 font-normal">—</span>}
+                            </td>
+                            <td className="py-3.5 px-4 text-right text-sm text-slate-600">{approvalsCount}</td>
+                            <td className="py-3.5 px-4">
+                              {inv.status ? (
+                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                                  inv.status.toLowerCase().includes('paid')
+                                    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70'
+                                    : inv.status.toLowerCase().includes('pending')
+                                    ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/70'
+                                    : 'bg-slate-100 text-slate-600'
+                                }`}>{inv.status}</span>
+                              ) : <span className="text-slate-300 text-sm">—</span>}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              {inv.sent || inv.sentZelle ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70">
+                                  <CheckCircle className="w-3 h-3" />
+                                  {inv.sentZelle ? 'Zelle sent' : 'Sent'}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 text-xs">Pending</span>
+                              )}
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr className="border-b border-slate-50 bg-slate-50/40">
+                              <td colSpan={6} className="px-4 py-3">
+                                {items.length === 0 ? (
+                                  <p className="text-xs text-slate-400 px-3 py-2">No approvals found for this month.</p>
+                                ) : (
+                                  <div className="rounded-xl bg-white ring-1 ring-slate-100 overflow-hidden">
+                                    <div className="px-4 py-2 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                      Approvals in {inv.month}{inv.date ? ` ${parseLocalDate(inv.date).getFullYear()}` : ''} ({items.length})
+                                    </div>
+                                    <table className="w-full">
+                                      <tbody>
+                                        {items.map(item => (
+                                          <tr key={item.id} className="border-b border-slate-50 last:border-b-0">
+                                            <td className="py-2.5 px-4 text-sm">
+                                              <div className="font-medium text-slate-900">{formatDate(item.clickDate)}</div>
+                                              <div className="text-xs text-slate-400">{formatTime(item.clickTime)}</div>
+                                            </td>
+                                            <td className="py-2.5 px-4 text-sm text-slate-700">{decodeHtml(item.cardName)}</td>
+                                            <td className="py-2.5 px-4">
+                                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                                                item.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
+                                                item.status === 'application' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70' :
+                                                'bg-slate-100 text-slate-600'
+                                              }`}>
+                                                {item.status}
+                                              </span>
+                                            </td>
+                                            <td className="py-2.5 px-4 text-sm text-right font-semibold text-slate-900">
+                                              {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
                           )}
-                        </td>
-                      </tr>
-                    ))}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

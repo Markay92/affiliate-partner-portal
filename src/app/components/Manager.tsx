@@ -22,6 +22,7 @@ import {
   Search,
   Layers,
   Activity,
+  Award,
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -36,13 +37,49 @@ interface ManagerProps {
 
 // ── Filter / sort types & helpers ────────────────────────────────────────────
 
-type DateFilter = 'all' | 'today' | 'yesterday' | 'mtd' | '7d' | '30d' | '90d' | 'lm' | 'custom';
+type DateFilter = 'all' | 'today' | 'week' | 'month' | 'lm' | 'custom';
 type SortState  = { field: string; dir: 'asc' | 'desc' };
 
+// Records default to showing only the current year — older years are hidden
+// behind a "Load more" toggle to keep long-running tables manageable.
+const CURRENT_YEAR = new Date().getFullYear();
+function yearOf(dateStr: string | undefined): number | null {
+  if (!dateStr) return null;
+  const d = parseLocalDate(dateStr);
+  return isNaN(d.getTime()) ? null : d.getFullYear();
+}
+
+/** Small "Showing {year} only" notice + Load more toggle for year-limited tables. */
+function LoadMoreYears({
+  showAll, setShowAll, hiddenCount,
+}: { showAll: boolean; setShowAll: (v: boolean) => void; hiddenCount: number }) {
+  if (hiddenCount === 0 && !showAll) return null;
+  return (
+    <div className="flex items-center gap-2 text-xs text-slate-400">
+      {!showAll ? (
+        <>
+          <span>Showing {CURRENT_YEAR} only{hiddenCount > 0 ? ` · ${hiddenCount} older record${hiddenCount === 1 ? '' : 's'} hidden` : ''}</span>
+          {hiddenCount > 0 && (
+            <button onClick={() => setShowAll(true)} className="text-indigo-600 hover:underline font-medium">
+              Load more
+            </button>
+          )}
+        </>
+      ) : (
+        <>
+          <span>Showing all years</span>
+          <button onClick={() => setShowAll(false)} className="text-indigo-600 hover:underline font-medium">
+            Show {CURRENT_YEAR} only
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 const DATE_LABELS: Record<DateFilter, string> = {
-  all: 'All time', today: 'Today', yesterday: 'Yesterday',
-  mtd: 'This Month', '7d': '7 days', '30d': '30 days',
-  '90d': '90 days', lm: 'Last Month', custom: 'Custom',
+  today: 'Today', week: 'This Week', month: 'This Month',
+  lm: 'Last Month', all: 'All Time', custom: 'Custom',
 };
 
 function parseLocalDate(str: string): Date {
@@ -51,6 +88,28 @@ function parseLocalDate(str: string): Date {
     return new Date(y, m - 1, d);
   }
   return new Date(str);
+}
+
+const MONTH_NAME_TO_INDEX: Record<string, number> = {};
+for (let m = 0; m < 12; m++) {
+  const full = new Date(2000, m, 1).toLocaleDateString('en-US', { month: 'long' }).toLowerCase();
+  const abbr = new Date(2000, m, 1).toLocaleDateString('en-US', { month: 'short' }).toLowerCase();
+  MONTH_NAME_TO_INDEX[full] = m;
+  MONTH_NAME_TO_INDEX[abbr] = m;
+  MONTH_NAME_TO_INDEX[abbr.replace('.', '')] = m;
+}
+
+function parseInvoiceMonth(monthStr: string | undefined): { monthIndex: number; year: number } | null {
+  if (!monthStr) return null;
+  const parts = monthStr.trim().toLowerCase().split(/\s+/);
+  if (parts.length < 2) return null;
+  const [rawMonth, rawYear] = parts;
+  const monthIndex = MONTH_NAME_TO_INDEX[rawMonth];
+  if (monthIndex === undefined) return null;
+  let year = parseInt(rawYear, 10);
+  if (isNaN(year)) return null;
+  if (year < 100) year += 2000;
+  return { monthIndex, year };
 }
 
 function formatDate(str: string | undefined): string {
@@ -74,15 +133,13 @@ function getDateBounds(filter: DateFilter, customFrom: string, customTo: string)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   switch (filter) {
-    case 'today':     return { from: today, to: null };
-    case 'yesterday': {
-      const yest = new Date(today.getTime() - 86400000);
-      const yestEnd = new Date(yest); yestEnd.setHours(23, 59, 59, 999);
-      return { from: yest, to: yestEnd };
+    case 'today': return { from: today, to: null };
+    case 'week': {
+      const daysFromMon = (today.getDay() + 6) % 7;
+      return { from: new Date(today.getTime() - daysFromMon * 86400000), to: null };
     }
-    case 'mtd': {
-      const first = new Date(today.getFullYear(), today.getMonth(), 1);
-      return { from: first, to: null };
+    case 'month': {
+      return { from: new Date(today.getFullYear(), today.getMonth(), 1), to: null };
     }
     case 'lm': {
       const firstOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
@@ -90,9 +147,6 @@ function getDateBounds(filter: DateFilter, customFrom: string, customTo: string)
       lastOfLastMonth.setHours(23, 59, 59, 999);
       return { from: firstOfLastMonth, to: lastOfLastMonth };
     }
-    case '7d':  return { from: new Date(today.getTime() - 6  * 86400000), to: null };
-    case '30d': return { from: new Date(today.getTime() - 29 * 86400000), to: null };
-    case '90d': return { from: new Date(today.getTime() - 89 * 86400000), to: null };
     case 'custom': {
       const to = customTo ? parseLocalDate(customTo) : null;
       if (to) to.setHours(23, 59, 59, 999);
@@ -191,36 +245,40 @@ function FilterBar({
   customTo: string;   setCustomTo: (s: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs font-medium text-slate-400 mr-1">Period:</span>
-      {(['all', 'today', 'yesterday', 'mtd', '7d', '30d', '90d', 'lm', 'custom'] as DateFilter[]).map((f) => (
-        <button
-          key={f}
-          onClick={() => setFilter(f)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            filter === f
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
-          }`}
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium text-slate-400 flex-shrink-0">Period:</span>
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value as DateFilter)}
+          className="sm:hidden flex-1 min-w-0 text-xs font-medium bg-slate-100 border border-transparent rounded-lg px-2.5 py-1.5 text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
         >
-          {DATE_LABELS[f]}
-        </button>
-      ))}
+          {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
+            <option key={f} value={f}>{DATE_LABELS[f]}</option>
+          ))}
+        </select>
+        <div className="hidden sm:block overflow-x-auto">
+          <div className="flex items-center gap-1.5 min-w-max">
+            {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
+              <button key={f} onClick={() => setFilter(f)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                  filter === f
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
+                }`}>
+                {DATE_LABELS[f]}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
       {filter === 'custom' && (
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={customFrom}
-            onChange={(e) => setCustomFrom(e.target.value)}
-            className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
-          />
+        <div className="flex flex-wrap items-center gap-2">
+          <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
+            className="flex-1 min-w-[130px] px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" />
           <span className="text-slate-400 text-xs">to</span>
-          <input
-            type="date"
-            value={customTo}
-            onChange={(e) => setCustomTo(e.target.value)}
-            className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
-          />
+          <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)}
+            className="flex-1 min-w-[130px] px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" />
         </div>
       )}
     </div>
@@ -312,6 +370,20 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   // Reset password
   const [resetPassword, setResetPassword] = useState('');
 
+  // Summary panel visibility — persisted in localStorage
+  const [visiblePanels, setVisiblePanels] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('mgr-visible-panels');
+      return saved ? new Set(JSON.parse(saved)) : new Set(['stats', 'charts', 'topCards']);
+    } catch { return new Set(['stats', 'charts', 'topCards']); }
+  });
+  const togglePanel = (key: string) => setVisiblePanels(prev => {
+    const next = new Set(prev);
+    next.has(key) ? next.delete(key) : next.add(key);
+    try { localStorage.setItem('mgr-visible-panels', JSON.stringify([...next])); } catch {}
+    return next;
+  });
+
   // Edit commission
   const [editingCommission, setEditingCommission] = useState<string | null>(null);
   const [commissionValue, setCommissionValue]     = useState('');
@@ -324,6 +396,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [affiliateSearch,      setAffiliateSearch]      = useState('');
   const [affiliateGroupBy,     setAffiliateGroupBy]     = useState(false);
   const [affiliateCollapsed,   setAffiliateCollapsed]   = useState<Set<string>>(new Set());
+
+  // ── Year-limited views: default to current year, "Load more" reveals older ──
+  const [trackingShowAllYears, setTrackingShowAllYears] = useState(false);
+  const [invoiceShowAllYears,  setInvoiceShowAllYears]  = useState(false);
+  const [cpaShowAllYears,      setCpaShowAllYears]      = useState(false);
 
   // ── Tracking Activity filter / sort ────────────────────────────────────────
   const [mgTrackingFilter,           setMgTrackingFilter]           = useState<DateFilter>('all');
@@ -357,6 +434,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [updatingInvoice,       setUpdatingInvoice]       = useState<string | null>(null);
   const [invoiceGroupBy,        setInvoiceGroupBy]        = useState<'none' | 'month' | 'affiliate'>('none');
   const [invoiceCollapsed,      setInvoiceCollapsed]      = useState<Set<string>>(new Set());
+  const [expandedInvoices,      setExpandedInvoices]      = useState<Set<string>>(new Set());
 
   // ── Derived display data ────────────────────────────────────────────────────
   const displayUsers = sortUsers(
@@ -380,14 +458,62 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     ).values()
   ).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
 
+  // How many tracking records fall outside the current year (hidden by default)
+  const trackingHiddenOlderCount = (trackingActivity as any[])
+    .filter((a) => { const y = yearOf(a.clickDate); return y !== null && y !== CURRENT_YEAR; }).length;
+
   const displayTrackingActivity = applySort(
     (trackingActivity as any[]).filter((a) =>
+      (trackingShowAllYears || yearOf(a.clickDate) === null || yearOf(a.clickDate) === CURRENT_YEAR) &&
       inDateRange(a.clickDate, mgTrackingFilter, mgTrackingCustomFrom, mgTrackingCustomTo) &&
       (mgTrackingStatusFilter === 'all' || a.status === mgTrackingStatusFilter) &&
       (mgTrackingAffiliateFilter === 'all' || a.affiliateId === mgTrackingAffiliateFilter)
     ),
     mgTrackingSort,
   );
+
+  // Resolve every card (all tracking-activity records — clicks, applications,
+  // and approvals alike) tied to a given invoice's affiliate + month/year, so
+  // the manager can see the full picture of what's behind that month's payout.
+  // Matched by affiliate (via email → affiliateId) + the invoice's month/year.
+  const getInvoiceCards = (inv: any): any[] => {
+    if (!inv) return [];
+    const user = (users as any[]).find((u: any) => u.email && inv.email && u.email.toLowerCase() === inv.email.toLowerCase());
+    const affId = user?.affiliateId || (inv.email ? null : undefined);
+    // Fall back to matching by member name if we couldn't resolve an affiliate ID via email
+    const fallbackName = !affId ? (inv.name || '').trim().toLowerCase() : null;
+    if (!affId && !fallbackName) return [];
+    const invDate = inv.date ? parseLocalDate(inv.date) : null;
+    const target = parseInvoiceMonth(inv.month) || (invDate && !isNaN(invDate.getTime())
+      ? { monthIndex: invDate.getMonth(), year: invDate.getFullYear() }
+      : null);
+    if (!target) return [];
+    return (trackingActivity as any[])
+      .filter((a) => {
+        const matchesAffiliate = affId
+          ? a.affiliateId === affId
+          : String(a.memberName || '').trim().toLowerCase() === fallbackName;
+        if (!matchesAffiliate) return false;
+        const d = parseLocalDate(a.clickDate);
+        if (isNaN(d.getTime())) return false;
+        return d.getMonth() === target.monthIndex && d.getFullYear() === target.year;
+      })
+      .sort((a, b) => parseLocalDate(b.clickDate).getTime() - parseLocalDate(a.clickDate).getTime());
+  };
+
+  // Summary: cards ranked by number of approvals across all affiliates (all-time),
+  // for the "Most Approved Cards" card on the Tracking tab.
+  const mostApprovedCards = (() => {
+    const byCard: Record<string, { name: string; approvals: number; earnings: number }> = {};
+    (trackingActivity as any[]).forEach((a) => {
+      if (a.status !== 'approval') return;
+      const key = a.cardName || 'Unknown';
+      if (!byCard[key]) byCard[key] = { name: key, approvals: 0, earnings: 0 };
+      byCard[key].approvals += 1;
+      byCard[key].earnings  += a.totalEarnings || 0;
+    });
+    return Object.values(byCard).sort((a, b) => b.approvals - a.approvals || b.earnings - a.earnings).slice(0, 5);
+  })();
 
   // Always all-time — not affected by the period filter (which only filters the table rows).
   // Prefer summing from the live trackingActivity array (real Airtable data) when loaded;
@@ -787,7 +913,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   };
 
   useEffect(() => {
-    if (activeTab === 'tracking' && trackingActivity.length === 0) {
+    if ((activeTab === 'tracking' || activeTab === 'invoices') && trackingActivity.length === 0) {
       fetchTrackingActivity();
     }
     if (activeTab === 'cpa-rates' && cpaRates.length === 0) {
@@ -868,8 +994,23 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
-              <div className="bg-indigo-500 p-2 rounded-xl">
-                <Users className="w-5 h-5 text-white" />
+              <div className="p-1">
+                <svg width="36" height="34" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <g clipPath="url(#clip0_mgr_logo)">
+                    <mask id="mask0_mgr_logo" style={{maskType:'luminance'}} maskUnits="userSpaceOnUse" x="0" y="0" width="38" height="37">
+                      <path d="M37.9056 0H0.00134277V36.2562H37.9056V0Z" fill="white"/>
+                    </mask>
+                    <g mask="url(#mask0_mgr_logo)">
+                      <path d="M17.6325 28.7049C17.6325 27.4888 17.6339 26.2735 17.6306 25.0575C17.6306 24.9135 17.6098 24.7681 17.5877 24.6248C17.5561 24.4184 17.4167 24.2985 17.2145 24.2947C16.9954 24.2908 16.8516 24.4228 16.8153 24.6368C16.7939 24.7605 16.8004 24.8892 16.8023 25.0156C16.8361 27.4471 16.86 29.8777 16.9152 32.3084C16.9249 32.7388 16.7589 33.0015 16.4155 33.2193C15.5412 33.7745 14.5827 34.1421 13.6009 34.4582C12.457 34.8269 11.3106 35.1841 10.1006 35.2964C9.1318 35.386 8.2362 34.9867 7.86482 34.2759C7.60237 33.7733 7.62117 33.289 7.90504 32.7998C8.49669 31.7798 9.38199 31.0157 10.2355 30.2249C10.5491 29.9343 10.8602 29.6422 11.1363 29.3167C11.5011 28.887 11.4959 28.3559 11.5374 27.8455C11.6119 26.9203 11.6573 25.9931 11.7189 25.0663C11.7552 24.5258 11.7377 23.9907 11.5731 23.4683C11.4396 23.0451 11.1505 22.7754 10.728 22.6185C10.0877 22.3799 9.42665 22.3463 8.75463 22.3933C7.93804 22.4503 7.12153 22.5131 6.30496 22.5697C5.16566 22.6484 4.02636 22.7207 2.88706 22.8025C2.42046 22.8361 1.95775 22.8407 1.51577 22.6706C1.09905 22.5107 0.848902 22.2193 0.838535 21.7611C0.817147 20.8199 0.91306 19.8825 0.938341 18.9432C0.953896 18.3841 1.02259 17.8268 1.04203 17.2683C1.09582 15.7172 1.19886 14.1693 1.31617 12.622C1.43865 11.0024 1.55853 9.38268 1.70824 7.76561C1.77303 7.06307 1.80804 6.3573 1.94867 5.66108C2.23382 4.25024 3.05362 3.34013 4.4852 2.96568C5.73077 2.6401 7.00162 2.52332 8.28416 2.47001C9.4604 2.42116 10.6379 2.4478 11.8129 2.3964C13.2108 2.33547 14.6055 2.20029 16.002 2.10699C16.8516 2.04988 17.7031 2.02449 18.5521 1.96039C19.9473 1.85567 21.3472 1.81569 22.7392 1.66083C24.0321 1.51739 25.3276 1.40378 26.6205 1.26098C27.8033 1.13025 28.9912 1.2464 30.1759 1.14929C31.4195 1.0471 32.6688 1.00268 33.9066 0.833222C35.4666 0.619345 36.67 1.37903 37.0141 2.83558C37.1191 3.28048 37.0795 3.74314 37.0343 4.19375C36.9001 5.51575 36.7542 6.83646 36.5949 8.15531C36.4328 9.49376 36.1685 10.8171 35.939 12.1454C35.6883 13.5956 35.4375 15.0458 35.1736 16.4934C35.0176 17.3527 34.8373 18.2077 34.6675 19.0644C34.4724 20.0501 33.8076 20.5889 32.8699 20.8529C31.9859 21.1017 31.0714 21.1645 30.1603 21.2357C28.807 21.3411 27.4532 21.4381 26.1002 21.5389C25.4463 21.5878 24.7917 21.6234 24.1508 21.7865C23.1074 22.0524 22.7691 22.6584 22.7489 23.5463C22.7147 25.0683 22.7379 26.5921 22.7399 28.1146C22.7405 28.727 23.0548 29.1968 23.4663 29.6213C24.0776 30.2523 24.7988 30.7554 25.4785 31.3082C25.7022 31.4898 25.9161 31.6866 26.1111 31.8966C26.7747 32.6118 26.8687 33.4293 26.5369 34.3159C26.4313 34.5977 26.2045 34.7487 25.9369 34.856C25.43 35.059 24.8953 35.1226 24.3562 35.127C22.43 35.1434 20.5979 34.7227 18.8651 33.9122C18.3486 33.6704 17.8743 33.3443 17.7395 32.7268C17.7141 32.6106 17.7084 32.4971 17.7084 32.3821C17.707 31.1559 17.7077 29.9299 17.7077 28.703C17.6831 28.703 17.6584 28.703 17.6339 28.703L17.6325 28.7049ZM18.6416 17.514C18.7906 17.495 18.9396 17.4703 19.0894 17.4575C20.552 17.3369 21.9984 16.1501 22.3907 14.752C22.4521 14.5323 22.3809 14.3712 22.1812 14.2842C21.9836 14.1985 21.7962 14.241 21.6751 14.4333C21.6252 14.5126 21.5974 14.6053 21.5611 14.6923C21.3575 15.1778 21.0627 15.6012 20.6642 15.9533C19.9248 16.6065 19.0452 16.7867 18.0856 16.6674C16.7602 16.503 15.7395 15.933 15.2917 14.616C15.1814 14.293 14.9696 14.1636 14.7155 14.2733C14.4335 14.3953 14.4523 14.632 14.5295 14.8687C14.7266 15.4742 15.059 15.9965 15.5418 16.4244C16.4225 17.2049 17.4951 17.455 18.6416 17.514ZM18.3623 13.7149C18.7789 13.7251 19.1756 13.6438 19.5502 13.4642C20.0854 13.2072 20.3913 12.7147 20.3524 12.1689C20.3077 11.5482 19.974 11.1204 19.357 10.9523C18.6428 10.7574 17.9495 10.8145 17.3072 11.2055C16.4407 11.7329 16.4186 12.8657 17.2606 13.4223C17.5937 13.6425 17.9636 13.7314 18.3623 13.7149ZM12.4538 11.4834C12.8912 11.4879 13.2302 11.1629 13.2341 10.7339C13.238 10.3207 12.8822 9.95521 12.4719 9.95009C12.0559 9.94503 11.6936 10.2966 11.6839 10.7161C11.6742 11.1319 12.0222 11.4784 12.4545 11.4834H12.4538ZM25.4229 10.4458C25.4288 10.0161 25.1119 9.69181 24.6847 9.68865C24.2809 9.68609 23.9149 10.0383 23.9096 10.435C23.9052 10.8119 24.2577 11.1591 24.6555 11.1699C25.0859 11.182 25.4171 10.8697 25.4222 10.4458H25.4229Z" fill="#50C8FD"/>
+                      <path d="M18.3577 12.928C18.0285 12.9438 17.7343 12.8759 17.5379 12.5891C17.394 12.3784 17.4057 12.1766 17.5898 11.9868C17.9487 11.6168 18.8696 11.5039 19.3116 11.7786C19.6428 11.9849 19.6272 12.4857 19.2824 12.7084C19.068 12.8468 18.729 12.9273 18.3577 12.928Z" fill="#50C8FD"/>
+                    </g>
+                  </g>
+                  <defs>
+                    <clipPath id="clip0_mgr_logo">
+                      <rect width="38.4" height="36.3765" fill="white"/>
+                    </clipPath>
+                  </defs>
+                </svg>
               </div>
               <div>
                 <h1 className="text-white font-semibold text-lg tracking-tight leading-none">Manager Portal</h1>
@@ -941,7 +1082,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {message && (
           <div className={`mb-6 p-4 rounded-xl text-sm ${
             message.includes('success') || message.includes('updated')
@@ -954,30 +1095,155 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           </div>
         )}
 
+        {/* ── Compact summary bar — all panels in one card, max 30vh ── */}
+        {(() => {
+          const chartData = [...users as any[]]
+            .filter(u => (u.stats?.totalCommissions || 0) > 0)
+            .sort((a, b) => (b.stats?.totalCommissions || 0) - (a.stats?.totalCommissions || 0))
+            .slice(0, 8)
+            .map(u => ({
+              name: (u.name || u.email || '').split(' ')[0],
+              earnings: Math.round(u.stats?.totalCommissions || 0),
+              clicks: u.stats?.totalClicks || 0,
+              approvals: u.stats?.totalConversions || 0,
+            }));
+          const CHART_COLORS = ['#6366f1','#8b5cf6','#a78bfa','#818cf8','#c4b5fd','#ddd6fe','#ede9fe','#f5f3ff'];
+          const anyVisible = visiblePanels.has('stats') || visiblePanels.has('charts') || visiblePanels.has('topCards');
+          const statRows = [
+            { label: 'Affiliates',   value: users.length.toLocaleString(),                          iconColor: 'text-indigo-600',  bgColor: 'bg-indigo-50',  Icon: Users,        sub: null },
+            { label: 'Clicks',       value: totalStats.clicks.toLocaleString(),                     iconColor: 'text-blue-600',    bgColor: 'bg-blue-50',    Icon: TrendingUp,   sub: null },
+            { label: 'Approvals',    value: totalStats.conversions.toLocaleString(),                 iconColor: 'text-emerald-600', bgColor: 'bg-emerald-50', Icon: CheckCircle,  sub: totalStats.clicks > 0 ? `${((totalStats.conversions / totalStats.clicks) * 100).toFixed(1)}% conv.` : null },
+            { label: 'Commissions',  value: `$${Math.round(totalStats.commissions).toLocaleString()}`, iconColor: 'text-violet-600', bgColor: 'bg-violet-50',  Icon: DollarSign,   sub: totalStats.clicks > 0 && totalStats.commissions > 0 ? `EPC $${(totalStats.commissions / totalStats.clicks).toFixed(2)}` : null },
+          ];
+          return (
+            <div className="mb-6 bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
+              {/* Toggle chips row */}
+              <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100">
+                <span className="text-[11px] font-medium text-slate-400 mr-0.5">Show:</span>
+                {(['stats', 'charts', 'topCards'] as const).map(key => {
+                  const labels = { stats: 'Stats', charts: 'Charts', topCards: 'Top Cards' };
+                  return (
+                    <button key={key} onClick={() => togglePanel(key)}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all border ${
+                        visiblePanels.has(key)
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                      }`}>
+                      {labels[key]}
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Content row — height fills to 30vh minus toggle row */}
+              {anyVisible && (
+                <div className="overflow-x-auto">
+                <div className="flex divide-x divide-slate-100 min-w-max"
+                  style={{ height: 'clamp(120px, calc(30vh - 44px), 220px)' }}>
+
+                  {/* Stats column */}
+                  {visiblePanels.has('stats') && (
+                    <div className="flex-none w-48 flex flex-col justify-center gap-0.5 px-3 py-2 overflow-hidden">
+                      {statRows.map(({ label, value, iconColor, bgColor, Icon, sub }) => (
+                        <div key={label} className="flex items-center gap-2 py-1">
+                          <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${bgColor}`}>
+                            <Icon className={`w-3 h-3 ${iconColor}`} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[10px] text-slate-400 leading-none">{label}</div>
+                            <div className="text-sm font-bold text-slate-900 leading-snug">{value}</div>
+                          </div>
+                          {sub && <div className="text-[10px] text-slate-400 flex-shrink-0">{sub}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Charts */}
+                  {visiblePanels.has('charts') && chartData.length > 0 && (
+                    <div className="flex-1 min-w-0 flex divide-x divide-slate-100 overflow-hidden">
+                      <div className="flex-1 min-w-0 px-3 py-2 flex flex-col overflow-hidden">
+                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Top Earners</div>
+                        <div className="flex-1 min-h-0">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={chartData} margin={{ top: 2, right: 4, left: 0, bottom: 0 }}>
+                              <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                              <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false}
+                                tickFormatter={v => v >= 1000 ? `$${(v/1000).toFixed(0)}k` : `$${v}`} width={32} />
+                              <Tooltip formatter={(val: any) => [`$${Number(val).toLocaleString()}`, 'Earnings']}
+                                contentStyle={{ fontSize: 11, borderRadius: 6, border: '1px solid #e2e8f0' }} />
+                              <Bar dataKey="earnings" radius={[3,3,0,0]}>
+                                {chartData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0 px-3 py-2 flex flex-col overflow-hidden">
+                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Clicks vs Approvals</div>
+                        <div className="flex-1 min-h-0">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={chartData} margin={{ top: 2, right: 4, left: 0, bottom: 0 }}>
+                              <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                              <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={26} />
+                              <Tooltip contentStyle={{ fontSize: 11, borderRadius: 6, border: '1px solid #e2e8f0' }} />
+                              <Bar dataKey="clicks" name="Clicks" fill="#bfdbfe" radius={[2,2,0,0]} />
+                              <Bar dataKey="approvals" name="Approvals" fill="#6366f1" radius={[2,2,0,0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Top Cards */}
+                  {visiblePanels.has('topCards') && mostApprovedCards.length > 0 && (
+                    <div className="flex-none w-52 px-3 py-2 overflow-y-auto">
+                      <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                        <Award className="w-3 h-3 text-emerald-500" /> Top Cards
+                      </div>
+                      {mostApprovedCards.map((c, idx) => (
+                        <div key={c.name} className="flex items-center gap-1.5 py-0.5 min-w-0">
+                          <span className={`text-[10px] font-bold flex-shrink-0 w-4 ${
+                            idx === 0 ? 'text-amber-500' : idx === 1 ? 'text-slate-400' : idx === 2 ? 'text-orange-500' : 'text-slate-300'
+                          }`}>#{idx + 1}</span>
+                          <span className="text-xs text-slate-700 truncate flex-1 min-w-0">{c.name}</span>
+                          <span className="text-[10px] text-slate-400 flex-shrink-0 ml-1">{c.approvals}×</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Tabs */}
         <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <Tabs.List className="flex border-b border-slate-200 mb-6">
+          <Tabs.List className="flex border-b border-slate-200 mb-6 overflow-x-auto">
             <Tabs.Trigger
               value="affiliates"
-              className="px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-slate-800 transition-colors -mb-px"
+              className="px-4 sm:px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-slate-800 transition-colors -mb-px whitespace-nowrap"
             >
               Affiliates
             </Tabs.Trigger>
             <Tabs.Trigger
               value="tracking"
-              className="px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-slate-800 transition-colors -mb-px"
+              className="px-4 sm:px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-slate-800 transition-colors -mb-px whitespace-nowrap"
             >
-              Tracking Activity
+              Activity
             </Tabs.Trigger>
             <Tabs.Trigger
               value="cpa-rates"
-              className="px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-slate-800 transition-colors -mb-px"
+              className="px-4 sm:px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-slate-800 transition-colors -mb-px whitespace-nowrap"
             >
               CPA Rates
             </Tabs.Trigger>
             <Tabs.Trigger
               value="invoices"
-              className="px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-slate-800 transition-colors -mb-px"
+              className="px-4 sm:px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-slate-800 transition-colors -mb-px whitespace-nowrap"
             >
               <span className="flex items-center gap-1.5">
                 Invoices
@@ -988,116 +1254,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
           {/* ── Affiliates Tab ── */}
           <Tabs.Content value="affiliates">
-            {/* Stats — same card design as affiliate dashboard */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-slate-500">
-                    {affiliatesFilter !== 'all' ? 'Filtered Affiliates' : 'Total Affiliates'}
-                  </span>
-                  <div className="p-2 bg-indigo-50 rounded-xl">
-                    <Users className="w-4 h-4 text-indigo-600" />
-                  </div>
-                </div>
-                <div className="text-3xl font-bold text-slate-900">
-                  {displayUsers.length}
-                  {affiliatesFilter !== 'all' && (
-                    <span className="text-base font-normal text-slate-400 ml-1">/ {users.length}</span>
-                  )}
-                </div>
-              </div>
-              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-slate-500">Total Clicks</span>
-                  <div className="p-2 bg-blue-50 rounded-xl">
-                    <TrendingUp className="w-4 h-4 text-blue-600" />
-                  </div>
-                </div>
-                <div className="text-3xl font-bold text-slate-900">{totalStats.clicks.toLocaleString()}</div>
-              </div>
-              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-slate-500">Approvals</span>
-                  <div className="p-2 bg-emerald-50 rounded-xl">
-                    <CheckCircle className="w-4 h-4 text-emerald-600" />
-                  </div>
-                </div>
-                <div className="text-3xl font-bold text-slate-900 mb-1">{totalStats.conversions.toLocaleString()}</div>
-                {totalStats.clicks > 0 && totalStats.conversions > 0 && (
-                  <div className="text-xs text-slate-400">
-                    {((totalStats.conversions / totalStats.clicks) * 100).toFixed(1)}% conv. rate
-                  </div>
-                )}
-                {totalStats.applications > 0 && (
-                  <div className="text-xs text-slate-400 mt-0.5">
-                    {totalStats.applications.toLocaleString()} applications
-                  </div>
-                )}
-              </div>
-              <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-slate-900/5">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-slate-500">Total Commissions</span>
-                  <div className="p-2 bg-violet-50 rounded-xl">
-                    <DollarSign className="w-4 h-4 text-violet-600" />
-                  </div>
-                </div>
-                <div className="text-3xl font-bold text-slate-900 mb-1">${Math.round(totalStats.commissions).toLocaleString()}</div>
-                {totalStats.clicks > 0 && totalStats.commissions > 0 && (
-                  <div className="text-xs text-slate-400">
-                    EPC: ${(totalStats.commissions / totalStats.clicks).toFixed(2)}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* ── Performance Overview chart ── */}
-            {(() => {
-              const chartData = [...users as any[]]
-                .filter(u => (u.stats?.totalCommissions || 0) > 0)
-                .sort((a, b) => (b.stats?.totalCommissions || 0) - (a.stats?.totalCommissions || 0))
-                .slice(0, 8)
-                .map(u => ({
-                  name: (u.name || u.email || '').split(' ')[0],
-                  earnings: Math.round(u.stats?.totalCommissions || 0),
-                  clicks: u.stats?.totalClicks || 0,
-                  approvals: u.stats?.totalConversions || 0,
-                }));
-              if (chartData.length === 0) return null;
-              const CHART_COLORS = ['#6366f1','#8b5cf6','#a78bfa','#818cf8','#c4b5fd','#ddd6fe','#ede9fe','#f5f3ff'];
-              return (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-                  <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-5">
-                    <h3 className="text-sm font-semibold text-slate-700 mb-4">Top Earners</h3>
-                    <ResponsiveContainer width="100%" height={180}>
-                      <BarChart data={chartData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-                        <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false}
-                          tickFormatter={v => v >= 1000 ? `$${(v/1000).toFixed(0)}k` : `$${v}`} width={42} />
-                        <Tooltip
-                          formatter={(val: any) => [`$${Number(val).toLocaleString()}`, 'Earnings']}
-                          contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
-                        />
-                        <Bar dataKey="earnings" radius={[4,4,0,0]}>
-                          {chartData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-5">
-                    <h3 className="text-sm font-semibold text-slate-700 mb-4">Clicks vs Approvals</h3>
-                    <ResponsiveContainer width="100%" height={180}>
-                      <BarChart data={chartData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-                        <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={32} />
-                        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
-                        <Bar dataKey="clicks" name="Clicks" fill="#bfdbfe" radius={[3,3,0,0]} />
-                        <Bar dataKey="approvals" name="Approvals" fill="#6366f1" radius={[3,3,0,0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              );
-            })()}
 
             {/* Toolbar: Search + Date filter + Group + Create */}
             <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 mb-4 space-y-3">
@@ -1238,6 +1394,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       {(mgTrackingFilter !== 'all' || mgTrackingStatusFilter !== 'all' || mgTrackingAffiliateFilter !== 'all')
                         ? ` of ${trackingActivity.length}` : ''} records
                     </p>
+                    <div className="mt-1">
+                      <LoadMoreYears showAll={trackingShowAllYears} setShowAll={setTrackingShowAllYears} hiddenCount={trackingHiddenOlderCount} />
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {/* Group by segmented control */}
@@ -1608,7 +1767,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               ) : (() => {
                 // Apply all filters + sort
                 const refPayout = (r: any) => cpaAffiliateFilter !== 'all' ? (r.affiliatePayout ?? r.bankCpa) : r.bankCpa;
+                const cpaHiddenOlderCount = (cpaRates as any[])
+                  .filter((r: any) => { const y = yearOf(r.date); return y !== null && y !== CURRENT_YEAR; }).length;
                 const filtered = applySort(cpaRates, cpaSort).filter(r => {
+                  if (!(cpaShowAllYears || yearOf(r.date) === null || yearOf(r.date) === CURRENT_YEAR)) return false;
                   if (cpaSearch && !r.card.toLowerCase().includes(cpaSearch.toLowerCase()) &&
                       !(r.issuer || '').toLowerCase().includes(cpaSearch.toLowerCase())) return false;
                   if (cpaIssuerFilter !== 'all' && r.issuer !== cpaIssuerFilter) return false;
@@ -1646,10 +1808,13 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
                 return (
                   <div className="overflow-x-auto">
-                    <p className="text-xs text-slate-400 px-5 py-2">
-                      {filtered.length}{filtered.length !== cpaRates.length ? ` of ${cpaRates.length}` : ''} cards
-                      {cpaAffiliateLabel ? ` · ${cpaAffiliateLabel}` : ''}
-                    </p>
+                    <div className="flex items-center justify-between px-5 py-2 flex-wrap gap-2">
+                      <p className="text-xs text-slate-400">
+                        {filtered.length}{filtered.length !== cpaRates.length ? ` of ${cpaRates.length}` : ''} cards
+                        {cpaAffiliateLabel ? ` · ${cpaAffiliateLabel}` : ''}
+                      </p>
+                      <LoadMoreYears showAll={cpaShowAllYears} setShowAll={setCpaShowAllYears} hiddenCount={cpaHiddenOlderCount} />
+                    </div>
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50/80 border-b border-slate-100">
                         <tr>
@@ -1820,8 +1985,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   <p className="text-slate-500 text-sm">Loading invoices…</p>
                 </div>
               ) : (() => {
+                const invoiceHiddenOlderCount = (invoices as any[])
+                  .filter((inv: any) => { const y = yearOf(inv.date); return y !== null && y !== CURRENT_YEAR; }).length;
                 const filtered = applySort(
                   invoices.filter((inv: any) =>
+                    (invoiceShowAllYears || yearOf(inv.date) === null || yearOf(inv.date) === CURRENT_YEAR) &&
                     (invoiceAffiliateFilter === 'all' || inv.email === invoiceAffiliateFilter) &&
                     (invoiceMonthFilter     === 'all' || inv.month === invoiceMonthFilter) &&
                     (invoiceStatusFilter    === 'all' || inv.status === invoiceStatusFilter)
@@ -1834,11 +2002,19 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <FileText className="w-7 h-7 text-slate-300" />
                     </div>
                     <p className="text-slate-500 text-sm">No invoices match the selected filters.</p>
+                    {invoiceHiddenOlderCount > 0 && !invoiceShowAllYears && (
+                      <button onClick={() => setInvoiceShowAllYears(true)} className="text-xs text-indigo-600 hover:underline mt-2">
+                        Load {invoiceHiddenOlderCount} older invoice{invoiceHiddenOlderCount === 1 ? '' : 's'} from prior years
+                      </button>
+                    )}
                   </div>
                 );
                 return (
                   <div className="overflow-x-auto">
-                    <p className="text-xs text-slate-400 px-5 py-2">{filtered.length}{invoices.length !== filtered.length ? ` of ${invoices.length}` : ''} invoices</p>
+                    <div className="flex items-center justify-between px-5 py-2 flex-wrap gap-2">
+                      <p className="text-xs text-slate-400">{filtered.length}{invoices.length !== filtered.length ? ` of ${invoices.length}` : ''} invoices</p>
+                      <LoadMoreYears showAll={invoiceShowAllYears} setShowAll={setInvoiceShowAllYears} hiddenCount={invoiceHiddenOlderCount} />
+                    </div>
                     <table className="w-full">
                       <thead className="bg-slate-50/80 border-b border-slate-100">
                         <tr>
@@ -1857,45 +2033,102 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         {(() => {
                           const InvRow = ({ inv }: { inv: any }) => {
                             const busy = updatingInvoice === inv.id;
+                            const isOpen = expandedInvoices.has(inv.id);
+                            const toggleOpen = () => setExpandedInvoices(prev => {
+                              const next = new Set(prev);
+                              next.has(inv.id) ? next.delete(inv.id) : next.add(inv.id);
+                              return next;
+                            });
+                            const allCards = getInvoiceCards(inv);
+                            const approvedCards = allCards.filter((c: any) => c.status === 'approval');
+                            const cards = isOpen ? approvedCards : [];
+                            const approvalsCount = approvedCards.length;
                             return (
-                              <tr key={inv.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
-                                <td className="py-3.5 px-4">
-                                  <div className="font-medium text-sm text-slate-900">{inv.name}</div>
-                                  <div className="text-xs text-slate-400 mt-0.5">{inv.email}</div>
-                                </td>
-                                <td className="py-3.5 px-4 text-sm text-slate-700">{inv.month}</td>
-                                <td className="py-3.5 px-4 text-right font-semibold text-sm text-slate-900">
-                                  {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}` : <span className="text-slate-300 font-normal">—</span>}
-                                </td>
-                                <td className="py-3.5 px-4 text-right text-sm text-slate-600">{inv.approvals}</td>
-                                <td className="py-3.5 px-4">
-                                  {inv.status ? (
-                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                                      inv.status.toLowerCase().includes('paid')
-                                        ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70'
-                                        : inv.status.toLowerCase().includes('pending')
-                                        ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/70'
-                                        : 'bg-slate-100 text-slate-600'
-                                    }`}>{inv.status}</span>
-                                  ) : <span className="text-slate-300 text-xs">—</span>}
-                                </td>
-                                <td className="py-3.5 px-4 text-center">
-                                  <button disabled={busy} onClick={() => updateInvoice(inv.id, { sent: !inv.sent })}
-                                    className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sent ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
-                                    <CheckCircle className="w-4 h-4" />
-                                  </button>
-                                </td>
-                                <td className="py-3.5 px-4 text-center">
-                                  <button disabled={busy} onClick={() => updateInvoice(inv.id, { sentZelle: !inv.sentZelle })}
-                                    className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sentZelle ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
-                                    <Send className="w-4 h-4" />
-                                  </button>
-                                </td>
-                                <td className="py-3.5 px-4 text-xs text-slate-500">{inv.zelle || '—'}</td>
-                                <td className="py-3.5 px-4 text-right">
-                                  {busy && <RefreshCw className="w-4 h-4 animate-spin text-indigo-400 ml-auto" />}
-                                </td>
-                              </tr>
+                              <React.Fragment key={inv.id}>
+                                <tr
+                                  onClick={toggleOpen}
+                                  className={`border-b border-slate-50 hover:bg-slate-50/60 transition-colors cursor-pointer ${isOpen ? 'bg-slate-50/60' : ''}`}
+                                >
+                                  <td className="py-3.5 px-4">
+                                    <div className="flex items-center gap-2">
+                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform shrink-0 ${isOpen ? '' : '-rotate-90'}`} />
+                                      <div>
+                                        <div className="font-medium text-sm text-slate-900">{inv.name}</div>
+                                        <div className="text-xs text-slate-400 mt-0.5">{inv.email}</div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="py-3.5 px-4 text-sm text-slate-700">{inv.month}</td>
+                                  <td className="py-3.5 px-4 text-right font-semibold text-sm text-slate-900">
+                                    {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}` : <span className="text-slate-300 font-normal">—</span>}
+                                  </td>
+                                  <td className="py-3.5 px-4 text-right text-sm text-slate-600">{approvalsCount}</td>
+                                  <td className="py-3.5 px-4">
+                                    {inv.status ? (
+                                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                                        inv.status.toLowerCase().includes('paid')
+                                          ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70'
+                                          : inv.status.toLowerCase().includes('pending')
+                                          ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/70'
+                                          : 'bg-slate-100 text-slate-600'
+                                      }`}>{inv.status}</span>
+                                    ) : <span className="text-slate-300 text-xs">—</span>}
+                                  </td>
+                                  <td className="py-3.5 px-4 text-center" onClick={e => e.stopPropagation()}>
+                                    <button disabled={busy} onClick={() => updateInvoice(inv.id, { sent: !inv.sent })}
+                                      title="Mark payout as sent"
+                                      className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sent ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
+                                      <CheckCircle className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                  <td className="py-3.5 px-4 text-center" onClick={e => e.stopPropagation()}>
+                                    <button disabled={busy} onClick={() => updateInvoice(inv.id, { sentZelle: !inv.sentZelle })}
+                                      title="Mark Zelle payout as sent"
+                                      className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sentZelle ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
+                                      <Send className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                  <td className="py-3.5 px-4 text-xs text-slate-500">{inv.zelle || '—'}</td>
+                                  <td className="py-3.5 px-4 text-right">
+                                    {busy && <RefreshCw className="w-4 h-4 animate-spin text-indigo-400 ml-auto" />}
+                                  </td>
+                                </tr>
+                                {isOpen && (
+                                  <tr className="bg-slate-50/40 border-b border-slate-100">
+                                    <td colSpan={9} className="px-4 pl-12 py-3">
+                                      {!trackingActivity.length ? (
+                                        <p className="text-xs text-slate-400 py-2 flex items-center gap-2">
+                                          <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Loading cards…
+                                        </p>
+                                      ) : cards.length === 0 ? (
+                                        <p className="text-xs text-slate-400 py-2">No approvals found for {inv.name} in {inv.month}.</p>
+                                      ) : (
+                                        <div className="space-y-1.5 py-1">
+                                          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                                            Approvals for {inv.name} in {inv.month} ({cards.length})
+                                          </p>
+                                          {cards.map((c: any) => (
+                                            <div key={c.id} className="flex items-center justify-between text-sm py-1.5 px-3 bg-white rounded-lg border border-slate-100">
+                                              <div className="flex items-center gap-3 min-w-0">
+                                                <span className="font-medium text-slate-900 truncate">{c.cardName}</span>
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 ${
+                                                  c.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
+                                                  c.status === 'application' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70' :
+                                                  'bg-slate-100 text-slate-500'
+                                                }`}>{c.status}</span>
+                                                <span className="text-xs text-slate-400 shrink-0">{formatDate(c.clickDate)}</span>
+                                              </div>
+                                              <span className="font-semibold text-emerald-600 shrink-0 ml-3">
+                                                {c.totalEarnings > 0 ? `$${c.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
                             );
                           };
 
