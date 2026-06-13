@@ -23,6 +23,7 @@ import {
   Layers,
   Activity,
   Award,
+  MousePointerClick,
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -50,31 +51,36 @@ function yearOf(dateStr: string | undefined): number | null {
   return isNaN(d.getTime()) ? null : d.getFullYear();
 }
 
-/** Small "Showing {year} only" notice + Load more toggle for year-limited tables. */
+/** Bottom pagination-style button to reveal/hide records from prior years. */
 function LoadMoreYears({
   showAll, setShowAll, hiddenCount,
 }: { showAll: boolean; setShowAll: (v: boolean) => void; hiddenCount: number }) {
   if (hiddenCount === 0 && !showAll) return null;
+  return !showAll ? (
+    <button
+      onClick={() => setShowAll(true)}
+      className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
+    >
+      Load {hiddenCount} older record{hiddenCount === 1 ? '' : 's'}
+      <span className="text-slate-400 ml-1">(prior years)</span>
+    </button>
+  ) : (
+    <button
+      onClick={() => setShowAll(false)}
+      className="px-4 py-2 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors duration-150 cursor-pointer"
+    >
+      Show {CURRENT_YEAR} only
+    </button>
+  );
+}
+
+/** Small pill marking a count as scoped to the current year by default (vs. an all-time/period figure). */
+function CurrentYearBadge({ active }: { active: boolean }) {
+  if (!active) return null;
   return (
-    <div className="flex items-center gap-2 text-xs text-slate-400">
-      {!showAll ? (
-        <>
-          <span>Showing {CURRENT_YEAR} only{hiddenCount > 0 ? ` · ${hiddenCount} older record${hiddenCount === 1 ? '' : 's'} hidden` : ''}</span>
-          {hiddenCount > 0 && (
-            <button onClick={() => setShowAll(true)} className="text-indigo-600 hover:underline font-medium">
-              Load more
-            </button>
-          )}
-        </>
-      ) : (
-        <>
-          <span>Showing all years</span>
-          <button onClick={() => setShowAll(false)} className="text-indigo-600 hover:underline font-medium">
-            Show {CURRENT_YEAR} only
-          </button>
-        </>
-      )}
-    </div>
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 ring-1 ring-amber-200/70 ml-2">
+      {CURRENT_YEAR} only
+    </span>
   );
 }
 
@@ -262,7 +268,7 @@ function FilterBar({
           <div className="flex items-center gap-1.5 min-w-max">
             {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
               <button key={f} onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
                   filter === f
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
@@ -276,10 +282,10 @@ function FilterBar({
       {filter === 'custom' && (
         <div className="flex flex-wrap items-center gap-2">
           <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
-            className="flex-1 min-w-[130px] px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" />
+            className="flex-1 min-w-[130px] px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-shadow" />
           <span className="text-slate-400 text-xs">to</span>
           <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)}
-            className="flex-1 min-w-[130px] px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" />
+            className="flex-1 min-w-[130px] px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-shadow" />
         </div>
       )}
     </div>
@@ -371,6 +377,23 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   // Reset password
   const [resetPassword, setResetPassword] = useState('');
 
+  // Stats grid comparison period
+  type StatPeriod = 'today' | 'week' | 'month' | 'lm' | 'year' | 'custom';
+  const [statPeriod, setStatPeriod] = useState<StatPeriod>('month');
+  const [statCustomFrom, setStatCustomFrom] = useState('');
+  const [statCustomTo,   setStatCustomTo]   = useState('');
+  const STAT_PERIOD_LABELS: Record<StatPeriod, string> = {
+    today:  'Today vs yesterday',
+    week:   'This week vs last week',
+    month:  'This month vs last month',
+    lm:     'Last month vs month before',
+    year:   'This year vs last year',
+    custom: 'Custom range',
+  };
+  const STAT_PERIOD_SHORT: Record<StatPeriod, string> = {
+    today: 'Today', week: 'This Week', month: 'This Month', lm: 'Last Month', year: 'This Year', custom: 'Custom Range',
+  };
+
   // Summary panel visibility — persisted in localStorage
   const [visiblePanels, setVisiblePanels] = useState<Set<string>>(() => {
     try {
@@ -402,6 +425,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [affiliatesVisible, setAffiliatesVisible] = useState(PAGE_SIZE);
   const [cpaVisible,        setCpaVisible]        = useState(PAGE_SIZE);
   const [invoicesVisible,   setInvoicesVisible]   = useState(PAGE_SIZE);
+  const [trackingVisible,   setTrackingVisible]   = useState(PAGE_SIZE);
 
   // ── Year-limited views: default to current year, "Load more" reveals older ──
   const [trackingShowAllYears, setTrackingShowAllYears] = useState(false);
@@ -521,22 +545,127 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     return Object.values(byCard).sort((a, b) => b.approvals - a.approvals || b.earnings - a.earnings).slice(0, 5);
   })();
 
-  // Always all-time — not affected by the period filter (which only filters the table rows).
-  // Prefer summing from the live trackingActivity array (real Airtable data) when loaded;
-  // fall back to KV-cached user.stats for the period before the first tracking fetch completes.
-  const totalStats = trackingActivity.length > 0
-    ? trackingActivity.reduce((acc: any, row: any) => ({
-        clicks:       acc.clicks       + (row.clicks       || 0),
-        applications: acc.applications + (row.applications || 0),
-        conversions:  acc.conversions  + (row.approvals    || 0),
-        commissions:  acc.commissions  + (row.totalEarnings || 0),
-      }), { clicks: 0, applications: 0, conversions: 0, commissions: 0 })
-    : users.reduce((acc: any, user: any) => ({
-        clicks:       acc.clicks       + (user.stats?.totalClicks      || 0),
-        applications: acc.applications + 0, // not in KV cache
-        conversions:  acc.conversions  + (user.stats?.totalConversions  || 0),
-        commissions:  acc.commissions  + (user.stats?.totalCommissions  || 0),
-      }), { clicks: 0, applications: 0, conversions: 0, commissions: 0 });
+  // Fallback all-time totals from KV-cached user.stats, used until the first
+  // tracking fetch completes (trackingActivity is empty).
+  const totalStatsFallback = users.reduce((acc: any, user: any) => ({
+    clicks:       acc.clicks       + (user.stats?.totalClicks      || 0),
+    applications: acc.applications + 0, // not in KV cache
+    conversions:  acc.conversions  + (user.stats?.totalConversions  || 0),
+    commissions:  acc.commissions  + (user.stats?.totalCommissions  || 0),
+  }), { clicks: 0, applications: 0, conversions: 0, commissions: 0 });
+
+  // ── Period helpers — drives the stat-card numbers + % comparison badges ────
+  const _now = new Date();
+  const _today = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate());
+
+  const _getDayOffset = (d: Date): number =>
+    Math.floor((_today.getTime() - d.getTime()) / 86_400_000);
+
+  const _inRange = (dateStr: string, startDaysAgo: number, endDaysAgo: number) => {
+    if (!dateStr) return false;
+    const offset = _getDayOffset(parseLocalDate(dateStr));
+    return offset >= endDaysAgo && offset < startDaysAgo;
+  };
+
+  const _inMonth = (dateStr: string, m: number, y: number) => {
+    if (!dateStr) return false;
+    const d = parseLocalDate(dateStr);
+    return d.getMonth() === m && d.getFullYear() === y;
+  };
+
+  // _thisT = records in the selected period (drives both the card numbers AND the % badge)
+  // _lastT = records in the prior period (drives the % badge comparison)
+  let _thisT: any[], _lastT: any[], _periodLabel: string;
+
+  if (statPeriod === 'today') {
+    _thisT = trackingActivity.filter((t: any) => _inRange(t.clickDate, 1, 0));
+    _lastT = trackingActivity.filter((t: any) => _inRange(t.clickDate, 2, 1));
+    _periodLabel = 'vs yesterday';
+  } else if (statPeriod === 'week') {
+    const daysFromMon = (_today.getDay() + 6) % 7; // Mon=0 … Sun=6
+    const weekStart   = new Date(_today.getTime() - daysFromMon * 86_400_000);
+    const prevWkStart = new Date(weekStart.getTime() - 7 * 86_400_000);
+    _thisT = trackingActivity.filter((t: any) => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= weekStart && d <= _now; });
+    _lastT = trackingActivity.filter((t: any) => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= prevWkStart && d < weekStart; });
+    _periodLabel = 'vs last week';
+  } else if (statPeriod === 'month') {
+    const _thisM = _now.getMonth(), _thisY = _now.getFullYear();
+    const _lastM = _thisM === 0 ? 11 : _thisM - 1;
+    const _lastY  = _thisM === 0 ? _thisY - 1 : _thisY;
+    _thisT = trackingActivity.filter((t: any) => _inMonth(t.clickDate, _thisM, _thisY));
+    _lastT = trackingActivity.filter((t: any) => _inMonth(t.clickDate, _lastM, _lastY));
+    _periodLabel = 'vs last month';
+  } else if (statPeriod === 'lm') {
+    const _lastM  = _now.getMonth() === 0 ? 11 : _now.getMonth() - 1;
+    const _lastY  = _now.getMonth() === 0 ? _now.getFullYear() - 1 : _now.getFullYear();
+    const _prevM  = _lastM === 0 ? 11 : _lastM - 1;
+    const _prevY  = _lastM === 0 ? _lastY - 1 : _lastY;
+    _thisT = trackingActivity.filter((t: any) => _inMonth(t.clickDate, _lastM, _lastY));
+    _lastT = trackingActivity.filter((t: any) => _inMonth(t.clickDate, _prevM, _prevY));
+    _periodLabel = 'vs month before';
+  } else if (statPeriod === 'year') {
+    const thisYrStart = new Date(_now.getFullYear(), 0, 1);
+    const prevYrStart = new Date(_now.getFullYear() - 1, 0, 1);
+    _thisT = trackingActivity.filter((t: any) => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= thisYrStart; });
+    _lastT = trackingActivity.filter((t: any) => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= prevYrStart && d < thisYrStart; });
+    _periodLabel = 'vs last year';
+  } else {
+    // custom
+    const fromD = statCustomFrom ? parseLocalDate(statCustomFrom) : null;
+    const toD   = statCustomTo   ? (() => { const d = parseLocalDate(statCustomTo); d.setDate(d.getDate() + 1); return d; })() : null;
+    _thisT = trackingActivity.filter((t: any) => {
+      if (!t.clickDate) return false;
+      const d = parseLocalDate(t.clickDate);
+      if (fromD && d < fromD) return false;
+      if (toD   && d >= toD)  return false;
+      return true;
+    });
+    _lastT = [];
+    _periodLabel = statCustomFrom || statCustomTo ? `${statCustomFrom || '…'} → ${statCustomTo || '…'}` : 'select dates below';
+  }
+
+  const hasTracking = trackingActivity.length > 0;
+
+  // ── Stat card numbers — computed from the selected period (_thisT) ─────────
+  const totalStats = hasTracking
+    ? {
+        clicks:       _thisT.reduce((s, t) => s + (t.clicks       || 0), 0),
+        applications: _thisT.reduce((s, t) => s + (t.applications || 0), 0),
+        conversions:  _thisT.reduce((s, t) => s + (t.approvals    || 0), 0),
+        commissions:  _thisT.reduce((s, t) => s + (t.totalEarnings|| 0), 0),
+      }
+    : totalStatsFallback;
+
+  const avgEPC = totalStats.clicks > 0 ? totalStats.commissions / totalStats.clicks : 0;
+
+  const _calcPct = (cur: number, prev: number): number | null =>
+    prev === 0 ? (cur > 0 ? 100 : null) : Math.round(((cur - prev) / prev) * 100);
+
+  const clicksPct       = hasTracking ? _calcPct(_thisT.reduce((s, t) => s + (t.clicks       || 0), 0), _lastT.reduce((s, t) => s + (t.clicks       || 0), 0)) : null;
+  const approvalsPct    = hasTracking ? _calcPct(_thisT.reduce((s, t) => s + (t.approvals    || 0), 0), _lastT.reduce((s, t) => s + (t.approvals    || 0), 0)) : null;
+  const applicationsPct = hasTracking ? _calcPct(_thisT.reduce((s, t) => s + (t.applications || 0), 0), _lastT.reduce((s, t) => s + (t.applications || 0), 0)) : null;
+  const commissionsPct  = hasTracking ? _calcPct(_thisT.reduce((s, t) => s + (t.totalEarnings|| 0), 0), _lastT.reduce((s, t) => s + (t.totalEarnings|| 0), 0)) : null;
+
+  /** Coloured percentage badge shown under each stat card */
+  const PctBadge = ({ pct, compact = false }: { pct: number | null; compact?: boolean }) => {
+    if (pct === null) {
+      return compact
+        ? <span className="text-slate-300 text-xs">—</span>
+        : <span className="text-slate-400 text-xs">No prior-period data</span>;
+    }
+    if (pct === 0) {
+      return compact
+        ? <span className="text-slate-400 text-xs font-medium">No change</span>
+        : <span className="text-slate-400 text-xs flex items-center gap-1">— No change <span className="font-normal">{_periodLabel}</span></span>;
+    }
+    const up = pct > 0;
+    return (
+      <div className={`flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full ${up ? 'text-emerald-700 bg-emerald-50' : 'text-red-600 bg-red-50'}`}>
+        <TrendingUp className={`w-3 h-3 ${!up ? 'rotate-180' : ''}`} />
+        <span>{up ? '+' : ''}{pct}%{!compact ? ` ${_periodLabel}` : ''}</span>
+      </div>
+    );
+  };
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -933,7 +1062,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   // Renders a single affiliate table row — defined as a closure so it
   // captures all state/callbacks without prop drilling.
   const renderUserRow = (user: any) => (
-    <tr key={user.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+    <tr key={user.id} className="border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150">
       <td className="py-4 px-6">
         <div className="font-medium text-slate-900">{user.name || 'N/A'}</div>
         <div className="text-xs text-slate-500 mt-0.5">{user.email}</div>
@@ -996,7 +1125,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-slate-900 sticky top-0 z-10">
+      <header className="bg-slate-900/95 backdrop-blur-md sticky top-0 z-10 border-b border-slate-800/60 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
@@ -1101,7 +1230,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           </div>
         )}
 
-        {/* ── Compact summary bar — all panels in one card, max 30vh ── */}
+        {/* ── Performance overview ── */}
         {(() => {
           const chartData = [...users as any[]]
             .filter(u => (u.stats?.totalCommissions || 0) > 0)
@@ -1114,25 +1243,185 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               approvals: u.stats?.totalConversions || 0,
             }));
           const CHART_COLORS = ['#6366f1','#8b5cf6','#a78bfa','#818cf8','#c4b5fd','#ddd6fe','#ede9fe','#f5f3ff'];
-          const anyVisible = visiblePanels.has('stats') || visiblePanels.has('charts') || visiblePanels.has('topCards');
+          const isEmptyPeriod = hasTracking && totalStats.clicks === 0 && totalStats.commissions === 0;
+          const showCharts   = visiblePanels.has('charts')   && chartData.length > 0;
+          const showTopCards = visiblePanels.has('topCards') && mostApprovedCards.length > 0;
+
           const statRows = [
-            { label: 'Affiliates',   value: users.length.toLocaleString(),                          iconColor: 'text-indigo-600',  bgColor: 'bg-indigo-50',  Icon: Users,        sub: null },
-            { label: 'Clicks',       value: totalStats.clicks.toLocaleString(),                     iconColor: 'text-blue-600',    bgColor: 'bg-blue-50',    Icon: TrendingUp,   sub: null },
-            { label: 'Approvals',    value: totalStats.conversions.toLocaleString(),                 iconColor: 'text-emerald-600', bgColor: 'bg-emerald-50', Icon: CheckCircle,  sub: totalStats.clicks > 0 ? `${((totalStats.conversions / totalStats.clicks) * 100).toFixed(1)}% conv.` : null },
-            { label: 'Commissions',  value: `$${Math.round(totalStats.commissions).toLocaleString()}`, iconColor: 'text-violet-600', bgColor: 'bg-violet-50',  Icon: DollarSign,   sub: totalStats.clicks > 0 && totalStats.commissions > 0 ? `EPC $${(totalStats.commissions / totalStats.clicks).toFixed(2)}` : null },
+            { label: 'Clicks',       value: totalStats.clicks.toLocaleString(),                       iconColor: 'text-blue-600',    bgColor: 'bg-blue-50',    Icon: MousePointerClick, sub: null,                                                                                                          pct: clicksPct },
+            { label: 'Approvals',    value: totalStats.conversions.toLocaleString(),                  iconColor: 'text-emerald-600', bgColor: 'bg-emerald-50', Icon: CheckCircle,       sub: totalStats.clicks > 0 && totalStats.conversions > 0 ? `${((totalStats.conversions/totalStats.clicks)*100).toFixed(1)}% conv.` : null,    pct: approvalsPct },
+            { label: 'Commissions',  value: `$${Math.round(totalStats.commissions).toLocaleString()}`, iconColor: 'text-indigo-600', bgColor: 'bg-indigo-50', Icon: DollarSign,        sub: avgEPC > 0 ? `EPC $${avgEPC.toFixed(2)}` : null,                                                                                  pct: commissionsPct },
+            { label: 'Applications', value: totalStats.applications.toLocaleString(),                 iconColor: 'text-orange-500',  bgColor: 'bg-orange-50', Icon: Activity,          sub: totalStats.clicks > 0 && totalStats.applications > 0 ? `${((totalStats.applications/totalStats.clicks)*100).toFixed(1)}% c→a` : null,    pct: applicationsPct },
           ];
+
           return (
-            <div className="mb-6 bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
-              {/* Toggle chips row */}
-              <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100">
-                <span className="text-[11px] font-medium text-slate-400 mr-0.5">Show:</span>
-                {(['stats', 'charts', 'topCards'] as const).map(key => {
-                  const labels = { stats: 'Stats', charts: 'Charts', topCards: 'Top Cards' };
+            <div className="mb-6 sm:mb-8">
+              {/* ── Period header ── */}
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                    Performance Overview
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200/70 ml-2 align-middle tracking-normal">
+                      {STAT_PERIOD_SHORT[statPeriod]}
+                    </span>
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-500">
+                    {STAT_PERIOD_LABELS[statPeriod]}
+                    <span className="text-slate-300 mx-1.5">•</span>
+                    {users.length.toLocaleString()} affiliate{users.length === 1 ? '' : 's'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* Mobile: dropdown */}
+                  <select
+                    value={statPeriod}
+                    onChange={e => setStatPeriod(e.target.value as StatPeriod)}
+                    className="sm:hidden text-xs font-medium bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer"
+                  >
+                    {([
+                      { value: 'today',  label: 'Today' },
+                      { value: 'week',   label: 'This Week' },
+                      { value: 'month',  label: 'This Month' },
+                      { value: 'lm',     label: 'Last Month' },
+                      { value: 'year',   label: 'This Year' },
+                      { value: 'custom', label: 'Custom' },
+                    ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                  {/* Desktop: pill row */}
+                  <div className="hidden sm:flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl p-1 text-xs font-medium shadow-sm">
+                    {([
+                      { value: 'today',  label: 'Today' },
+                      { value: 'week',   label: 'This Week' },
+                      { value: 'month',  label: 'This Month' },
+                      { value: 'lm',     label: 'Last Month' },
+                      { value: 'year',   label: 'This Year' },
+                      { value: 'custom', label: 'Custom' },
+                    ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
+                      <button key={value} onClick={() => setStatPeriod(value)}
+                        className={`px-2.5 py-1.5 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer ${
+                          statPeriod === value ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                        }`}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Custom date inputs */}
+                  {statPeriod === 'custom' && (
+                    <div className="flex items-center gap-1.5">
+                      <input type="date" value={statCustomFrom} onChange={e => setStatCustomFrom(e.target.value)}
+                        className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
+                      <span className="text-xs text-slate-400">→</span>
+                      <input type="date" value={statCustomTo} onChange={e => setStatCustomTo(e.target.value)}
+                        className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {isEmptyPeriod && (
+                <div className="mb-3 flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+                  <RefreshCw className="w-3 h-3" /> No activity recorded for {STAT_PERIOD_LABELS[statPeriod].split(' vs ')[0].toLowerCase()}
+                </div>
+              )}
+
+              {/* ── Stat cards — always visible, the primary numbers ── */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
+                {statRows.map(({ label, value, iconColor, bgColor, Icon, sub, pct }) => (
+                  <div key={label} className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${bgColor} ring-1 ring-inset ${iconColor.replace('text-', 'ring-')}/10`}>
+                        <Icon className={`w-4.5 h-4.5 ${iconColor}`} />
+                      </div>
+                      {pct !== undefined && <PctBadge pct={pct} compact />}
+                    </div>
+                    <div className="text-2xl sm:text-[28px] font-bold text-slate-900 leading-none tracking-tight tabular-nums">{value}</div>
+                    <div className="text-xs text-slate-400 font-medium mt-1.5 uppercase tracking-wide">{label}</div>
+                    {sub && <div className="text-xs text-slate-400 font-medium mt-0.5">{sub}</div>}
+                  </div>
+                ))}
+              </div>
+
+              {/* ── Insights: charts + top cards ── */}
+              {(showCharts || showTopCards) && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {showCharts && (
+                    <div className={`bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 sm:p-5 ${showTopCards ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold text-slate-700">Top Affiliates (all-time)</h3>
+                        <div className="flex items-center gap-3 text-[11px] text-slate-400 font-medium">
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#bfdbfe]" />Clicks</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#6366f1]" />Approvals</span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 h-56 sm:h-64">
+                        <div className="h-full flex flex-col overflow-hidden">
+                          <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 flex-none">Earnings</div>
+                          <div className="flex-1 min-h-0">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={chartData} margin={{ top:4, right:8, left:0, bottom:0 }}>
+                                <XAxis dataKey="name" tick={{ fontSize:10, fill:'#94a3b8' }} axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fontSize:10, fill:'#94a3b8' }} axisLine={false} tickLine={false}
+                                  tickFormatter={v => v >= 1000 ? `$${(v/1000).toFixed(0)}k` : `$${v}`} width={36} />
+                                <Tooltip formatter={(val: any) => [`$${Number(val).toLocaleString()}`, 'Earnings']}
+                                  contentStyle={{ fontSize:12, borderRadius:8, border:'1px solid #e2e8f0' }} />
+                                <Bar dataKey="earnings" radius={[3,3,0,0]}>
+                                  {chartData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+                        <div className="h-full flex flex-col overflow-hidden">
+                          <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 flex-none">Clicks vs Approvals</div>
+                          <div className="flex-1 min-h-0">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={chartData} margin={{ top:4, right:8, left:0, bottom:0 }}>
+                                <XAxis dataKey="name" tick={{ fontSize:10, fill:'#94a3b8' }} axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fontSize:10, fill:'#94a3b8' }} axisLine={false} tickLine={false} width={32} />
+                                <Tooltip contentStyle={{ fontSize:12, borderRadius:8, border:'1px solid #e2e8f0' }} />
+                                <Bar dataKey="clicks" name="Clicks" fill="#bfdbfe" radius={[2,2,0,0]} />
+                                <Bar dataKey="approvals" name="Approvals" fill="#6366f1" radius={[2,2,0,0]} />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {showTopCards && (
+                    <div className={`bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 sm:p-5 ${showCharts ? 'lg:col-span-1' : 'lg:col-span-3'} flex flex-col`}>
+                      <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-1.5">
+                        <Award className="w-4 h-4 text-emerald-500" /> Top Approved Cards
+                      </h3>
+                      <div className="flex flex-col gap-1 flex-1">
+                        {mostApprovedCards.map((c, idx) => (
+                          <div key={c.name} className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-slate-50 transition-colors duration-150 min-w-0">
+                            <span className={`text-xs font-bold flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center ${
+                              idx === 0 ? 'bg-amber-50 text-amber-500' : idx === 1 ? 'bg-slate-100 text-slate-400' : idx === 2 ? 'bg-orange-50 text-orange-500' : 'bg-slate-50 text-slate-300'
+                            }`}>{idx+1}</span>
+                            <span className="text-sm text-slate-700 truncate flex-1 min-w-0 font-medium">{c.name}</span>
+                            <span className="text-xs text-slate-400 flex-shrink-0 font-semibold tabular-nums">{c.approvals}×</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Visibility toggles for the insights row ── */}
+              <div className="flex items-center gap-1.5 mt-3">
+                <span className="text-[11px] font-semibold text-slate-400 mr-0.5 uppercase tracking-wider">Show:</span>
+                {(['charts', 'topCards'] as const).map(key => {
+                  const labels = { charts: 'Top Affiliates', topCards: 'Top Cards' };
                   return (
                     <button key={key} onClick={() => togglePanel(key)}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all border ${
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-150 border cursor-pointer ${
                         visiblePanels.has(key)
-                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                           : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
                       }`}>
                       {labels[key]}
@@ -1140,88 +1429,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   );
                 })}
               </div>
-              {/* Content row — height fills to 30vh minus toggle row */}
-              {anyVisible && (
-                <div className="overflow-x-auto">
-                <div className="flex divide-x divide-slate-100 min-w-max"
-                  style={{ height: 'clamp(120px, calc(30vh - 44px), 220px)' }}>
-
-                  {/* Stats column */}
-                  {visiblePanels.has('stats') && (
-                    <div className="flex-none w-48 flex flex-col justify-center gap-0.5 px-3 py-2 overflow-hidden">
-                      {statRows.map(({ label, value, iconColor, bgColor, Icon, sub }) => (
-                        <div key={label} className="flex items-center gap-2 py-1">
-                          <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${bgColor}`}>
-                            <Icon className={`w-3 h-3 ${iconColor}`} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-[10px] text-slate-400 leading-none">{label}</div>
-                            <div className="text-sm font-bold text-slate-900 leading-snug">{value}</div>
-                          </div>
-                          {sub && <div className="text-[10px] text-slate-400 flex-shrink-0">{sub}</div>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Charts */}
-                  {visiblePanels.has('charts') && chartData.length > 0 && (
-                    <div className="flex-1 min-w-0 flex divide-x divide-slate-100 overflow-hidden">
-                      <div className="flex-1 min-w-0 px-3 py-2 flex flex-col overflow-hidden">
-                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Top Earners</div>
-                        <div className="flex-1 min-h-0">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={chartData} margin={{ top: 2, right: 4, left: 0, bottom: 0 }}>
-                              <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                              <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false}
-                                tickFormatter={v => v >= 1000 ? `$${(v/1000).toFixed(0)}k` : `$${v}`} width={32} />
-                              <Tooltip formatter={(val: any) => [`$${Number(val).toLocaleString()}`, 'Earnings']}
-                                contentStyle={{ fontSize: 11, borderRadius: 6, border: '1px solid #e2e8f0' }} />
-                              <Bar dataKey="earnings" radius={[3,3,0,0]}>
-                                {chartData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                              </Bar>
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0 px-3 py-2 flex flex-col overflow-hidden">
-                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Clicks vs Approvals</div>
-                        <div className="flex-1 min-h-0">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={chartData} margin={{ top: 2, right: 4, left: 0, bottom: 0 }}>
-                              <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                              <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={26} />
-                              <Tooltip contentStyle={{ fontSize: 11, borderRadius: 6, border: '1px solid #e2e8f0' }} />
-                              <Bar dataKey="clicks" name="Clicks" fill="#bfdbfe" radius={[2,2,0,0]} />
-                              <Bar dataKey="approvals" name="Approvals" fill="#6366f1" radius={[2,2,0,0]} />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Top Cards */}
-                  {visiblePanels.has('topCards') && mostApprovedCards.length > 0 && (
-                    <div className="flex-none w-52 px-3 py-2 overflow-y-auto">
-                      <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                        <Award className="w-3 h-3 text-emerald-500" /> Top Cards
-                      </div>
-                      {mostApprovedCards.map((c, idx) => (
-                        <div key={c.name} className="flex items-center gap-1.5 py-0.5 min-w-0">
-                          <span className={`text-[10px] font-bold flex-shrink-0 w-4 ${
-                            idx === 0 ? 'text-amber-500' : idx === 1 ? 'text-slate-400' : idx === 2 ? 'text-orange-500' : 'text-slate-300'
-                          }`}>#{idx + 1}</span>
-                          <span className="text-xs text-slate-700 truncate flex-1 min-w-0">{c.name}</span>
-                          <span className="text-[10px] text-slate-400 flex-shrink-0 ml-1">{c.approvals}×</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                </div>
-                </div>
-              )}
             </div>
           );
         })()}
@@ -1272,7 +1479,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     placeholder="Search by name or email…"
                     value={affiliateSearch}
                     onChange={e => { setAffiliateSearch(e.target.value); setAffiliatesVisible(PAGE_SIZE); }}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                    className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 transition-shadow"
                   />
                 </div>
 
@@ -1280,7 +1487,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   {/* Group by Commission Rate toggle */}
                   <button
                     onClick={() => { setAffiliateGroupBy(g => !g); setAffiliateCollapsed(new Set()); setAffiliatesVisible(PAGE_SIZE); }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all duration-150 cursor-pointer ${
                       affiliateGroupBy
                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                         : 'text-slate-600 bg-white border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
@@ -1295,7 +1502,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     return (
                       <button
                         onClick={() => setAffiliateCollapsed(allCollapsed ? new Set() : new Set(allRates))}
-                        className="text-xs text-slate-500 hover:text-indigo-600 transition-colors"
+                        className="text-xs text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer"
                       >
                         {allCollapsed ? 'Expand All' : 'Collapse All'}
                       </button>
@@ -1321,14 +1528,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 {(affiliateSearch || affiliatesFilter !== 'all') && (
                   <span className="text-xs text-slate-500 ml-1">
                     {displayUsers.length} of {users.length} members
-                    {affiliateSearch && <button onClick={() => { setAffiliateSearch(''); setAffiliatesVisible(PAGE_SIZE); }} className="text-indigo-600 hover:underline ml-2">Clear search</button>}
+                    {affiliateSearch && <button onClick={() => { setAffiliateSearch(''); setAffiliatesVisible(PAGE_SIZE); }} className="text-indigo-600 hover:underline ml-2 cursor-pointer">Clear search</button>}
                   </span>
                 )}
               </div>
             </div>
 
             {/* Affiliates Table */}
-            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm">
               <p className="text-xs text-slate-400 px-5 pt-4">
                 Showing {Math.min(affiliatesVisible, displayUsers.length)} of {displayUsers.length} affiliates
               </p>
@@ -1369,10 +1576,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             });
                             return (
                               <React.Fragment key={`group-${rate}`}>
-                                <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors select-none">
+                                <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none">
                                   <td colSpan={9} className="py-2.5 px-6">
                                     <div className="flex items-center gap-2">
-                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
                                       <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{rate} Commission</span>
                                       <span className="text-xs font-normal text-slate-400 ml-0.5">({members.length} {members.length === 1 ? 'member' : 'members'})</span>
                                     </div>
@@ -1392,7 +1599,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 <div className="py-4 text-center">
                   <button
                     onClick={() => setAffiliatesVisible(n => n + PAGE_SIZE)}
-                    className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                    className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
                   >
                     Show {Math.min(PAGE_SIZE, displayUsers.length - affiliatesVisible)} more
                     <span className="text-slate-400 ml-1">({displayUsers.length - affiliatesVisible} remaining)</span>
@@ -1404,8 +1611,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
           {/* ── Tracking Activity Tab ── */}
           <Tabs.Content value="tracking">
-            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
-              <div className="p-5 border-b border-slate-100 space-y-3">
+            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm">
+              <div className="sticky top-16 z-10 bg-white p-4 border-b border-slate-100 space-y-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="text-base font-semibold text-slate-900">All Tracking Activity</h2>
@@ -1413,10 +1620,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       {displayTrackingActivity.length}
                       {(mgTrackingFilter !== 'all' || mgTrackingStatusFilter !== 'all' || mgTrackingAffiliateFilter !== 'all')
                         ? ` of ${trackingActivity.length}` : ''} records
+                      <CurrentYearBadge active={!trackingShowAllYears} />
                     </p>
-                    <div className="mt-1">
-                      <LoadMoreYears showAll={trackingShowAllYears} setShowAll={setTrackingShowAllYears} hiddenCount={trackingHiddenOlderCount} />
-                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {/* Group by segmented control */}
@@ -1428,8 +1633,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       ] as { value: 'none'|'month'|'affiliate'; label: string }[]).map(({ value, label }) => (
                         <button
                           key={value}
-                          onClick={() => { setTrackingGroupBy(value); setTrackingCollapsed(new Set()); }}
-                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all ${
+                          onClick={() => { setTrackingGroupBy(value); setTrackingCollapsed(new Set()); setTrackingVisible(PAGE_SIZE); }}
+                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all duration-150 cursor-pointer ${
                             trackingGroupBy === value
                               ? 'bg-indigo-600 text-white shadow-sm'
                               : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
@@ -1449,14 +1654,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       const allCollapsed = allKeys.every(k => trackingCollapsed.has(k));
                       return (
                         <button onClick={() => setTrackingCollapsed(allCollapsed ? new Set() : new Set(allKeys))}
-                          className="text-xs text-slate-500 hover:text-indigo-600 transition-colors">
+                          className="text-xs text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer">
                           {allCollapsed ? 'Expand All' : 'Collapse All'}
                         </button>
                       );
                     })()}
                     <button
-                      onClick={fetchTrackingActivity}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all"
+                      onClick={() => { setTrackingVisible(PAGE_SIZE); fetchTrackingActivity(); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all duration-150 cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       Refresh
@@ -1466,9 +1671,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
                 {/* Date filter */}
                 <FilterBar
-                  filter={mgTrackingFilter}         setFilter={setMgTrackingFilter}
-                  customFrom={mgTrackingCustomFrom} setCustomFrom={setMgTrackingCustomFrom}
-                  customTo={mgTrackingCustomTo}     setCustomTo={setMgTrackingCustomTo}
+                  filter={mgTrackingFilter}         setFilter={v => { setMgTrackingFilter(v); setTrackingVisible(PAGE_SIZE); }}
+                  customFrom={mgTrackingCustomFrom} setCustomFrom={v => { setMgTrackingCustomFrom(v); setTrackingVisible(PAGE_SIZE); }}
+                  customTo={mgTrackingCustomTo}     setCustomTo={v => { setMgTrackingCustomTo(v); setTrackingVisible(PAGE_SIZE); }}
                 />
 
                 {/* Status filter */}
@@ -1482,8 +1687,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   ].map(({ value, label }) => (
                     <button
                       key={value}
-                      onClick={() => setMgTrackingStatusFilter(value)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      onClick={() => { setMgTrackingStatusFilter(value); setTrackingVisible(PAGE_SIZE); }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
                         mgTrackingStatusFilter === value
                           ? 'bg-indigo-600 text-white shadow-sm'
                           : 'text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
@@ -1500,8 +1705,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     <span className="text-xs font-medium text-slate-400 mr-1">Affiliate:</span>
                     <select
                       value={mgTrackingAffiliateFilter}
-                      onChange={(e) => setMgTrackingAffiliateFilter(e.target.value)}
-                      className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                      onChange={(e) => { setMgTrackingAffiliateFilter(e.target.value); setTrackingVisible(PAGE_SIZE); }}
+                      className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
                     >
                       <option value="all">All affiliates</option>
                       {affiliateOptions.map((a) => (
@@ -1510,8 +1715,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </select>
                     {mgTrackingAffiliateFilter !== 'all' && (
                       <button
-                        onClick={() => setMgTrackingAffiliateFilter('all')}
-                        className="text-xs text-indigo-600 hover:underline"
+                        onClick={() => { setMgTrackingAffiliateFilter('all'); setTrackingVisible(PAGE_SIZE); }}
+                        className="text-xs text-indigo-600 hover:underline cursor-pointer"
                       >
                         Clear
                       </button>
@@ -1520,128 +1725,154 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 )}
               </div>
 
-              <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-50/80 border-b border-slate-100 sticky top-0">
-                    <tr>
-                      <SortThSm label="Date / Time"  field="clickDate"     sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                      <SortThSm label="Affiliate"    field="memberName"    sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                      <SortThSm label="Card"         field="cardName"      sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                      <SortThSm label="Status"       field="status"        sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                      <SortThSm label="Earnings"     field="totalEarnings" sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} align="right" />
-                      <SortThSm label="Device"       field="deviceType"    sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                      <SortThSm label="Location"     field="state"         sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      // Single row renderer — used in both flat and grouped modes
-                      const TrackRow = ({ a }: { a: any }) => (
-                        <tr key={a.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
-                          <td className="py-3.5 px-4 text-sm">
-                            <div className="font-medium text-slate-900">{formatDate(a.clickDate)}</div>
-                            <div className="text-xs text-slate-400 mt-0.5">{formatTime(a.clickTime)}</div>
-                          </td>
-                          <td className="py-3.5 px-4 text-sm">
-                            <div className="font-medium text-slate-900">{a.memberName}</div>
-                            <div className="text-xs text-slate-400 mt-0.5">{a.affiliateId}</div>
-                          </td>
-                          <td className="py-3.5 px-4 text-sm text-slate-700">{a.cardName}</td>
-                          <td className="py-3.5 px-4">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                              a.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
-                              a.status === 'application' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70' :
-                              'bg-slate-100 text-slate-600'
-                            }`}>{a.status}</span>
-                          </td>
-                          <td className="py-3.5 px-4 text-sm text-right font-semibold text-slate-900">
-                            {a.totalEarnings > 0 ? `$${a.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
-                          </td>
-                          <td className="py-3.5 px-4 text-sm text-slate-500">{a.deviceType || '—'}</td>
-                          <td className="py-3.5 px-4 text-sm text-slate-500">{a.state || '—'}</td>
-                        </tr>
-                      );
+              <div className="p-4 sm:p-6 pt-3">
+              {(() => {
+                const pagedTracking = displayTrackingActivity.slice(0, trackingVisible);
+                return (
+                  <>
+                    <p className="text-xs text-slate-400 mb-3">
+                      Showing {pagedTracking.length} of {displayTrackingActivity.length} records
+                    </p>
+                    <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
+                      <table className="w-full">
+                        <thead className="bg-slate-50/80 border-b border-slate-100">
+                          <tr>
+                            <SortThSm label="Date / Time"  field="clickDate"     sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
+                            <SortThSm label="Affiliate"    field="memberName"    sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
+                            <SortThSm label="Card"         field="cardName"      sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
+                            <SortThSm label="Status"       field="status"        sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
+                            <SortThSm label="Earnings"     field="totalEarnings" sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} align="right" />
+                            <SortThSm label="Device"       field="deviceType"    sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
+                            <SortThSm label="Location"     field="state"         sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(() => {
+                            // Single row renderer — used in both flat and grouped modes
+                            const TrackRow = ({ a }: { a: any }) => (
+                              <tr key={a.id} className="border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150">
+                                <td className="py-3.5 px-4 text-sm">
+                                  <div className="font-medium text-slate-900">{formatDate(a.clickDate)}</div>
+                                  <div className="text-xs text-slate-400 mt-0.5">{formatTime(a.clickTime)}</div>
+                                </td>
+                                <td className="py-3.5 px-4 text-sm">
+                                  <div className="font-medium text-slate-900">{a.memberName}</div>
+                                  <div className="text-xs text-slate-400 mt-0.5">{a.affiliateId}</div>
+                                </td>
+                                <td className="py-3.5 px-4 text-sm text-slate-700">{a.cardName}</td>
+                                <td className="py-3.5 px-4">
+                                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                                    a.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
+                                    a.status === 'application' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70' :
+                                    'bg-slate-100 text-slate-600'
+                                  }`}>{a.status}</span>
+                                </td>
+                                <td className="py-3.5 px-4 text-sm text-right font-semibold text-slate-900 tabular-nums">
+                                  {a.totalEarnings > 0 ? `$${a.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
+                                </td>
+                                <td className="py-3.5 px-4 text-sm text-slate-500">{a.deviceType || '—'}</td>
+                                <td className="py-3.5 px-4 text-sm text-slate-500">{a.state || '—'}</td>
+                              </tr>
+                            );
 
-                      // Flat mode
-                      if (trackingGroupBy === 'none')
-                        return displayTrackingActivity.map((a: any) => <TrackRow key={a.id} a={a} />);
+                            // Flat mode
+                            if (trackingGroupBy === 'none')
+                              return pagedTracking.map((a: any) => <TrackRow key={a.id} a={a} />);
 
-                      // Grouped mode — shared logic for month + affiliate
-                      const getKey = (a: any) => trackingGroupBy === 'month'
-                        ? (() => { const d = parseLocalDate(a.clickDate); return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })()
-                        : (a.affiliateId || 'unknown');
+                            // Grouped mode — shared logic for month + affiliate
+                            const getKey = (a: any) => trackingGroupBy === 'month'
+                              ? (() => { const d = parseLocalDate(a.clickDate); return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })()
+                              : (a.affiliateId || 'unknown');
 
-                      const getLabel = (key: string, rows: any[]) => {
-                        if (trackingGroupBy === 'month') {
-                          if (key === '0000-00') return 'Unknown Date';
-                          const [y, m] = key.split('-');
-                          return new Date(parseInt(y), parseInt(m)-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                        }
-                        // affiliate: show name, fall back to affiliateId
-                        return String(rows[0]?.memberName || key);
-                      };
+                            const getLabel = (key: string, rows: any[]) => {
+                              if (trackingGroupBy === 'month') {
+                                if (key === '0000-00') return 'Unknown Date';
+                                const [y, m] = key.split('-');
+                                return new Date(parseInt(y), parseInt(m)-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                              }
+                              // affiliate: show name, fall back to affiliateId
+                              return String(rows[0]?.memberName || key);
+                            };
 
-                      const groups: Record<string, any[]> = {};
-                      displayTrackingActivity.forEach((a: any) => {
-                        const k = getKey(a);
-                        if (!groups[k]) groups[k] = [];
-                        groups[k].push(a);
-                      });
+                            const groups: Record<string, any[]> = {};
+                            pagedTracking.forEach((a: any) => {
+                              const k = getKey(a);
+                              if (!groups[k]) groups[k] = [];
+                              groups[k].push(a);
+                            });
 
-                      const sortedEntries = Object.entries(groups).sort(([ka, ra], [kb, rb]) =>
-                        trackingGroupBy === 'month'
-                          ? kb.localeCompare(ka)                                            // newest first
-                          : String(getLabel(ka, ra)).localeCompare(String(getLabel(kb, rb))) // A–Z
-                      );
+                            const sortedEntries = Object.entries(groups).sort(([ka, ra], [kb, rb]) =>
+                              trackingGroupBy === 'month'
+                                ? kb.localeCompare(ka)                                            // newest first
+                                : String(getLabel(ka, ra)).localeCompare(String(getLabel(kb, rb))) // A–Z
+                            );
 
-                      return sortedEntries.map(([key, rows]) => {
-                        const isCollapsed = trackingCollapsed.has(key);
-                        const toggle = () => setTrackingCollapsed(prev => {
-                          const next = new Set(prev);
-                          next.has(key) ? next.delete(key) : next.add(key);
-                          return next;
-                        });
-                        const grpClicks    = rows.reduce((s: number, r: any) => s + (r.clicks       || 0), 0);
-                        const grpApps      = rows.reduce((s: number, r: any) => s + (r.applications || 0), 0);
-                        const grpApprovals = rows.reduce((s: number, r: any) => s + (r.approvals    || 0), 0);
-                        const grpEarnings  = rows.reduce((s: number, r: any) => s + (r.totalEarnings|| 0), 0);
-                        const label        = getLabel(key, rows);
-                        // Show affiliateId as sub-label when grouped by affiliate
-                        const sublabel     = trackingGroupBy === 'affiliate' ? key : undefined;
-                        return (
-                          <React.Fragment key={key}>
-                            <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors select-none">
-                              <td colSpan={7} className="py-2.5 px-4">
-                                <div className="flex items-center gap-3 flex-wrap">
-                                  <div className="flex items-center gap-2">
-                                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
-                                    <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{label}</span>
-                                    {sublabel && <span className="text-xs text-slate-400 font-mono normal-case">{sublabel}</span>}
-                                    <span className="text-xs font-normal text-slate-400">({rows.length} records)</span>
-                                  </div>
-                                  <div className="flex items-center gap-3 ml-2 text-xs text-slate-500">
-                                    {grpClicks    > 0 && <span>{grpClicks.toLocaleString()} clicks</span>}
-                                    {grpApps      > 0 && <span>{grpApps} apps</span>}
-                                    {grpApprovals > 0 && <span>{grpApprovals} approvals</span>}
-                                    {grpEarnings  > 0 && <span className="font-medium text-emerald-600">${grpEarnings.toFixed(2)}</span>}
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                            {!isCollapsed && rows.map((a: any) => <TrackRow key={a.id} a={a} />)}
-                          </React.Fragment>
-                        );
-                      });
-                    })()}
-                  </tbody>
-                </table>
+                            return sortedEntries.map(([key, rows]) => {
+                              const isCollapsed = trackingCollapsed.has(key);
+                              const toggle = () => setTrackingCollapsed(prev => {
+                                const next = new Set(prev);
+                                next.has(key) ? next.delete(key) : next.add(key);
+                                return next;
+                              });
+                              const grpClicks    = rows.reduce((s: number, r: any) => s + (r.clicks       || 0), 0);
+                              const grpApps      = rows.reduce((s: number, r: any) => s + (r.applications || 0), 0);
+                              const grpApprovals = rows.reduce((s: number, r: any) => s + (r.approvals    || 0), 0);
+                              const grpEarnings  = rows.reduce((s: number, r: any) => s + (r.totalEarnings|| 0), 0);
+                              const label        = getLabel(key, rows);
+                              // Show affiliateId as sub-label when grouped by affiliate
+                              const sublabel     = trackingGroupBy === 'affiliate' ? key : undefined;
+                              return (
+                                <React.Fragment key={key}>
+                                  <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none">
+                                    <td colSpan={7} className="py-2.5 px-4">
+                                      <div className="flex items-center gap-3 flex-wrap">
+                                        <div className="flex items-center gap-2">
+                                          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+                                          <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{label}</span>
+                                          {sublabel && <span className="text-xs text-slate-400 font-mono normal-case">{sublabel}</span>}
+                                          <span className="text-xs font-normal text-slate-400">({rows.length} records)</span>
+                                        </div>
+                                        <div className="flex items-center gap-3 ml-2 text-xs text-slate-500">
+                                          {grpClicks    > 0 && <span>{grpClicks.toLocaleString()} clicks</span>}
+                                          {grpApps      > 0 && <span>{grpApps} apps</span>}
+                                          {grpApprovals > 0 && <span>{grpApprovals} approvals</span>}
+                                          {grpEarnings  > 0 && <span className="font-medium text-emerald-600">${grpEarnings.toFixed(2)}</span>}
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                  {!isCollapsed && rows.map((a: any) => <TrackRow key={a.id} a={a} />)}
+                                </React.Fragment>
+                              );
+                            });
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
+                    {(trackingVisible < displayTrackingActivity.length || trackingHiddenOlderCount > 0 || trackingShowAllYears) && (
+                      <div className="pt-4 flex flex-wrap items-center justify-center gap-2">
+                        {trackingVisible < displayTrackingActivity.length && (
+                          <button
+                            onClick={() => setTrackingVisible(n => n + PAGE_SIZE)}
+                            className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
+                          >
+                            Show {Math.min(PAGE_SIZE, displayTrackingActivity.length - trackingVisible)} more
+                            <span className="text-slate-400 ml-1">({displayTrackingActivity.length - trackingVisible} remaining)</span>
+                          </button>
+                        )}
+                        <LoadMoreYears showAll={trackingShowAllYears} setShowAll={v => { setTrackingShowAllYears(v); setTrackingVisible(PAGE_SIZE); }} hiddenCount={trackingHiddenOlderCount} />
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
               </div>
             </div>
           </Tabs.Content>
 
           {/* ── CPA Rates Tab ── */}
           <Tabs.Content value="cpa-rates">
-            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm">
               {/* Toolbar */}
               <div className="sticky top-16 z-10 bg-white p-5 border-b border-slate-100 space-y-3">
                 {/* Row 1: Search + Affiliate + Refresh */}
@@ -1654,7 +1885,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       placeholder="Search cards…"
                       value={cpaSearch}
                       onChange={e => { setCpaSearch(e.target.value); setCpaVisible(PAGE_SIZE); }}
-                      className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                      className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 transition-shadow"
                     />
                   </div>
 
@@ -1669,7 +1900,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         setCpaVisible(PAGE_SIZE);
                         fetchCpaRates(val);
                       }}
-                      className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                      className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
                     >
                       <option value="all">All (bank CPA only)</option>
                       {(users as any[]).map((u: any) => (
@@ -1685,7 +1916,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     <button
                       onClick={() => { setCpaGroupBy(g => !g); setCpaCollapsed(new Set()); }}
                       title="Group by issuer"
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all duration-150 cursor-pointer ${
                         cpaGroupBy
                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                           : 'text-slate-600 bg-white border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
@@ -1701,7 +1932,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       return (
                         <button
                           onClick={() => setCpaCollapsed(allCollapsed ? new Set() : new Set(allIssuers))}
-                          className="text-xs text-slate-500 hover:text-indigo-600 transition-colors"
+                          className="text-xs text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer"
                         >
                           {allCollapsed ? 'Expand All' : 'Collapse All'}
                         </button>
@@ -1709,7 +1940,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     })()}
                     <button
                       onClick={() => { setCpaVisible(PAGE_SIZE); fetchCpaRates(cpaAffiliateFilter); }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all duration-150 cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       Refresh
@@ -1726,7 +1957,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <select
                         value={cpaIssuerFilter}
                         onChange={e => { setCpaIssuerFilter(e.target.value); setCpaVisible(PAGE_SIZE); }}
-                        className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                        className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
                       >
                         <option value="all">All issuers</option>
                         {Array.from(new Set(cpaRates.map(r => r.issuer).filter(Boolean))).sort().map((iss: any) => (
@@ -1747,7 +1978,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         <button
                           key={value}
                           onClick={() => { setCpaCpaRange(value); setCpaVisible(PAGE_SIZE); }}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
                             cpaCpaRange === value
                               ? 'bg-indigo-600 text-white shadow-sm'
                               : 'text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
@@ -1762,7 +1993,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     {(cpaSearch || cpaIssuerFilter !== 'all' || cpaCpaRange !== 'all') && (
                       <button
                         onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(PAGE_SIZE); }}
-                        className="text-xs text-indigo-600 hover:underline ml-1"
+                        className="text-xs text-indigo-600 hover:underline ml-1 cursor-pointer"
                       >
                         Clear filters
                       </button>
@@ -1803,7 +2034,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 });
 
                 const CpaRow = ({ rate }: { rate: any }) => (
-                  <tr className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                  <tr className="border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150">
                     <td className="py-3 px-4 font-medium text-sm text-slate-900">{rate.card}</td>
                     {!cpaGroupBy && <td className="py-3 px-4 text-sm text-slate-500">{rate.issuer || '—'}</td>}
                     <td className="py-3 px-4 text-right font-semibold text-sm text-slate-900">
@@ -1823,7 +2054,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 if (filtered.length === 0) return (
                   <div className="text-center py-16">
                     <p className="text-slate-500 text-sm">No cards match the filters.</p>
-                    <button onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(PAGE_SIZE); }} className="text-xs text-indigo-600 hover:underline mt-2">Clear filters</button>
+                    <button onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(PAGE_SIZE); }} className="text-xs text-indigo-600 hover:underline mt-2 cursor-pointer">Clear filters</button>
                   </div>
                 );
 
@@ -1836,8 +2067,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         Showing {pagedFiltered.length} of {filtered.length} cards
                         {filtered.length !== cpaRates.length ? ` (${cpaRates.length} total)` : ''}
                         {cpaAffiliateLabel ? ` · ${cpaAffiliateLabel}` : ''}
+                        <CurrentYearBadge active={!cpaShowAllYears} />
                       </p>
-                      <LoadMoreYears showAll={cpaShowAllYears} setShowAll={setCpaShowAllYears} hiddenCount={cpaHiddenOlderCount} />
                     </div>
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50/80 border-b border-slate-100">
@@ -1873,11 +2104,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                 <React.Fragment key={`group-${issuer}`}>
                                   <tr
                                     onClick={toggle}
-                                    className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                                    className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none"
                                   >
                                     <td colSpan={colCount} className="py-2.5 px-4">
                                       <div className="flex items-center gap-2">
-                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
                                         <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{issuer}</span>
                                         <span className="text-xs font-normal text-slate-400 ml-0.5">({rates.length} {rates.length === 1 ? 'card' : 'cards'})</span>
                                       </div>
@@ -1893,15 +2124,18 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         )}
                       </tbody>
                     </table>
-                    {cpaVisible < filtered.length && (
-                      <div className="py-4 text-center">
-                        <button
-                          onClick={() => setCpaVisible(n => n + PAGE_SIZE)}
-                          className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
-                        >
-                          Show {Math.min(PAGE_SIZE, filtered.length - cpaVisible)} more
-                          <span className="text-slate-400 ml-1">({filtered.length - cpaVisible} remaining)</span>
-                        </button>
+                    {(cpaVisible < filtered.length || cpaHiddenOlderCount > 0 || cpaShowAllYears) && (
+                      <div className="py-4 flex flex-wrap items-center justify-center gap-2">
+                        {cpaVisible < filtered.length && (
+                          <button
+                            onClick={() => setCpaVisible(n => n + PAGE_SIZE)}
+                            className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
+                          >
+                            Show {Math.min(PAGE_SIZE, filtered.length - cpaVisible)} more
+                            <span className="text-slate-400 ml-1">({filtered.length - cpaVisible} remaining)</span>
+                          </button>
+                        )}
+                        <LoadMoreYears showAll={cpaShowAllYears} setShowAll={v => { setCpaShowAllYears(v); setCpaVisible(PAGE_SIZE); }} hiddenCount={cpaHiddenOlderCount} />
                       </div>
                     )}
                   </div>
@@ -1911,7 +2145,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           </Tabs.Content>
           {/* ── Invoices Tab ── */}
           <Tabs.Content value="invoices">
-            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm">
               {/* Toolbar */}
               <div className="sticky top-16 z-10 bg-white p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-3">
@@ -1921,7 +2155,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     <select
                       value={invoiceAffiliateFilter}
                       onChange={e => { setInvoiceAffiliateFilter(e.target.value); setInvoicesVisible(PAGE_SIZE); }}
-                      className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                      className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
                     >
                       <option value="all">All affiliates</option>
                       {Array.from(new Set(invoices.map((inv: any) => inv.email).filter(Boolean))).sort().map((email: any) => (
@@ -1935,7 +2169,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     <select
                       value={invoiceMonthFilter}
                       onChange={e => { setInvoiceMonthFilter(e.target.value); setInvoicesVisible(PAGE_SIZE); }}
-                      className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                      className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
                     >
                       <option value="all">All months</option>
                       {Array.from(new Set(invoices.map((inv: any) => inv.month).filter(Boolean))).map((m: any) => (
@@ -1950,7 +2184,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <select
                         value={invoiceStatusFilter}
                         onChange={e => { setInvoiceStatusFilter(e.target.value); setInvoicesVisible(PAGE_SIZE); }}
-                        className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                        className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
                       >
                         <option value="all">All statuses</option>
                         {Array.from(new Set(invoices.map((inv: any) => inv.status).filter(Boolean))).map((s: any) => (
@@ -1971,7 +2205,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <button
                         key={value}
                         onClick={() => { setInvoiceGroupBy(value); setInvoiceCollapsed(new Set()); setInvoicesVisible(PAGE_SIZE); }}
-                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all ${
+                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all duration-150 cursor-pointer ${
                           invoiceGroupBy === value
                             ? 'bg-indigo-600 text-white shadow-sm'
                             : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
@@ -1997,14 +2231,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     const allCollapsed = allKeys.every(k => invoiceCollapsed.has(k));
                     return (
                       <button onClick={() => setInvoiceCollapsed(allCollapsed ? new Set() : new Set(allKeys))}
-                        className="text-xs text-slate-500 hover:text-indigo-600 transition-colors">
+                        className="text-xs text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer">
                         {allCollapsed ? 'Expand All' : 'Collapse All'}
                       </button>
                     );
                   })()}
                   <button
                     onClick={() => { setInvoicesVisible(PAGE_SIZE); fetchInvoices(); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all duration-150 cursor-pointer"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${invoicesLoading ? 'animate-spin' : ''}`} />
                     Refresh
@@ -2038,9 +2272,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </div>
                     <p className="text-slate-500 text-sm">No invoices match the selected filters.</p>
                     {invoiceHiddenOlderCount > 0 && !invoiceShowAllYears && (
-                      <button onClick={() => setInvoiceShowAllYears(true)} className="text-xs text-indigo-600 hover:underline mt-2">
-                        Load {invoiceHiddenOlderCount} older invoice{invoiceHiddenOlderCount === 1 ? '' : 's'} from prior years
-                      </button>
+                      <div className="mt-3">
+                        <LoadMoreYears showAll={invoiceShowAllYears} setShowAll={v => { setInvoiceShowAllYears(v); setInvoicesVisible(PAGE_SIZE); }} hiddenCount={invoiceHiddenOlderCount} />
+                      </div>
                     )}
                   </div>
                 );
@@ -2051,8 +2285,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <p className="text-xs text-slate-400">
                         Showing {pagedFiltered.length} of {filtered.length} invoices
                         {invoices.length !== filtered.length ? ` (${invoices.length} total)` : ''}
+                        <CurrentYearBadge active={!invoiceShowAllYears} />
                       </p>
-                      <LoadMoreYears showAll={invoiceShowAllYears} setShowAll={setInvoiceShowAllYears} hiddenCount={invoiceHiddenOlderCount} />
                     </div>
                     <table className="w-full">
                       <thead className="bg-slate-50/80 border-b border-slate-100">
@@ -2086,11 +2320,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               <React.Fragment key={inv.id}>
                                 <tr
                                   onClick={toggleOpen}
-                                  className={`border-b border-slate-50 hover:bg-slate-50/60 transition-colors cursor-pointer ${isOpen ? 'bg-slate-50/60' : ''}`}
+                                  className={`border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150 cursor-pointer ${isOpen ? 'bg-indigo-50/40' : ''}`}
                                 >
                                   <td className="py-3.5 px-4">
                                     <div className="flex items-center gap-2">
-                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform shrink-0 ${isOpen ? '' : '-rotate-90'}`} />
+                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${isOpen ? '' : '-rotate-90'}`} />
                                       <div>
                                         <div className="font-medium text-sm text-slate-900">{inv.name}</div>
                                         <div className="text-xs text-slate-400 mt-0.5">{inv.email}</div>
@@ -2208,11 +2442,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             const sublabel     = getSub(key);
                             return (
                               <React.Fragment key={key}>
-                                <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors select-none">
+                                <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none">
                                   <td colSpan={9} className="py-2.5 px-4">
                                     <div className="flex items-center gap-3 flex-wrap">
                                       <div className="flex items-center gap-2">
-                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
                                         <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{getLabel(key, rows)}</span>
                                         {sublabel && <span className="text-xs text-slate-400 font-mono normal-case">{sublabel}</span>}
                                         <span className="text-xs font-normal text-slate-400">({rows.length} invoice{rows.length !== 1 ? 's' : ''})</span>
@@ -2232,15 +2466,18 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         })()}
                       </tbody>
                     </table>
-                    {invoicesVisible < filtered.length && (
-                      <div className="py-4 text-center">
-                        <button
-                          onClick={() => setInvoicesVisible(n => n + PAGE_SIZE)}
-                          className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
-                        >
-                          Show {Math.min(PAGE_SIZE, filtered.length - invoicesVisible)} more
-                          <span className="text-slate-400 ml-1">({filtered.length - invoicesVisible} remaining)</span>
-                        </button>
+                    {(invoicesVisible < filtered.length || invoiceHiddenOlderCount > 0 || invoiceShowAllYears) && (
+                      <div className="py-4 flex flex-wrap items-center justify-center gap-2">
+                        {invoicesVisible < filtered.length && (
+                          <button
+                            onClick={() => setInvoicesVisible(n => n + PAGE_SIZE)}
+                            className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
+                          >
+                            Show {Math.min(PAGE_SIZE, filtered.length - invoicesVisible)} more
+                            <span className="text-slate-400 ml-1">({filtered.length - invoicesVisible} remaining)</span>
+                          </button>
+                        )}
+                        <LoadMoreYears showAll={invoiceShowAllYears} setShowAll={v => { setInvoiceShowAllYears(v); setInvoicesVisible(PAGE_SIZE); }} hiddenCount={invoiceHiddenOlderCount} />
                       </div>
                     )}
                   </div>
