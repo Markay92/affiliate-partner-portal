@@ -61,7 +61,7 @@ function LoadMoreYears({
         <>
           <span>Showing {CURRENT_YEAR} only{hiddenCount > 0 ? ` · ${hiddenCount} older record${hiddenCount === 1 ? '' : 's'} hidden` : ''}</span>
           {hiddenCount > 0 && (
-            <button onClick={() => setShowAll(true)} className="text-indigo-600 hover:underline font-medium">
+            <button onClick={() => setShowAll(true)} className="text-indigo-600 hover:underline font-medium cursor-pointer">
               Load more
             </button>
           )}
@@ -69,7 +69,7 @@ function LoadMoreYears({
       ) : (
         <>
           <span>Showing all years</span>
-          <button onClick={() => setShowAll(false)} className="text-indigo-600 hover:underline font-medium">
+          <button onClick={() => setShowAll(false)} className="text-indigo-600 hover:underline font-medium cursor-pointer">
             Show {CURRENT_YEAR} only
           </button>
         </>
@@ -262,7 +262,7 @@ function FilterBar({
           <div className="flex items-center gap-1.5 min-w-max">
             {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
               <button key={f} onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
                   filter === f
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
@@ -276,10 +276,10 @@ function FilterBar({
       {filter === 'custom' && (
         <div className="flex flex-wrap items-center gap-2">
           <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
-            className="flex-1 min-w-[130px] px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" />
+            className="flex-1 min-w-[130px] px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-shadow" />
           <span className="text-slate-400 text-xs">to</span>
           <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)}
-            className="flex-1 min-w-[130px] px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" />
+            className="flex-1 min-w-[130px] px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-shadow" />
         </div>
       )}
     </div>
@@ -402,6 +402,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [affiliatesVisible, setAffiliatesVisible] = useState(PAGE_SIZE);
   const [cpaVisible,        setCpaVisible]        = useState(PAGE_SIZE);
   const [invoicesVisible,   setInvoicesVisible]   = useState(PAGE_SIZE);
+  const [trackingVisible,   setTrackingVisible]   = useState(PAGE_SIZE);
 
   // ── Year-limited views: default to current year, "Load more" reveals older ──
   const [trackingShowAllYears, setTrackingShowAllYears] = useState(false);
@@ -933,7 +934,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   // Renders a single affiliate table row — defined as a closure so it
   // captures all state/callbacks without prop drilling.
   const renderUserRow = (user: any) => (
-    <tr key={user.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+    <tr key={user.id} className="border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150">
       <td className="py-4 px-6">
         <div className="font-medium text-slate-900">{user.name || 'N/A'}</div>
         <div className="text-xs text-slate-500 mt-0.5">{user.email}</div>
@@ -1130,7 +1131,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   const labels = { stats: 'Stats', charts: 'Charts', topCards: 'Top Cards' };
                   return (
                     <button key={key} onClick={() => togglePanel(key)}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all border ${
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all duration-150 border cursor-pointer ${
                         visiblePanels.has(key)
                           ? 'bg-indigo-600 text-white border-indigo-600'
                           : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
@@ -1272,7 +1273,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     placeholder="Search by name or email…"
                     value={affiliateSearch}
                     onChange={e => { setAffiliateSearch(e.target.value); setAffiliatesVisible(PAGE_SIZE); }}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                    className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 transition-shadow"
                   />
                 </div>
 
@@ -1280,7 +1281,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   {/* Group by Commission Rate toggle */}
                   <button
                     onClick={() => { setAffiliateGroupBy(g => !g); setAffiliateCollapsed(new Set()); setAffiliatesVisible(PAGE_SIZE); }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all duration-150 cursor-pointer ${
                       affiliateGroupBy
                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                         : 'text-slate-600 bg-white border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
@@ -1295,7 +1296,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     return (
                       <button
                         onClick={() => setAffiliateCollapsed(allCollapsed ? new Set() : new Set(allRates))}
-                        className="text-xs text-slate-500 hover:text-indigo-600 transition-colors"
+                        className="text-xs text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer"
                       >
                         {allCollapsed ? 'Expand All' : 'Collapse All'}
                       </button>
@@ -1321,7 +1322,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 {(affiliateSearch || affiliatesFilter !== 'all') && (
                   <span className="text-xs text-slate-500 ml-1">
                     {displayUsers.length} of {users.length} members
-                    {affiliateSearch && <button onClick={() => { setAffiliateSearch(''); setAffiliatesVisible(PAGE_SIZE); }} className="text-indigo-600 hover:underline ml-2">Clear search</button>}
+                    {affiliateSearch && <button onClick={() => { setAffiliateSearch(''); setAffiliatesVisible(PAGE_SIZE); }} className="text-indigo-600 hover:underline ml-2 cursor-pointer">Clear search</button>}
                   </span>
                 )}
               </div>
@@ -1369,10 +1370,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             });
                             return (
                               <React.Fragment key={`group-${rate}`}>
-                                <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors select-none">
+                                <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none">
                                   <td colSpan={9} className="py-2.5 px-6">
                                     <div className="flex items-center gap-2">
-                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
                                       <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{rate} Commission</span>
                                       <span className="text-xs font-normal text-slate-400 ml-0.5">({members.length} {members.length === 1 ? 'member' : 'members'})</span>
                                     </div>
@@ -1392,7 +1393,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 <div className="py-4 text-center">
                   <button
                     onClick={() => setAffiliatesVisible(n => n + PAGE_SIZE)}
-                    className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                    className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
                   >
                     Show {Math.min(PAGE_SIZE, displayUsers.length - affiliatesVisible)} more
                     <span className="text-slate-400 ml-1">({displayUsers.length - affiliatesVisible} remaining)</span>
@@ -1405,7 +1406,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           {/* ── Tracking Activity Tab ── */}
           <Tabs.Content value="tracking">
             <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
-              <div className="p-5 border-b border-slate-100 space-y-3">
+              <div className="sticky top-16 z-10 bg-white p-5 border-b border-slate-100 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="text-base font-semibold text-slate-900">All Tracking Activity</h2>
@@ -1428,8 +1429,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       ] as { value: 'none'|'month'|'affiliate'; label: string }[]).map(({ value, label }) => (
                         <button
                           key={value}
-                          onClick={() => { setTrackingGroupBy(value); setTrackingCollapsed(new Set()); }}
-                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all ${
+                          onClick={() => { setTrackingGroupBy(value); setTrackingCollapsed(new Set()); setTrackingVisible(PAGE_SIZE); }}
+                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all duration-150 cursor-pointer ${
                             trackingGroupBy === value
                               ? 'bg-indigo-600 text-white shadow-sm'
                               : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
@@ -1449,14 +1450,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       const allCollapsed = allKeys.every(k => trackingCollapsed.has(k));
                       return (
                         <button onClick={() => setTrackingCollapsed(allCollapsed ? new Set() : new Set(allKeys))}
-                          className="text-xs text-slate-500 hover:text-indigo-600 transition-colors">
+                          className="text-xs text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer">
                           {allCollapsed ? 'Expand All' : 'Collapse All'}
                         </button>
                       );
                     })()}
                     <button
-                      onClick={fetchTrackingActivity}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all"
+                      onClick={() => { setTrackingVisible(PAGE_SIZE); fetchTrackingActivity(); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all duration-150 cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       Refresh
@@ -1466,9 +1467,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
                 {/* Date filter */}
                 <FilterBar
-                  filter={mgTrackingFilter}         setFilter={setMgTrackingFilter}
-                  customFrom={mgTrackingCustomFrom} setCustomFrom={setMgTrackingCustomFrom}
-                  customTo={mgTrackingCustomTo}     setCustomTo={setMgTrackingCustomTo}
+                  filter={mgTrackingFilter}         setFilter={v => { setMgTrackingFilter(v); setTrackingVisible(PAGE_SIZE); }}
+                  customFrom={mgTrackingCustomFrom} setCustomFrom={v => { setMgTrackingCustomFrom(v); setTrackingVisible(PAGE_SIZE); }}
+                  customTo={mgTrackingCustomTo}     setCustomTo={v => { setMgTrackingCustomTo(v); setTrackingVisible(PAGE_SIZE); }}
                 />
 
                 {/* Status filter */}
@@ -1482,8 +1483,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   ].map(({ value, label }) => (
                     <button
                       key={value}
-                      onClick={() => setMgTrackingStatusFilter(value)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      onClick={() => { setMgTrackingStatusFilter(value); setTrackingVisible(PAGE_SIZE); }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
                         mgTrackingStatusFilter === value
                           ? 'bg-indigo-600 text-white shadow-sm'
                           : 'text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
@@ -1500,8 +1501,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     <span className="text-xs font-medium text-slate-400 mr-1">Affiliate:</span>
                     <select
                       value={mgTrackingAffiliateFilter}
-                      onChange={(e) => setMgTrackingAffiliateFilter(e.target.value)}
-                      className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                      onChange={(e) => { setMgTrackingAffiliateFilter(e.target.value); setTrackingVisible(PAGE_SIZE); }}
+                      className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
                     >
                       <option value="all">All affiliates</option>
                       {affiliateOptions.map((a) => (
@@ -1510,8 +1511,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </select>
                     {mgTrackingAffiliateFilter !== 'all' && (
                       <button
-                        onClick={() => setMgTrackingAffiliateFilter('all')}
-                        className="text-xs text-indigo-600 hover:underline"
+                        onClick={() => { setMgTrackingAffiliateFilter('all'); setTrackingVisible(PAGE_SIZE); }}
+                        className="text-xs text-indigo-600 hover:underline cursor-pointer"
                       >
                         Clear
                       </button>
@@ -1520,121 +1521,144 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 )}
               </div>
 
-              <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-50/80 border-b border-slate-100 sticky top-0">
-                    <tr>
-                      <SortThSm label="Date / Time"  field="clickDate"     sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                      <SortThSm label="Affiliate"    field="memberName"    sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                      <SortThSm label="Card"         field="cardName"      sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                      <SortThSm label="Status"       field="status"        sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                      <SortThSm label="Earnings"     field="totalEarnings" sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} align="right" />
-                      <SortThSm label="Device"       field="deviceType"    sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                      <SortThSm label="Location"     field="state"         sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      // Single row renderer — used in both flat and grouped modes
-                      const TrackRow = ({ a }: { a: any }) => (
-                        <tr key={a.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
-                          <td className="py-3.5 px-4 text-sm">
-                            <div className="font-medium text-slate-900">{formatDate(a.clickDate)}</div>
-                            <div className="text-xs text-slate-400 mt-0.5">{formatTime(a.clickTime)}</div>
-                          </td>
-                          <td className="py-3.5 px-4 text-sm">
-                            <div className="font-medium text-slate-900">{a.memberName}</div>
-                            <div className="text-xs text-slate-400 mt-0.5">{a.affiliateId}</div>
-                          </td>
-                          <td className="py-3.5 px-4 text-sm text-slate-700">{a.cardName}</td>
-                          <td className="py-3.5 px-4">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                              a.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
-                              a.status === 'application' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70' :
-                              'bg-slate-100 text-slate-600'
-                            }`}>{a.status}</span>
-                          </td>
-                          <td className="py-3.5 px-4 text-sm text-right font-semibold text-slate-900">
-                            {a.totalEarnings > 0 ? `$${a.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
-                          </td>
-                          <td className="py-3.5 px-4 text-sm text-slate-500">{a.deviceType || '—'}</td>
-                          <td className="py-3.5 px-4 text-sm text-slate-500">{a.state || '—'}</td>
-                        </tr>
-                      );
+              <div className="p-4 sm:p-6 pt-3">
+              {(() => {
+                const pagedTracking = displayTrackingActivity.slice(0, trackingVisible);
+                return (
+                  <>
+                    <p className="text-xs text-slate-400 mb-3">
+                      Showing {pagedTracking.length} of {displayTrackingActivity.length} records
+                    </p>
+                    <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
+                      <table className="w-full">
+                        <thead className="bg-slate-50/80 border-b border-slate-100">
+                          <tr>
+                            <SortThSm label="Date / Time"  field="clickDate"     sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
+                            <SortThSm label="Affiliate"    field="memberName"    sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
+                            <SortThSm label="Card"         field="cardName"      sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
+                            <SortThSm label="Status"       field="status"        sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
+                            <SortThSm label="Earnings"     field="totalEarnings" sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} align="right" />
+                            <SortThSm label="Device"       field="deviceType"    sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
+                            <SortThSm label="Location"     field="state"         sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(() => {
+                            // Single row renderer — used in both flat and grouped modes
+                            const TrackRow = ({ a }: { a: any }) => (
+                              <tr key={a.id} className="border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150">
+                                <td className="py-3.5 px-4 text-sm">
+                                  <div className="font-medium text-slate-900">{formatDate(a.clickDate)}</div>
+                                  <div className="text-xs text-slate-400 mt-0.5">{formatTime(a.clickTime)}</div>
+                                </td>
+                                <td className="py-3.5 px-4 text-sm">
+                                  <div className="font-medium text-slate-900">{a.memberName}</div>
+                                  <div className="text-xs text-slate-400 mt-0.5">{a.affiliateId}</div>
+                                </td>
+                                <td className="py-3.5 px-4 text-sm text-slate-700">{a.cardName}</td>
+                                <td className="py-3.5 px-4">
+                                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                                    a.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
+                                    a.status === 'application' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70' :
+                                    'bg-slate-100 text-slate-600'
+                                  }`}>{a.status}</span>
+                                </td>
+                                <td className="py-3.5 px-4 text-sm text-right font-semibold text-slate-900 tabular-nums">
+                                  {a.totalEarnings > 0 ? `$${a.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
+                                </td>
+                                <td className="py-3.5 px-4 text-sm text-slate-500">{a.deviceType || '—'}</td>
+                                <td className="py-3.5 px-4 text-sm text-slate-500">{a.state || '—'}</td>
+                              </tr>
+                            );
 
-                      // Flat mode
-                      if (trackingGroupBy === 'none')
-                        return displayTrackingActivity.map((a: any) => <TrackRow key={a.id} a={a} />);
+                            // Flat mode
+                            if (trackingGroupBy === 'none')
+                              return pagedTracking.map((a: any) => <TrackRow key={a.id} a={a} />);
 
-                      // Grouped mode — shared logic for month + affiliate
-                      const getKey = (a: any) => trackingGroupBy === 'month'
-                        ? (() => { const d = parseLocalDate(a.clickDate); return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })()
-                        : (a.affiliateId || 'unknown');
+                            // Grouped mode — shared logic for month + affiliate
+                            const getKey = (a: any) => trackingGroupBy === 'month'
+                              ? (() => { const d = parseLocalDate(a.clickDate); return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })()
+                              : (a.affiliateId || 'unknown');
 
-                      const getLabel = (key: string, rows: any[]) => {
-                        if (trackingGroupBy === 'month') {
-                          if (key === '0000-00') return 'Unknown Date';
-                          const [y, m] = key.split('-');
-                          return new Date(parseInt(y), parseInt(m)-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                        }
-                        // affiliate: show name, fall back to affiliateId
-                        return String(rows[0]?.memberName || key);
-                      };
+                            const getLabel = (key: string, rows: any[]) => {
+                              if (trackingGroupBy === 'month') {
+                                if (key === '0000-00') return 'Unknown Date';
+                                const [y, m] = key.split('-');
+                                return new Date(parseInt(y), parseInt(m)-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                              }
+                              // affiliate: show name, fall back to affiliateId
+                              return String(rows[0]?.memberName || key);
+                            };
 
-                      const groups: Record<string, any[]> = {};
-                      displayTrackingActivity.forEach((a: any) => {
-                        const k = getKey(a);
-                        if (!groups[k]) groups[k] = [];
-                        groups[k].push(a);
-                      });
+                            const groups: Record<string, any[]> = {};
+                            pagedTracking.forEach((a: any) => {
+                              const k = getKey(a);
+                              if (!groups[k]) groups[k] = [];
+                              groups[k].push(a);
+                            });
 
-                      const sortedEntries = Object.entries(groups).sort(([ka, ra], [kb, rb]) =>
-                        trackingGroupBy === 'month'
-                          ? kb.localeCompare(ka)                                            // newest first
-                          : String(getLabel(ka, ra)).localeCompare(String(getLabel(kb, rb))) // A–Z
-                      );
+                            const sortedEntries = Object.entries(groups).sort(([ka, ra], [kb, rb]) =>
+                              trackingGroupBy === 'month'
+                                ? kb.localeCompare(ka)                                            // newest first
+                                : String(getLabel(ka, ra)).localeCompare(String(getLabel(kb, rb))) // A–Z
+                            );
 
-                      return sortedEntries.map(([key, rows]) => {
-                        const isCollapsed = trackingCollapsed.has(key);
-                        const toggle = () => setTrackingCollapsed(prev => {
-                          const next = new Set(prev);
-                          next.has(key) ? next.delete(key) : next.add(key);
-                          return next;
-                        });
-                        const grpClicks    = rows.reduce((s: number, r: any) => s + (r.clicks       || 0), 0);
-                        const grpApps      = rows.reduce((s: number, r: any) => s + (r.applications || 0), 0);
-                        const grpApprovals = rows.reduce((s: number, r: any) => s + (r.approvals    || 0), 0);
-                        const grpEarnings  = rows.reduce((s: number, r: any) => s + (r.totalEarnings|| 0), 0);
-                        const label        = getLabel(key, rows);
-                        // Show affiliateId as sub-label when grouped by affiliate
-                        const sublabel     = trackingGroupBy === 'affiliate' ? key : undefined;
-                        return (
-                          <React.Fragment key={key}>
-                            <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors select-none">
-                              <td colSpan={7} className="py-2.5 px-4">
-                                <div className="flex items-center gap-3 flex-wrap">
-                                  <div className="flex items-center gap-2">
-                                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
-                                    <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{label}</span>
-                                    {sublabel && <span className="text-xs text-slate-400 font-mono normal-case">{sublabel}</span>}
-                                    <span className="text-xs font-normal text-slate-400">({rows.length} records)</span>
-                                  </div>
-                                  <div className="flex items-center gap-3 ml-2 text-xs text-slate-500">
-                                    {grpClicks    > 0 && <span>{grpClicks.toLocaleString()} clicks</span>}
-                                    {grpApps      > 0 && <span>{grpApps} apps</span>}
-                                    {grpApprovals > 0 && <span>{grpApprovals} approvals</span>}
-                                    {grpEarnings  > 0 && <span className="font-medium text-emerald-600">${grpEarnings.toFixed(2)}</span>}
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                            {!isCollapsed && rows.map((a: any) => <TrackRow key={a.id} a={a} />)}
-                          </React.Fragment>
-                        );
-                      });
-                    })()}
-                  </tbody>
-                </table>
+                            return sortedEntries.map(([key, rows]) => {
+                              const isCollapsed = trackingCollapsed.has(key);
+                              const toggle = () => setTrackingCollapsed(prev => {
+                                const next = new Set(prev);
+                                next.has(key) ? next.delete(key) : next.add(key);
+                                return next;
+                              });
+                              const grpClicks    = rows.reduce((s: number, r: any) => s + (r.clicks       || 0), 0);
+                              const grpApps      = rows.reduce((s: number, r: any) => s + (r.applications || 0), 0);
+                              const grpApprovals = rows.reduce((s: number, r: any) => s + (r.approvals    || 0), 0);
+                              const grpEarnings  = rows.reduce((s: number, r: any) => s + (r.totalEarnings|| 0), 0);
+                              const label        = getLabel(key, rows);
+                              // Show affiliateId as sub-label when grouped by affiliate
+                              const sublabel     = trackingGroupBy === 'affiliate' ? key : undefined;
+                              return (
+                                <React.Fragment key={key}>
+                                  <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none">
+                                    <td colSpan={7} className="py-2.5 px-4">
+                                      <div className="flex items-center gap-3 flex-wrap">
+                                        <div className="flex items-center gap-2">
+                                          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+                                          <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{label}</span>
+                                          {sublabel && <span className="text-xs text-slate-400 font-mono normal-case">{sublabel}</span>}
+                                          <span className="text-xs font-normal text-slate-400">({rows.length} records)</span>
+                                        </div>
+                                        <div className="flex items-center gap-3 ml-2 text-xs text-slate-500">
+                                          {grpClicks    > 0 && <span>{grpClicks.toLocaleString()} clicks</span>}
+                                          {grpApps      > 0 && <span>{grpApps} apps</span>}
+                                          {grpApprovals > 0 && <span>{grpApprovals} approvals</span>}
+                                          {grpEarnings  > 0 && <span className="font-medium text-emerald-600">${grpEarnings.toFixed(2)}</span>}
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                  {!isCollapsed && rows.map((a: any) => <TrackRow key={a.id} a={a} />)}
+                                </React.Fragment>
+                              );
+                            });
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
+                    {trackingVisible < displayTrackingActivity.length && (
+                      <div className="pt-4 text-center">
+                        <button
+                          onClick={() => setTrackingVisible(n => n + PAGE_SIZE)}
+                          className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
+                        >
+                          Show {Math.min(PAGE_SIZE, displayTrackingActivity.length - trackingVisible)} more
+                          <span className="text-slate-400 ml-1">({displayTrackingActivity.length - trackingVisible} remaining)</span>
+                        </button>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
               </div>
             </div>
           </Tabs.Content>
@@ -1654,7 +1678,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       placeholder="Search cards…"
                       value={cpaSearch}
                       onChange={e => { setCpaSearch(e.target.value); setCpaVisible(PAGE_SIZE); }}
-                      className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                      className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 transition-shadow"
                     />
                   </div>
 
@@ -1669,7 +1693,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         setCpaVisible(PAGE_SIZE);
                         fetchCpaRates(val);
                       }}
-                      className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                      className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
                     >
                       <option value="all">All (bank CPA only)</option>
                       {(users as any[]).map((u: any) => (
@@ -1685,7 +1709,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     <button
                       onClick={() => { setCpaGroupBy(g => !g); setCpaCollapsed(new Set()); }}
                       title="Group by issuer"
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all duration-150 cursor-pointer ${
                         cpaGroupBy
                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                           : 'text-slate-600 bg-white border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
@@ -1701,7 +1725,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       return (
                         <button
                           onClick={() => setCpaCollapsed(allCollapsed ? new Set() : new Set(allIssuers))}
-                          className="text-xs text-slate-500 hover:text-indigo-600 transition-colors"
+                          className="text-xs text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer"
                         >
                           {allCollapsed ? 'Expand All' : 'Collapse All'}
                         </button>
@@ -1709,7 +1733,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     })()}
                     <button
                       onClick={() => { setCpaVisible(PAGE_SIZE); fetchCpaRates(cpaAffiliateFilter); }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all duration-150 cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       Refresh
@@ -1726,7 +1750,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <select
                         value={cpaIssuerFilter}
                         onChange={e => { setCpaIssuerFilter(e.target.value); setCpaVisible(PAGE_SIZE); }}
-                        className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                        className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
                       >
                         <option value="all">All issuers</option>
                         {Array.from(new Set(cpaRates.map(r => r.issuer).filter(Boolean))).sort().map((iss: any) => (
@@ -1747,7 +1771,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         <button
                           key={value}
                           onClick={() => { setCpaCpaRange(value); setCpaVisible(PAGE_SIZE); }}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
                             cpaCpaRange === value
                               ? 'bg-indigo-600 text-white shadow-sm'
                               : 'text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
@@ -1762,7 +1786,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     {(cpaSearch || cpaIssuerFilter !== 'all' || cpaCpaRange !== 'all') && (
                       <button
                         onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(PAGE_SIZE); }}
-                        className="text-xs text-indigo-600 hover:underline ml-1"
+                        className="text-xs text-indigo-600 hover:underline ml-1 cursor-pointer"
                       >
                         Clear filters
                       </button>
@@ -1803,7 +1827,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 });
 
                 const CpaRow = ({ rate }: { rate: any }) => (
-                  <tr className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                  <tr className="border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150">
                     <td className="py-3 px-4 font-medium text-sm text-slate-900">{rate.card}</td>
                     {!cpaGroupBy && <td className="py-3 px-4 text-sm text-slate-500">{rate.issuer || '—'}</td>}
                     <td className="py-3 px-4 text-right font-semibold text-sm text-slate-900">
@@ -1823,7 +1847,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 if (filtered.length === 0) return (
                   <div className="text-center py-16">
                     <p className="text-slate-500 text-sm">No cards match the filters.</p>
-                    <button onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(PAGE_SIZE); }} className="text-xs text-indigo-600 hover:underline mt-2">Clear filters</button>
+                    <button onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(PAGE_SIZE); }} className="text-xs text-indigo-600 hover:underline mt-2 cursor-pointer">Clear filters</button>
                   </div>
                 );
 
@@ -1873,11 +1897,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                 <React.Fragment key={`group-${issuer}`}>
                                   <tr
                                     onClick={toggle}
-                                    className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                                    className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none"
                                   >
                                     <td colSpan={colCount} className="py-2.5 px-4">
                                       <div className="flex items-center gap-2">
-                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
                                         <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{issuer}</span>
                                         <span className="text-xs font-normal text-slate-400 ml-0.5">({rates.length} {rates.length === 1 ? 'card' : 'cards'})</span>
                                       </div>
@@ -1897,7 +1921,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <div className="py-4 text-center">
                         <button
                           onClick={() => setCpaVisible(n => n + PAGE_SIZE)}
-                          className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                          className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
                         >
                           Show {Math.min(PAGE_SIZE, filtered.length - cpaVisible)} more
                           <span className="text-slate-400 ml-1">({filtered.length - cpaVisible} remaining)</span>
@@ -1921,7 +1945,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     <select
                       value={invoiceAffiliateFilter}
                       onChange={e => { setInvoiceAffiliateFilter(e.target.value); setInvoicesVisible(PAGE_SIZE); }}
-                      className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                      className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
                     >
                       <option value="all">All affiliates</option>
                       {Array.from(new Set(invoices.map((inv: any) => inv.email).filter(Boolean))).sort().map((email: any) => (
@@ -1935,7 +1959,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     <select
                       value={invoiceMonthFilter}
                       onChange={e => { setInvoiceMonthFilter(e.target.value); setInvoicesVisible(PAGE_SIZE); }}
-                      className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                      className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
                     >
                       <option value="all">All months</option>
                       {Array.from(new Set(invoices.map((inv: any) => inv.month).filter(Boolean))).map((m: any) => (
@@ -1950,7 +1974,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <select
                         value={invoiceStatusFilter}
                         onChange={e => { setInvoiceStatusFilter(e.target.value); setInvoicesVisible(PAGE_SIZE); }}
-                        className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
+                        className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
                       >
                         <option value="all">All statuses</option>
                         {Array.from(new Set(invoices.map((inv: any) => inv.status).filter(Boolean))).map((s: any) => (
@@ -1971,7 +1995,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <button
                         key={value}
                         onClick={() => { setInvoiceGroupBy(value); setInvoiceCollapsed(new Set()); setInvoicesVisible(PAGE_SIZE); }}
-                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all ${
+                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all duration-150 cursor-pointer ${
                           invoiceGroupBy === value
                             ? 'bg-indigo-600 text-white shadow-sm'
                             : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
@@ -1997,14 +2021,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     const allCollapsed = allKeys.every(k => invoiceCollapsed.has(k));
                     return (
                       <button onClick={() => setInvoiceCollapsed(allCollapsed ? new Set() : new Set(allKeys))}
-                        className="text-xs text-slate-500 hover:text-indigo-600 transition-colors">
+                        className="text-xs text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer">
                         {allCollapsed ? 'Expand All' : 'Collapse All'}
                       </button>
                     );
                   })()}
                   <button
                     onClick={() => { setInvoicesVisible(PAGE_SIZE); fetchInvoices(); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all duration-150 cursor-pointer"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${invoicesLoading ? 'animate-spin' : ''}`} />
                     Refresh
@@ -2038,7 +2062,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </div>
                     <p className="text-slate-500 text-sm">No invoices match the selected filters.</p>
                     {invoiceHiddenOlderCount > 0 && !invoiceShowAllYears && (
-                      <button onClick={() => setInvoiceShowAllYears(true)} className="text-xs text-indigo-600 hover:underline mt-2">
+                      <button onClick={() => setInvoiceShowAllYears(true)} className="text-xs text-indigo-600 hover:underline mt-2 cursor-pointer">
                         Load {invoiceHiddenOlderCount} older invoice{invoiceHiddenOlderCount === 1 ? '' : 's'} from prior years
                       </button>
                     )}
@@ -2086,11 +2110,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               <React.Fragment key={inv.id}>
                                 <tr
                                   onClick={toggleOpen}
-                                  className={`border-b border-slate-50 hover:bg-slate-50/60 transition-colors cursor-pointer ${isOpen ? 'bg-slate-50/60' : ''}`}
+                                  className={`border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150 cursor-pointer ${isOpen ? 'bg-indigo-50/40' : ''}`}
                                 >
                                   <td className="py-3.5 px-4">
                                     <div className="flex items-center gap-2">
-                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform shrink-0 ${isOpen ? '' : '-rotate-90'}`} />
+                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${isOpen ? '' : '-rotate-90'}`} />
                                       <div>
                                         <div className="font-medium text-sm text-slate-900">{inv.name}</div>
                                         <div className="text-xs text-slate-400 mt-0.5">{inv.email}</div>
@@ -2208,11 +2232,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             const sublabel     = getSub(key);
                             return (
                               <React.Fragment key={key}>
-                                <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors select-none">
+                                <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none">
                                   <td colSpan={9} className="py-2.5 px-4">
                                     <div className="flex items-center gap-3 flex-wrap">
                                       <div className="flex items-center gap-2">
-                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
                                         <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{getLabel(key, rows)}</span>
                                         {sublabel && <span className="text-xs text-slate-400 font-mono normal-case">{sublabel}</span>}
                                         <span className="text-xs font-normal text-slate-400">({rows.length} invoice{rows.length !== 1 ? 's' : ''})</span>
@@ -2236,7 +2260,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <div className="py-4 text-center">
                         <button
                           onClick={() => setInvoicesVisible(n => n + PAGE_SIZE)}
-                          className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                          className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
                         >
                           Show {Math.min(PAGE_SIZE, filtered.length - invoicesVisible)} more
                           <span className="text-slate-400 ml-1">({filtered.length - invoicesVisible} remaining)</span>
