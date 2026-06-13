@@ -260,7 +260,7 @@ function FilterBar({
           <div className="flex items-center gap-1.5 min-w-max">
             {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
               <button key={f} onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
                   filter === f
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
@@ -299,9 +299,10 @@ function SortTh({
   return (
     <th
       onClick={() => onSort(field)}
-      className={`py-3 px-4 text-slate-500 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-slate-50 transition-colors text-${align}`}
+      aria-sort={sort.field === field ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      className={`py-3 px-4 text-slate-500 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-slate-100/70 hover:text-slate-700 transition-colors duration-150 text-${align}`}
     >
-      <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''}`}>
+      <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''} ${sort.field === field ? 'text-indigo-600' : ''}`}>
         {label}{icon}
       </span>
     </th>
@@ -615,14 +616,22 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   );
 
   /** Coloured percentage badge shown under each stat card */
-  const PctBadge = ({ pct }: { pct: number | null }) => {
-    if (pct === null) return <span className="text-slate-400 text-xs">No prior-period data</span>;
-    if (pct === 0)    return <span className="text-slate-400 text-xs flex items-center gap-1">— No change <span className="font-normal">{_periodLabel}</span></span>;
+  const PctBadge = ({ pct, compact = false }: { pct: number | null; compact?: boolean }) => {
+    if (pct === null) {
+      return compact
+        ? <span className="text-slate-300 text-xs">—</span>
+        : <span className="text-slate-400 text-xs">No prior-period data</span>;
+    }
+    if (pct === 0) {
+      return compact
+        ? <span className="text-slate-400 text-xs font-medium">No change</span>
+        : <span className="text-slate-400 text-xs flex items-center gap-1">— No change <span className="font-normal">{_periodLabel}</span></span>;
+    }
     const up = pct > 0;
     return (
-      <div className={`flex items-center gap-1 text-xs font-medium ${up ? 'text-emerald-600' : 'text-red-500'}`}>
-        <TrendingUp className={`w-3.5 h-3.5 ${!up ? 'rotate-180' : ''}`} />
-        <span>{up ? '+' : ''}{pct}% {_periodLabel}</span>
+      <div className={`flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full ${up ? 'text-emerald-700 bg-emerald-50' : 'text-red-600 bg-red-50'}`}>
+        <TrendingUp className={`w-3 h-3 ${!up ? 'rotate-180' : ''}`} />
+        <span>{up ? '+' : ''}{pct}%{!compact ? ` ${_periodLabel}` : ''}</span>
       </div>
     );
   };
@@ -647,26 +656,26 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-b from-slate-100 to-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-indigo-100">
             <RefreshCw className="w-5 h-5 animate-spin text-indigo-600" />
           </div>
-          <p className="text-slate-500 text-sm">Loading your dashboard…</p>
+          <p className="text-slate-500 text-sm font-medium">Loading your dashboard…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-gradient-to-b from-slate-100 to-slate-50">
       {/* Header */}
-      <header className="bg-slate-900 sticky top-0 z-10">
+      <header className="bg-slate-900/95 backdrop-blur-md sticky top-0 z-10 border-b border-slate-800/60 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
-              <div className="p-1">
-                <svg width="36" height="34" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <div className="p-1.5 bg-white/5 rounded-xl ring-1 ring-white/10">
+                <svg width="32" height="30" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <g clipPath="url(#clip0_logo)">
                     <mask id="mask0_logo" style={{maskType:'luminance'}} maskUnits="userSpaceOnUse" x="0" y="0" width="38" height="37">
                       <path d="M37.9056 0H0.00134277V36.2562H37.9056V0Z" fill="white"/>
@@ -685,20 +694,25 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
               <h1 className="hidden sm:block text-white font-semibold text-lg tracking-tight">Affiliate Portal</h1>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 onClick={fetchData}
-                className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                className="p-2 hover:bg-white/10 active:scale-95 rounded-lg transition-all duration-150 cursor-pointer"
                 title="Refresh data"
               >
                 <RefreshCw className="w-4 h-4 text-slate-400" />
               </button>
-              <span className="hidden sm:inline text-slate-400 text-sm">
-                {firstName ? `Hi, ${firstName}` : userEmail}
-              </span>
+              {(firstName || userEmail) && (
+                <span className="hidden sm:flex items-center gap-2 text-slate-300 text-sm pl-1 pr-3 py-1 rounded-full bg-white/5 ring-1 ring-white/10">
+                  <span className="w-6 h-6 rounded-full bg-indigo-500/90 text-white text-[11px] font-semibold flex items-center justify-center flex-shrink-0">
+                    {(firstName || userEmail).charAt(0).toUpperCase()}
+                  </span>
+                  {firstName ? `Hi, ${firstName}` : userEmail}
+                </span>
+              )}
               <button
                 onClick={onLogout}
-                className="flex items-center gap-2 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors text-sm"
+                className="flex items-center gap-2 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-white/10 active:scale-95 rounded-lg transition-all duration-150 text-sm cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline">Logout</span>
@@ -710,7 +724,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
       {error && (
         <div className="bg-red-50 border-b border-red-100 px-4 sm:px-6 lg:px-8 py-3 text-red-700 text-sm max-w-7xl mx-auto">
-          {error} — try refreshing the page or logging out and back in.
+          <span className="font-medium">{error}</span> — try refreshing the page or logging out and back in.
         </div>
       )}
 
@@ -719,7 +733,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         <button
           onClick={handleBackToAdmin}
           title="Exit back to Admin Dashboard"
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-full shadow-lg hover:bg-slate-700 transition-all text-xs font-semibold"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-full shadow-lg hover:bg-slate-700 active:scale-95 transition-all duration-150 text-xs font-semibold cursor-pointer ring-1 ring-white/10"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           Exit to Admin
@@ -744,175 +758,164 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           });
           const monthlyData = Object.entries(monthMap).sort(([a],[b]) => a.localeCompare(b)).map(([,v]) => v);
 
-          const anyVisible = visiblePanels.has('stats') || visiblePanels.has('charts') || visiblePanels.has('topCards');
           const isEmptyPeriod = tracking.length > 0 && totalClicks === 0 && totalCommissions === 0;
+          const showCharts   = visiblePanels.has('charts')   && monthlyData.length >= 2;
+          const showTopCards = visiblePanels.has('topCards') && mostApprovedCards.length > 0;
 
           const statRows = [
-            { label: 'Clicks',       value: totalClicks.toLocaleString(),                  iconColor: 'text-blue-600',    bgColor: 'bg-blue-50',    Icon: MousePointerClick, sub: null },
-            { label: 'Approvals',    value: totalConversions.toLocaleString(),              iconColor: 'text-emerald-600', bgColor: 'bg-emerald-50', Icon: CheckCircle,       sub: totalClicks > 0 && totalConversions > 0 ? `${((totalConversions/totalClicks)*100).toFixed(1)}% conv.` : null },
-            { label: 'Commissions',  value: `$${Math.round(totalCommissions).toLocaleString()}`, iconColor: 'text-indigo-600', bgColor: 'bg-indigo-50', Icon: DollarSign,   sub: avgEPC > 0 ? `EPC $${avgEPC.toFixed(2)}` : null },
-            { label: 'Applications', value: totalApplications.toLocaleString(),             iconColor: 'text-orange-500',  bgColor: 'bg-orange-50',  Icon: Activity,          sub: totalClicks > 0 && totalApplications > 0 ? `${((totalApplications/totalClicks)*100).toFixed(1)}% c→a` : null },
+            { label: 'Clicks',       value: totalClicks.toLocaleString(),                  iconColor: 'text-blue-600',    bgColor: 'bg-blue-50',    Icon: MousePointerClick, sub: null,                                                                                              pct: clicksPct },
+            { label: 'Approvals',    value: totalConversions.toLocaleString(),              iconColor: 'text-emerald-600', bgColor: 'bg-emerald-50', Icon: CheckCircle,       sub: totalClicks > 0 && totalConversions > 0 ? `${((totalConversions/totalClicks)*100).toFixed(1)}% conv.` : null,    pct: approvalsPct },
+            { label: 'Commissions',  value: `$${Math.round(totalCommissions).toLocaleString()}`, iconColor: 'text-indigo-600', bgColor: 'bg-indigo-50', Icon: DollarSign,   sub: avgEPC > 0 ? `EPC $${avgEPC.toFixed(2)}` : null,                                                  pct: commissionsPct },
+            { label: 'Applications', value: totalApplications.toLocaleString(),             iconColor: 'text-orange-500',  bgColor: 'bg-orange-50',  Icon: Activity,          sub: totalClicks > 0 && totalApplications > 0 ? `${((totalApplications/totalClicks)*100).toFixed(1)}% c→a` : null,    pct: applicationsPct },
           ];
 
           return (
-            <div className="mb-6 bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
-              {/* Toggle chips + period picker in one compact row */}
-              <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-b border-slate-100">
+            <div className="mb-6 sm:mb-8">
+              {/* ── Period header ── */}
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">Performance Overview</h2>
+                  <p className="text-xs sm:text-sm text-slate-500">{STAT_PERIOD_LABELS[statPeriod]}</p>
+                </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-medium text-slate-400 mr-0.5">Show:</span>
-                  {(['stats', 'charts', 'topCards'] as const).map(key => {
-                    const labels = { stats: 'Stats', charts: 'Charts', topCards: 'Top Cards' };
-                    return (
-                      <button key={key} onClick={() => togglePanel(key)}
-                        className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all border ${
-                          visiblePanels.has(key)
-                            ? 'bg-indigo-600 text-white border-indigo-600'
-                            : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                  {/* Mobile: dropdown */}
+                  <select
+                    value={statPeriod}
+                    onChange={e => setStatPeriod(e.target.value as StatPeriod)}
+                    className="sm:hidden text-xs font-medium bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                  >
+                    {([
+                      { value: 'today',  label: 'Today' },
+                      { value: 'week',   label: 'This Week' },
+                      { value: 'month',  label: 'This Month' },
+                      { value: 'lm',     label: 'Last Month' },
+                      { value: 'year',   label: 'This Year' },
+                      { value: 'custom', label: 'Custom' },
+                    ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                  {/* Desktop: pill row */}
+                  <div className="hidden sm:flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl p-1 text-xs font-medium shadow-sm">
+                    {([
+                      { value: 'today',  label: 'Today' },
+                      { value: 'week',   label: 'This Week' },
+                      { value: 'month',  label: 'This Month' },
+                      { value: 'lm',     label: 'Last Month' },
+                      { value: 'year',   label: 'This Year' },
+                      { value: 'custom', label: 'Custom' },
+                    ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
+                      <button key={value} onClick={() => setStatPeriod(value)}
+                        className={`px-2.5 py-1.5 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer ${
+                          statPeriod === value ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                         }`}>
-                        {labels[key]}
+                        {label}
                       </button>
-                    );
-                  })}
-                </div>
-                {/* Period picker — always visible so stats period can be changed regardless */}
-                {/* Mobile: dropdown */}
-                <select
-                  value={statPeriod}
-                  onChange={e => setStatPeriod(e.target.value as StatPeriod)}
-                  className="sm:hidden text-[11px] font-medium bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                >
-                  {([
-                    { value: 'today',  label: 'Today' },
-                    { value: 'week',   label: 'This Week' },
-                    { value: 'month',  label: 'This Month' },
-                    { value: 'lm',     label: 'Last Month' },
-                    { value: 'year',   label: 'This Year' },
-                    { value: 'custom', label: 'Custom' },
-                  ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-                {/* Desktop: pill row */}
-                <div className="hidden sm:flex items-center gap-0.5 bg-slate-50 border border-slate-200 rounded-lg p-0.5 text-[11px] font-medium">
-                  {([
-                    { value: 'today',  label: 'Today' },
-                    { value: 'week',   label: 'This Week' },
-                    { value: 'month',  label: 'This Month' },
-                    { value: 'lm',     label: 'Last Month' },
-                    { value: 'year',   label: 'This Year' },
-                    { value: 'custom', label: 'Custom' },
-                  ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
-                    <button key={value} onClick={() => setStatPeriod(value)}
-                      className={`px-2 py-1 rounded-md transition-all whitespace-nowrap ${
-                        statPeriod === value ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-white'
-                      }`}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                {/* Custom date inputs */}
-                {statPeriod === 'custom' && (
-                  <div className="flex items-center gap-1.5 px-2">
-                    <input type="date" value={statCustomFrom} onChange={e => setStatCustomFrom(e.target.value)}
-                      className="text-[11px] border border-slate-200 rounded-md px-1.5 py-0.5 text-slate-600 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400" />
-                    <span className="text-[10px] text-slate-400">→</span>
-                    <input type="date" value={statCustomTo} onChange={e => setStatCustomTo(e.target.value)}
-                      className="text-[11px] border border-slate-200 rounded-md px-1.5 py-0.5 text-slate-600 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+                    ))}
                   </div>
-                )}
+                  {/* Custom date inputs */}
+                  {statPeriod === 'custom' && (
+                    <div className="flex items-center gap-1.5">
+                      <input type="date" value={statCustomFrom} onChange={e => setStatCustomFrom(e.target.value)}
+                        className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
+                      <span className="text-xs text-slate-400">→</span>
+                      <input type="date" value={statCustomTo} onChange={e => setStatCustomTo(e.target.value)}
+                        className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Content row — height fills to 30vh minus the toggle row (~44px) */}
-              {anyVisible && (
-                <div className="overflow-x-auto">
-                <div className="flex divide-x divide-slate-100 min-w-max"
-                  style={{ height: 'clamp(120px, calc(30vh - 44px), 220px)' }}>
-
-                  {/* Stats column */}
-                  {visiblePanels.has('stats') && (
-                    <div className="flex-none w-48 flex flex-col justify-center gap-0.5 px-3 py-2 overflow-hidden">
-                      {isEmptyPeriod && (
-                        <div className="text-[10px] text-slate-400 mb-1 flex items-center gap-1">
-                          <RefreshCw className="w-2.5 h-2.5" /> No activity for {STAT_PERIOD_LABELS[statPeriod].split(' vs ')[0]}
-                        </div>
-                      )}
-                      {statRows.map(({ label, value, iconColor, bgColor, Icon, sub }) => (
-                        <div key={label} className="flex items-center gap-2 py-1">
-                          <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${bgColor}`}>
-                            <Icon className={`w-3 h-3 ${iconColor}`} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-[10px] text-slate-400 leading-none">{label}</div>
-                            <div className="text-sm font-bold text-slate-900 leading-snug">{value}</div>
-                          </div>
-                          {sub && <div className="text-[10px] text-slate-400 flex-shrink-0">{sub}</div>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Charts — Monthly Performance + Funnel side by side */}
-                  {visiblePanels.has('charts') && monthlyData.length >= 2 && (
-                    <div className="flex-1 min-w-0 flex divide-x divide-slate-100 overflow-hidden">
-                      <div className="flex-1 min-w-0 px-3 py-2 flex flex-col overflow-hidden">
-                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Monthly Performance</div>
-                        <div className="flex-1 min-h-0">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={monthlyData} margin={{ top:2, right:4, left:0, bottom:0 }}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                              <XAxis dataKey="month" tick={{ fontSize:9, fill:'#94a3b8' }} axisLine={false} tickLine={false} />
-                              <YAxis tick={{ fontSize:9, fill:'#94a3b8' }} axisLine={false} tickLine={false} width={24} />
-                              <Tooltip contentStyle={{ fontSize:11, borderRadius:6, border:'1px solid #e2e8f0' }} />
-                              <Line dataKey="clicks"       name="Clicks"       stroke="#bfdbfe" strokeWidth={1.5} dot={false} />
-                              <Line dataKey="applications" name="Applications" stroke="#818cf8" strokeWidth={1.5} dot={false} />
-                              <Line dataKey="approvals"    name="Approvals"    stroke="#6366f1" strokeWidth={1.5} dot={{ r:2 }} />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                      <div className="flex-none w-44 px-3 py-2 flex flex-col overflow-hidden">
-                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">All-Time Funnel</div>
-                        <div className="flex-1 min-h-0">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={[
-                              { name: 'Clicks',  value: tracking.reduce((s,t)=>s+(t.clicks||0),0),       fill: '#bfdbfe' },
-                              { name: 'Apps',    value: tracking.reduce((s,t)=>s+(t.applications||0),0),  fill: '#818cf8' },
-                              { name: 'Approvd', value: tracking.reduce((s,t)=>s+(t.approvals||0),0),     fill: '#6366f1' },
-                            ]} layout="vertical" margin={{ top:2, right:8, left:0, bottom:2 }}>
-                              <XAxis type="number" tick={{ fontSize:9, fill:'#94a3b8' }} axisLine={false} tickLine={false} />
-                              <YAxis dataKey="name" type="category" tick={{ fontSize:9, fill:'#64748b' }} axisLine={false} tickLine={false} width={44} />
-                              <Tooltip contentStyle={{ fontSize:11, borderRadius:6, border:'1px solid #e2e8f0' }} />
-                              <Bar dataKey="value" name="Count" radius={[0,3,3,0]}>
-                                {[{ fill:'#bfdbfe'},{fill:'#818cf8'},{fill:'#6366f1'}].map((s,i)=><Cell key={i} fill={s.fill}/>)}
-                              </Bar>
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Top Cards */}
-                  {visiblePanels.has('topCards') && mostApprovedCards.length > 0 && (
-                    <div className="flex-none w-52 px-3 py-2 overflow-y-auto">
-                      <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                        <Award className="w-3 h-3 text-emerald-500" /> Top Cards
-                      </div>
-                      {mostApprovedCards.map((c, idx) => (
-                        <div key={c.name} className="flex items-center gap-1.5 py-0.5 min-w-0">
-                          <span className={`text-[10px] font-bold flex-shrink-0 w-4 ${
-                            idx === 0 ? 'text-amber-500' : idx === 1 ? 'text-slate-400' : idx === 2 ? 'text-orange-500' : 'text-slate-300'
-                          }`}>#{idx+1}</span>
-                          <span className="text-xs text-slate-700 truncate flex-1 min-w-0">{decodeHtml(c.name)}</span>
-                          <span className="text-[10px] text-slate-400 flex-shrink-0 ml-1">{c.approvals}×</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                </div>
+              {isEmptyPeriod && (
+                <div className="mb-3 flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+                  <RefreshCw className="w-3 h-3" /> No activity recorded for {STAT_PERIOD_LABELS[statPeriod].split(' vs ')[0].toLowerCase()}
                 </div>
               )}
+
+              {/* ── Stat cards — always visible, the primary numbers ── */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
+                {statRows.map(({ label, value, iconColor, bgColor, Icon, sub, pct }) => (
+                  <div key={label} className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${bgColor} ring-1 ring-inset ${iconColor.replace('text-', 'ring-')}/10`}>
+                        <Icon className={`w-4.5 h-4.5 ${iconColor}`} />
+                      </div>
+                      {pct !== undefined && <PctBadge pct={pct} compact />}
+                    </div>
+                    <div className="text-2xl sm:text-[28px] font-bold text-slate-900 leading-none tracking-tight tabular-nums">{value}</div>
+                    <div className="text-xs text-slate-400 font-medium mt-1.5 uppercase tracking-wide">{label}</div>
+                    {sub && <div className="text-xs text-slate-400 font-medium mt-0.5">{sub}</div>}
+                  </div>
+                ))}
+              </div>
+
+              {/* ── Insights: charts + top cards ── */}
+              {(showCharts || showTopCards) && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {showCharts && (
+                    <div className={`bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 sm:p-5 ${showTopCards ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold text-slate-700">Monthly Performance</h3>
+                        <div className="flex items-center gap-3 text-[11px] text-slate-400 font-medium">
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#bfdbfe]" />Clicks</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#818cf8]" />Applications</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#6366f1]" />Approvals</span>
+                        </div>
+                      </div>
+                      <div className="h-56 sm:h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={monthlyData} margin={{ top:4, right:8, left:0, bottom:0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                            <XAxis dataKey="month" tick={{ fontSize:11, fill:'#94a3b8' }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fontSize:11, fill:'#94a3b8' }} axisLine={false} tickLine={false} width={32} />
+                            <Tooltip contentStyle={{ fontSize:12, borderRadius:8, border:'1px solid #e2e8f0' }} />
+                            <Line dataKey="clicks"       name="Clicks"       stroke="#bfdbfe" strokeWidth={2} dot={false} />
+                            <Line dataKey="applications" name="Applications" stroke="#818cf8" strokeWidth={2} dot={false} />
+                            <Line dataKey="approvals"    name="Approvals"    stroke="#6366f1" strokeWidth={2.5} dot={{ r:3 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+
+                  {showTopCards && (
+                    <div className={`bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 sm:p-5 ${showCharts ? 'lg:col-span-1' : 'lg:col-span-3'} flex flex-col`}>
+                      <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-1.5">
+                        <Award className="w-4 h-4 text-emerald-500" /> Top Approved Cards
+                      </h3>
+                      <div className="flex flex-col gap-1 flex-1">
+                        {mostApprovedCards.map((c, idx) => (
+                          <div key={c.name} className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-slate-50 transition-colors duration-150 min-w-0">
+                            <span className={`text-xs font-bold flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center ${
+                              idx === 0 ? 'bg-amber-50 text-amber-500' : idx === 1 ? 'bg-slate-100 text-slate-400' : idx === 2 ? 'bg-orange-50 text-orange-500' : 'bg-slate-50 text-slate-300'
+                            }`}>{idx+1}</span>
+                            <span className="text-sm text-slate-700 truncate flex-1 min-w-0 font-medium">{decodeHtml(c.name)}</span>
+                            <span className="text-xs text-slate-400 flex-shrink-0 font-semibold tabular-nums">{c.approvals}×</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Visibility toggles for the insights row ── */}
+              <div className="flex items-center gap-1.5 mt-3">
+                <span className="text-[11px] font-semibold text-slate-400 mr-0.5 uppercase tracking-wider">Show:</span>
+                {(['charts', 'topCards'] as const).map(key => {
+                  const labels = { charts: 'Monthly Chart', topCards: 'Top Cards' };
+                  return (
+                    <button key={key} onClick={() => togglePanel(key)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-150 border cursor-pointer ${
+                        visiblePanels.has(key)
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                          : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                      }`}>
+                      {labels[key]}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           );
         })()}
@@ -924,7 +927,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               <Tabs.Trigger
                 key={tab}
                 value={tab}
-                className="px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-slate-800 transition-colors whitespace-nowrap capitalize -mb-px"
+                className="relative px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-700 data-[state=active]:font-semibold hover:text-slate-800 transition-colors duration-150 whitespace-nowrap capitalize -mb-px cursor-pointer"
               >
                 {tab === 'invoices'
                   ? <span className="flex items-center gap-1.5">Invoices{invoices.length > 0 && <span className="bg-indigo-100 text-indigo-700 text-xs font-semibold px-1.5 py-0.5 rounded-full">{invoices.length}</span>}</span>
@@ -938,25 +941,26 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
             {/* ── Master affiliate link ── */}
             {masterLink ? (
-              <div className="mb-6 p-5 bg-indigo-50 rounded-2xl ring-1 ring-indigo-200/60">
-                <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wider mb-3">Your Affiliate Link</p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 text-sm text-indigo-900 bg-white px-4 py-3 rounded-xl ring-1 ring-indigo-200 truncate font-mono">
+              <div className="mb-6 p-5 bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-2xl shadow-sm relative overflow-hidden">
+                <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
+                <p className="relative text-xs font-semibold text-indigo-100 uppercase tracking-wider mb-3">Your Affiliate Link</p>
+                <div className="relative flex items-center gap-2">
+                  <code className="flex-1 text-sm text-indigo-900 bg-white px-4 py-3 rounded-xl truncate font-mono shadow-sm">
                     {masterLink}
                   </code>
                   <button
                     onClick={() => copyToClipboard(masterLink, -1)}
-                    className="flex-shrink-0 p-3 bg-white ring-1 ring-indigo-200 rounded-xl hover:bg-indigo-50 transition-colors"
+                    className="flex-shrink-0 p-3 bg-white/15 ring-1 ring-white/20 rounded-xl hover:bg-white/25 active:scale-95 transition-all duration-150 cursor-pointer"
                     title="Copy link"
                   >
                     {copiedId === -1
-                      ? <CheckCircle className="w-5 h-5 text-emerald-600" />
-                      : <Copy className="w-5 h-5 text-indigo-600" />}
+                      ? <CheckCircle className="w-5 h-5 text-emerald-300" />
+                      : <Copy className="w-5 h-5 text-white" />}
                   </button>
                   <a href={masterLink} target="_blank" rel="noopener noreferrer"
-                    className="flex-shrink-0 p-3 bg-white ring-1 ring-indigo-200 rounded-xl hover:bg-indigo-50 transition-colors"
+                    className="flex-shrink-0 p-3 bg-white/15 ring-1 ring-white/20 rounded-xl hover:bg-white/25 active:scale-95 transition-all duration-150 cursor-pointer"
                     title="Open link">
-                    <ExternalLink className="w-5 h-5 text-indigo-600" />
+                    <ExternalLink className="w-5 h-5 text-white" />
                   </a>
                 </div>
               </div>
@@ -973,11 +977,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                 <input type="text" placeholder="Search cards or issuer…" value={cardsSearch}
                   onChange={e => setCardsSearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700" />
+                  className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 transition-shadow" />
               </div>
               {/* Issuer */}
               <select value={cardsIssuerFilter} onChange={e => setCardsIssuerFilter(e.target.value)}
-                className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700">
+                className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer">
                 <option value="all">All issuers</option>
                 {cardIssuers.map(issuer => <option key={issuer} value={issuer}>{issuer}</option>)}
               </select>
@@ -990,7 +994,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     { value: '200plus', label: '$200+' },
                   ]).map(({ value, label }) => (
                     <button key={value} onClick={() => setCardsPayoutFilter(value)}
-                      className={`px-2.5 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                      className={`px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
                         cardsPayoutFilter === value
                           ? 'bg-indigo-600 text-white shadow-sm'
                           : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
@@ -1001,7 +1005,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               {/* Group by issuer */}
               <div className="flex items-center gap-2 sm:ml-auto">
                 <button onClick={() => { setCardsGroupBy(g => !g); setCardsCollapsed(new Set()); }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-150 cursor-pointer ${
                     cardsGroupBy ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'text-slate-600 bg-white border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
                   }`}>
                   <Layers className="w-3.5 h-3.5" />
@@ -1012,42 +1016,42 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   const allCollapsed = allIssuers.every(i => cardsCollapsed.has(i));
                   return (
                     <button onClick={() => setCardsCollapsed(allCollapsed ? new Set() : new Set(allIssuers))}
-                      className="text-xs text-slate-500 hover:text-indigo-600 transition-colors">
+                      className="text-xs text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer">
                       {allCollapsed ? 'Expand All' : 'Collapse All'}
                     </button>
                   );
                 })()}
                 {(cardsSearch || cardsIssuerFilter !== 'all' || cardsPayoutFilter !== 'all') && (
                   <button onClick={() => { setCardsSearch(''); setCardsIssuerFilter('all'); setCardsPayoutFilter('all'); }}
-                    className="text-xs text-indigo-600 hover:underline">Clear</button>
+                    className="text-xs text-indigo-600 hover:underline cursor-pointer">Clear</button>
                 )}
               </div>
             </div>
 
             {displayCards.length === 0 ? (
               <div className="text-center py-16">
-                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-slate-100">
                   <CreditCard className="w-7 h-7 text-slate-300" />
                 </div>
-                <p className="text-sm text-slate-500">{links.length === 0 ? 'No cards loaded yet — try refreshing.' : 'No cards match the filters.'}</p>
+                <p className="text-sm text-slate-500 font-medium">{links.length === 0 ? 'No cards loaded yet — try refreshing.' : 'No cards match the filters.'}</p>
               </div>
             ) : (() => {
               const CardRow = ({ card }: { card: any }) => (
-                <tr key={card.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                <tr key={card.id} className="border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150">
                   <td className="py-3.5 px-4 font-medium text-sm text-slate-900">{card.name}</td>
                   {!cardsGroupBy && <td className="py-3.5 px-4 text-sm text-slate-500">{card.issuer || '—'}</td>}
-                  <td className="py-3.5 px-4 text-right text-sm font-semibold text-slate-900">
+                  <td className="py-3.5 px-4 text-right text-sm font-semibold text-slate-900 tabular-nums">
                     {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : <span className="text-slate-300 font-normal">—</span>}
                   </td>
-                  <td className="py-3.5 px-4 text-right text-sm text-slate-600">{card.clicks}</td>
-                  <td className="py-3.5 px-4 text-right text-sm text-slate-600">{card.conversions}</td>
+                  <td className="py-3.5 px-4 text-right text-sm text-slate-600 tabular-nums">{card.clicks}</td>
+                  <td className="py-3.5 px-4 text-right text-sm text-slate-600 tabular-nums">{card.conversions}</td>
                 </tr>
               );
               const colCount = cardsGroupBy ? 4 : 5;
               return (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
                   <table className="w-full">
-                    <thead>
+                    <thead className="bg-slate-50/80">
                       <tr className="border-b border-slate-100">
                         <SortTh label="Card"      field="name"        sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />
                         {!cardsGroupBy && <SortTh label="Issuer" field="issuer" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />}
@@ -1066,10 +1070,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                             const toggle = () => setCardsCollapsed(prev => { const next = new Set(prev); next.has(issuer) ? next.delete(issuer) : next.add(issuer); return next; });
                             return (
                               <React.Fragment key={`g-${issuer}`}>
-                                <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors select-none">
+                                <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none">
                                   <td colSpan={colCount} className="py-2.5 px-4">
                                     <div className="flex items-center gap-2">
-                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
                                       <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{issuer}</span>
                                       <span className="text-xs font-normal text-slate-400 ml-0.5">({cards.length})</span>
                                     </div>
@@ -1094,12 +1098,12 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           <Tabs.Content value="activity" className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-5 p-3.5 bg-slate-50 rounded-xl border border-slate-200">
               <p className="text-sm text-slate-600">
-                <span className="font-semibold text-slate-900">{displayTracking.length}</span>
+                <span className="font-semibold text-slate-900 tabular-nums">{displayTracking.length}</span>
                 {trackingFilter !== 'all' ? <span className="text-slate-400"> of {tracking.length}</span> : ''} activity records
               </p>
               <button
                 onClick={fetchData}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 active:scale-95 transition-all duration-150 cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 Refresh
@@ -1124,7 +1128,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <button
                   key={value}
                   onClick={() => setTrackingStatusFilter(value)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
                     trackingStatusFilter === value
                       ? 'bg-indigo-600 text-white shadow-sm'
                       : 'text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
@@ -1137,10 +1141,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
             {displayTracking.length === 0 ? (
               <div className="text-center py-16">
-                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-slate-100">
                   <TrendingUp className="w-7 h-7 text-slate-300" />
                 </div>
-                <p className="text-slate-500 text-sm mb-4">
+                <p className="text-slate-500 text-sm font-medium mb-4">
                   {tracking.length === 0
                     ? 'No tracking activity found'
                     : 'No activity matches the selected date range.'}
@@ -1148,14 +1152,14 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 {tracking.length === 0 && (
                   <button
                     onClick={fetchData}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 active:scale-95 transition-all duration-150 text-sm font-medium shadow-sm cursor-pointer"
                   >
                     Refresh Data
                   </button>
                 )}
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
                 <table className="w-full">
                   <thead className="bg-slate-50/80 border-b border-slate-100">
                     <tr>
@@ -1169,7 +1173,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   </thead>
                   <tbody>
                     {displayTracking.map((item) => (
-                      <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                      <tr key={item.id} className="border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150">
                         <td className="py-3.5 px-4 text-sm">
                           <div className="font-medium text-slate-900">{formatDate(item.clickDate)}</div>
                           <div className="text-xs text-slate-400 mt-0.5">{formatTime(item.clickTime)}</div>
@@ -1184,7 +1188,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                             {item.status}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 text-sm text-right font-semibold text-slate-900">
+                        <td className="py-3.5 px-4 text-sm text-right font-semibold text-slate-900 tabular-nums">
                           {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
                         </td>
                         <td className="py-3.5 px-4 text-sm text-slate-500">{item.deviceType || '—'}</td>
@@ -1201,15 +1205,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           <Tabs.Content value="invoices" className="p-4 sm:p-6">
             {invoices.length === 0 ? (
               <div className="text-center py-16">
-                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-slate-100">
                   <FileText className="w-7 h-7 text-slate-300" />
                 </div>
-                <p className="text-slate-500 text-sm">No invoices found for your account.</p>
+                <p className="text-slate-500 text-sm font-medium">No invoices found for your account.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
                 <table className="w-full">
-                  <thead>
+                  <thead className="bg-slate-50/80">
                     <tr className="border-b border-slate-100">
                       <th className="py-3 px-4 text-left text-slate-500 text-xs font-semibold uppercase tracking-wider"></th>
                       <th className="py-3 px-4 text-left text-slate-500 text-xs font-semibold uppercase tracking-wider">Month</th>
@@ -1229,7 +1233,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       return (
                         <React.Fragment key={inv.id}>
                           <tr
-                            className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors cursor-pointer"
+                            className="border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150 cursor-pointer"
                             onClick={() => {
                               setExpandedInvoices(prev => {
                                 const next = new Set(prev);
@@ -1239,16 +1243,16 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                             }}
                           >
                             <td className="py-3.5 pl-4 pr-1 w-8">
-                              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isExpanded ? '' : '-rotate-90'}`} />
+                              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isExpanded ? '' : '-rotate-90'}`} />
                             </td>
                             <td className="py-3.5 px-4">
                               <div className="font-medium text-sm text-slate-900">{inv.month}</div>
                               {inv.date && <div className="text-xs text-slate-400 mt-0.5">{formatDate(inv.date)}</div>}
                             </td>
-                            <td className="py-3.5 px-4 text-right font-semibold text-sm text-slate-900">
+                            <td className="py-3.5 px-4 text-right font-semibold text-sm text-slate-900 tabular-nums">
                               {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-slate-300 font-normal">—</span>}
                             </td>
-                            <td className="py-3.5 px-4 text-right text-sm text-slate-600">{approvalsCount}</td>
+                            <td className="py-3.5 px-4 text-right text-sm text-slate-600 tabular-nums">{approvalsCount}</td>
                             <td className="py-3.5 px-4">
                               {inv.status ? (
                                 <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
