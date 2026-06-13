@@ -1535,7 +1535,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
             </div>
 
             {/* Affiliates Table */}
-            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm">
               <p className="text-xs text-slate-400 px-5 pt-4">
                 Showing {Math.min(affiliatesVisible, displayUsers.length)} of {displayUsers.length} affiliates
               </p>
@@ -1611,7 +1611,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
           {/* ── Tracking Activity Tab ── */}
           <Tabs.Content value="tracking">
-            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm">
               <div className="sticky top-16 z-10 bg-white p-4 border-b border-slate-100 space-y-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
@@ -1872,7 +1872,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
           {/* ── CPA Rates Tab ── */}
           <Tabs.Content value="cpa-rates">
-            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm">
               {/* Toolbar */}
               <div className="sticky top-16 z-10 bg-white p-5 border-b border-slate-100 space-y-3">
                 {/* Row 1: Search + Affiliate + Refresh */}
@@ -2145,7 +2145,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           </Tabs.Content>
           {/* ── Invoices Tab ── */}
           <Tabs.Content value="invoices">
-            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm">
               {/* Toolbar */}
               <div className="sticky top-16 z-10 bg-white p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-3">
