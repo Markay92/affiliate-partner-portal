@@ -309,6 +309,8 @@ function SortTh({
   );
 }
 
+const PAGE_SIZE = 25;
+
 // ── Dashboard component ───────────────────────────────────────────────────────
 
 export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) {
@@ -349,6 +351,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [cardsSearch,       setCardsSearch]       = useState('');
   const [cardsGroupBy,      setCardsGroupBy]      = useState(false);
   const [cardsCollapsed,    setCardsCollapsed]    = useState<Set<string>>(new Set());
+
+  // Pagination
+  const [cardsVisible,    setCardsVisible]    = useState(PAGE_SIZE);
+  const [activityVisible, setActivityVisible] = useState(PAGE_SIZE);
+  const [invoicesVisible, setInvoicesVisible] = useState(PAGE_SIZE);
 
   // Stats grid comparison period
   type StatPeriod = 'today' | 'week' | 'month' | 'lm' | 'year' | 'custom';
@@ -937,7 +944,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           </Tabs.List>
 
           {/* ── Cards Tab ── */}
-          <Tabs.Content value="cards" className="p-4 sm:p-6">
+          <Tabs.Content value="cards">
+          <div className="p-4 sm:p-6 pb-0">
 
             {/* ── Master affiliate link ── */}
             {masterLink ? (
@@ -969,18 +977,20 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 No affiliate link configured yet — contact your manager to set up your link.
               </div>
             )}
+          </div>
 
-            {/* ── CPA Reference Table ── */}
-            <div className="flex flex-wrap items-center gap-2 mb-4">
+            {/* ── Sticky filter toolbar ── */}
+            <div className="sticky top-16 z-10 bg-white border-b border-slate-100 px-4 sm:px-6 py-3">
+            <div className="flex flex-wrap items-center gap-2">
               {/* Search */}
               <div className="relative flex-1 min-w-[180px]">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                 <input type="text" placeholder="Search cards or issuer…" value={cardsSearch}
-                  onChange={e => setCardsSearch(e.target.value)}
+                  onChange={e => { setCardsSearch(e.target.value); setCardsVisible(PAGE_SIZE); }}
                   className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 transition-shadow" />
               </div>
               {/* Issuer */}
-              <select value={cardsIssuerFilter} onChange={e => setCardsIssuerFilter(e.target.value)}
+              <select value={cardsIssuerFilter} onChange={e => { setCardsIssuerFilter(e.target.value); setCardsVisible(PAGE_SIZE); }}
                 className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer">
                 <option value="all">All issuers</option>
                 {cardIssuers.map(issuer => <option key={issuer} value={issuer}>{issuer}</option>)}
@@ -993,7 +1003,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     { value: 'lt50', label: '<$50' }, { value: '50-200', label: '$50–$200' },
                     { value: '200plus', label: '$200+' },
                   ]).map(({ value, label }) => (
-                    <button key={value} onClick={() => setCardsPayoutFilter(value)}
+                    <button key={value} onClick={() => { setCardsPayoutFilter(value); setCardsVisible(PAGE_SIZE); }}
                       className={`px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
                         cardsPayoutFilter === value
                           ? 'bg-indigo-600 text-white shadow-sm'
@@ -1022,12 +1032,14 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   );
                 })()}
                 {(cardsSearch || cardsIssuerFilter !== 'all' || cardsPayoutFilter !== 'all') && (
-                  <button onClick={() => { setCardsSearch(''); setCardsIssuerFilter('all'); setCardsPayoutFilter('all'); }}
+                  <button onClick={() => { setCardsSearch(''); setCardsIssuerFilter('all'); setCardsPayoutFilter('all'); setCardsVisible(PAGE_SIZE); }}
                     className="text-xs text-indigo-600 hover:underline cursor-pointer">Clear</button>
                 )}
               </div>
             </div>
+            </div>
 
+          <div className="p-4 sm:p-6 pt-3">
             {displayCards.length === 0 ? (
               <div className="text-center py-16">
                 <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-slate-100">
@@ -1048,55 +1060,75 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 </tr>
               );
               const colCount = cardsGroupBy ? 4 : 5;
+              const pagedCards = displayCards.slice(0, cardsVisible);
               return (
-                <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
-                  <table className="w-full">
-                    <thead className="bg-slate-50/80">
-                      <tr className="border-b border-slate-100">
-                        <SortTh label="Card"      field="name"        sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />
-                        {!cardsGroupBy && <SortTh label="Issuer" field="issuer" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />}
-                        <SortTh label="Your CPA"  field="cpa"         sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
-                        <SortTh label="Clicks"    field="clicks"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
-                        <SortTh label="Approvals" field="conversions" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cardsGroupBy ? (
-                        (() => {
-                          const groups: Record<string, any[]> = {};
-                          displayCards.forEach(c => { const k = c.issuer || 'Other'; if (!groups[k]) groups[k] = []; groups[k].push(c); });
-                          return Object.entries(groups).sort(([a],[b]) => a.localeCompare(b)).map(([issuer, cards]) => {
-                            const isCollapsed = cardsCollapsed.has(issuer);
-                            const toggle = () => setCardsCollapsed(prev => { const next = new Set(prev); next.has(issuer) ? next.delete(issuer) : next.add(issuer); return next; });
-                            return (
-                              <React.Fragment key={`g-${issuer}`}>
-                                <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none">
-                                  <td colSpan={colCount} className="py-2.5 px-4">
-                                    <div className="flex items-center gap-2">
-                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                      <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{issuer}</span>
-                                      <span className="text-xs font-normal text-slate-400 ml-0.5">({cards.length})</span>
-                                    </div>
-                                  </td>
-                                </tr>
-                                {!isCollapsed && cards.map(card => <CardRow key={card.id} card={card} />)}
-                              </React.Fragment>
-                            );
-                          });
-                        })()
-                      ) : (
-                        displayCards.map(card => <CardRow key={card.id} card={card} />)
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                <>
+                  <p className="text-xs text-slate-400 mb-3">
+                    Showing {pagedCards.length} of {displayCards.length} cards
+                  </p>
+                  <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
+                    <table className="w-full">
+                      <thead className="bg-slate-50/80">
+                        <tr className="border-b border-slate-100">
+                          <SortTh label="Card"      field="name"        sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />
+                          {!cardsGroupBy && <SortTh label="Issuer" field="issuer" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />}
+                          <SortTh label="Your CPA"  field="cpa"         sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
+                          <SortTh label="Clicks"    field="clicks"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
+                          <SortTh label="Approvals" field="conversions" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cardsGroupBy ? (
+                          (() => {
+                            const groups: Record<string, any[]> = {};
+                            pagedCards.forEach(c => { const k = c.issuer || 'Other'; if (!groups[k]) groups[k] = []; groups[k].push(c); });
+                            return Object.entries(groups).sort(([a],[b]) => a.localeCompare(b)).map(([issuer, cards]) => {
+                              const isCollapsed = cardsCollapsed.has(issuer);
+                              const toggle = () => setCardsCollapsed(prev => { const next = new Set(prev); next.has(issuer) ? next.delete(issuer) : next.add(issuer); return next; });
+                              return (
+                                <React.Fragment key={`g-${issuer}`}>
+                                  <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none">
+                                    <td colSpan={colCount} className="py-2.5 px-4">
+                                      <div className="flex items-center gap-2">
+                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+                                        <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{issuer}</span>
+                                        <span className="text-xs font-normal text-slate-400 ml-0.5">({cards.length})</span>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                  {!isCollapsed && cards.map(card => <CardRow key={card.id} card={card} />)}
+                                </React.Fragment>
+                              );
+                            });
+                          })()
+                        ) : (
+                          pagedCards.map(card => <CardRow key={card.id} card={card} />)
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  {cardsVisible < displayCards.length && (
+                    <div className="pt-4 text-center">
+                      <button
+                        onClick={() => setCardsVisible(n => n + PAGE_SIZE)}
+                        className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                      >
+                        Show {Math.min(PAGE_SIZE, displayCards.length - cardsVisible)} more
+                        <span className="text-slate-400 ml-1">({displayCards.length - cardsVisible} remaining)</span>
+                      </button>
+                    </div>
+                  )}
+                </>
               );
             })()}
+          </div>
           </Tabs.Content>
 
           {/* ── Activity Tab ── */}
-          <Tabs.Content value="activity" className="p-4 sm:p-6">
-            <div className="flex items-center justify-between mb-5 p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+          <Tabs.Content value="activity">
+            {/* Sticky controls */}
+            <div className="sticky top-16 z-10 bg-white border-b border-slate-100 px-4 sm:px-6 py-3">
+            <div className="flex items-center justify-between mb-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200">
               <p className="text-sm text-slate-600">
                 <span className="font-semibold text-slate-900 tabular-nums">{displayTracking.length}</span>
                 {trackingFilter !== 'all' ? <span className="text-slate-400"> of {tracking.length}</span> : ''} activity records
@@ -1112,12 +1144,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
             <div className="flex flex-wrap items-center gap-3 mb-3">
               <FilterBar
-                filter={trackingFilter}     setFilter={setTrackingFilter}
-                customFrom={trackingCustomFrom} setCustomFrom={setTrackingCustomFrom}
-                customTo={trackingCustomTo}     setCustomTo={setTrackingCustomTo}
+                filter={trackingFilter}
+                setFilter={v => { setTrackingFilter(v); setActivityVisible(PAGE_SIZE); }}
+                customFrom={trackingCustomFrom}
+                setCustomFrom={v => { setTrackingCustomFrom(v); setActivityVisible(PAGE_SIZE); }}
+                customTo={trackingCustomTo}
+                setCustomTo={v => { setTrackingCustomTo(v); setActivityVisible(PAGE_SIZE); }}
               />
             </div>
-            <div className="flex flex-wrap items-center gap-2 mb-5">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-medium text-slate-400 mr-1">Status:</span>
               {[
                 { value: 'all',         label: 'All' },
@@ -1127,7 +1162,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               ].map(({ value, label }) => (
                 <button
                   key={value}
-                  onClick={() => setTrackingStatusFilter(value)}
+                  onClick={() => { setTrackingStatusFilter(value); setActivityVisible(PAGE_SIZE); }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
                     trackingStatusFilter === value
                       ? 'bg-indigo-600 text-white shadow-sm'
@@ -1138,7 +1173,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 </button>
               ))}
             </div>
+            </div>
 
+          <div className="p-4 sm:p-6 pt-3">
             {displayTracking.length === 0 ? (
               <div className="text-center py-16">
                 <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-slate-100">
@@ -1159,46 +1196,63 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 )}
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
-                <table className="w-full">
-                  <thead className="bg-slate-50/80 border-b border-slate-100">
-                    <tr>
-                      <SortTh label="Date / Time"  field="clickDate"     sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
-                      <SortTh label="Card"         field="cardName"      sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
-                      <SortTh label="Status"       field="status"        sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
-                      <SortTh label="Earnings"     field="totalEarnings" sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} align="right" />
-                      <SortTh label="Device"       field="deviceType"    sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
-                      <SortTh label="Location"     field="state"         sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {displayTracking.map((item) => (
-                      <tr key={item.id} className="border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150">
-                        <td className="py-3.5 px-4 text-sm">
-                          <div className="font-medium text-slate-900">{formatDate(item.clickDate)}</div>
-                          <div className="text-xs text-slate-400 mt-0.5">{formatTime(item.clickTime)}</div>
-                        </td>
-                        <td className="py-3.5 px-4 text-sm text-slate-700">{item.cardName}</td>
-                        <td className="py-3.5 px-4">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                            item.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
-                            item.status === 'application' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70' :
-                            'bg-slate-100 text-slate-600'
-                          }`}>
-                            {item.status}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-sm text-right font-semibold text-slate-900 tabular-nums">
-                          {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
-                        </td>
-                        <td className="py-3.5 px-4 text-sm text-slate-500">{item.deviceType || '—'}</td>
-                        <td className="py-3.5 px-4 text-sm text-slate-500">{item.state || '—'}</td>
+              <>
+                <p className="text-xs text-slate-400 mb-3">
+                  Showing {Math.min(activityVisible, displayTracking.length)} of {displayTracking.length} records
+                </p>
+                <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
+                  <table className="w-full">
+                    <thead className="bg-slate-50/80 border-b border-slate-100">
+                      <tr>
+                        <SortTh label="Date / Time"  field="clickDate"     sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
+                        <SortTh label="Card"         field="cardName"      sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
+                        <SortTh label="Status"       field="status"        sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
+                        <SortTh label="Earnings"     field="totalEarnings" sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} align="right" />
+                        <SortTh label="Device"       field="deviceType"    sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
+                        <SortTh label="Location"     field="state"         sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {displayTracking.slice(0, activityVisible).map((item) => (
+                        <tr key={item.id} className="border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150">
+                          <td className="py-3.5 px-4 text-sm">
+                            <div className="font-medium text-slate-900">{formatDate(item.clickDate)}</div>
+                            <div className="text-xs text-slate-400 mt-0.5">{formatTime(item.clickTime)}</div>
+                          </td>
+                          <td className="py-3.5 px-4 text-sm text-slate-700">{item.cardName}</td>
+                          <td className="py-3.5 px-4">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                              item.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
+                              item.status === 'application' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70' :
+                              'bg-slate-100 text-slate-600'
+                            }`}>
+                              {item.status}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-sm text-right font-semibold text-slate-900 tabular-nums">
+                            {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
+                          </td>
+                          <td className="py-3.5 px-4 text-sm text-slate-500">{item.deviceType || '—'}</td>
+                          <td className="py-3.5 px-4 text-sm text-slate-500">{item.state || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {activityVisible < displayTracking.length && (
+                  <div className="pt-4 text-center">
+                    <button
+                      onClick={() => setActivityVisible(n => n + PAGE_SIZE)}
+                      className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                    >
+                      Show {Math.min(PAGE_SIZE, displayTracking.length - activityVisible)} more
+                      <span className="text-slate-400 ml-1">({displayTracking.length - activityVisible} remaining)</span>
+                    </button>
+                  </div>
+                )}
+              </>
             )}
+          </div>
           </Tabs.Content>
 
           {/* ── Invoices Tab ── */}
@@ -1211,6 +1265,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <p className="text-slate-500 text-sm font-medium">No invoices found for your account.</p>
               </div>
             ) : (
+              <>
+              <p className="text-xs text-slate-400 mb-3">
+                Showing {Math.min(invoicesVisible, invoices.length)} of {invoices.length} invoices
+              </p>
               <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
                 <table className="w-full">
                   <thead className="bg-slate-50/80">
@@ -1224,7 +1282,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </tr>
                   </thead>
                   <tbody>
-                    {invoices.map(inv => {
+                    {invoices.slice(0, invoicesVisible).map(inv => {
                       const isExpanded = expandedInvoices.has(inv.id);
                       const allItems = getInvoiceItems(inv);
                       const approvedItems = allItems.filter(i => i.status === 'approval');
@@ -1321,6 +1379,18 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   </tbody>
                 </table>
               </div>
+              {invoicesVisible < invoices.length && (
+                <div className="pt-4 text-center">
+                  <button
+                    onClick={() => setInvoicesVisible(n => n + PAGE_SIZE)}
+                    className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                  >
+                    Show {Math.min(PAGE_SIZE, invoices.length - invoicesVisible)} more
+                    <span className="text-slate-400 ml-1">({invoices.length - invoicesVisible} remaining)</span>
+                  </button>
+                </div>
+              )}
+              </>
             )}
           </Tabs.Content>
 

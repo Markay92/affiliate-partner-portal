@@ -43,6 +43,7 @@ type SortState  = { field: string; dir: 'asc' | 'desc' };
 // Records default to showing only the current year — older years are hidden
 // behind a "Load more" toggle to keep long-running tables manageable.
 const CURRENT_YEAR = new Date().getFullYear();
+const PAGE_SIZE = 25;
 function yearOf(dateStr: string | undefined): number | null {
   if (!dateStr) return null;
   const d = parseLocalDate(dateStr);
@@ -396,6 +397,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [affiliateSearch,      setAffiliateSearch]      = useState('');
   const [affiliateGroupBy,     setAffiliateGroupBy]     = useState(false);
   const [affiliateCollapsed,   setAffiliateCollapsed]   = useState<Set<string>>(new Set());
+
+  // ── Pagination (load-more) ──────────────────────────────────────────────────
+  const [affiliatesVisible, setAffiliatesVisible] = useState(PAGE_SIZE);
+  const [cpaVisible,        setCpaVisible]        = useState(PAGE_SIZE);
+  const [invoicesVisible,   setInvoicesVisible]   = useState(PAGE_SIZE);
 
   // ── Year-limited views: default to current year, "Load more" reveals older ──
   const [trackingShowAllYears, setTrackingShowAllYears] = useState(false);
@@ -1256,7 +1262,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           <Tabs.Content value="affiliates">
 
             {/* Toolbar: Search + Date filter + Group + Create */}
-            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 mb-4 space-y-3">
+            <div className="sticky top-16 z-10 bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 mb-4 space-y-3">
               <div className="flex flex-wrap items-center gap-3">
                 {/* Search */}
                 <div className="relative flex-1 min-w-[200px]">
@@ -1265,7 +1271,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     type="text"
                     placeholder="Search by name or email…"
                     value={affiliateSearch}
-                    onChange={e => setAffiliateSearch(e.target.value)}
+                    onChange={e => { setAffiliateSearch(e.target.value); setAffiliatesVisible(PAGE_SIZE); }}
                     className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
                   />
                 </div>
@@ -1273,7 +1279,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 <div className="flex items-center gap-2 ml-auto">
                   {/* Group by Commission Rate toggle */}
                   <button
-                    onClick={() => { setAffiliateGroupBy(g => !g); setAffiliateCollapsed(new Set()); }}
+                    onClick={() => { setAffiliateGroupBy(g => !g); setAffiliateCollapsed(new Set()); setAffiliatesVisible(PAGE_SIZE); }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
                       affiliateGroupBy
                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
@@ -1308,14 +1314,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               {/* Date filter row */}
               <div className="flex flex-wrap items-center gap-3">
                 <FilterBar
-                  filter={affiliatesFilter}     setFilter={setAffiliatesFilter}
-                  customFrom={affiliatesCustomFrom} setCustomFrom={setAffiliatesCustomFrom}
-                  customTo={affiliatesCustomTo}     setCustomTo={setAffiliatesCustomTo}
+                  filter={affiliatesFilter}     setFilter={v => { setAffiliatesFilter(v); setAffiliatesVisible(PAGE_SIZE); }}
+                  customFrom={affiliatesCustomFrom} setCustomFrom={v => { setAffiliatesCustomFrom(v); setAffiliatesVisible(PAGE_SIZE); }}
+                  customTo={affiliatesCustomTo}     setCustomTo={v => { setAffiliatesCustomTo(v); setAffiliatesVisible(PAGE_SIZE); }}
                 />
                 {(affiliateSearch || affiliatesFilter !== 'all') && (
                   <span className="text-xs text-slate-500 ml-1">
                     {displayUsers.length} of {users.length} members
-                    {affiliateSearch && <button onClick={() => setAffiliateSearch('')} className="text-indigo-600 hover:underline ml-2">Clear search</button>}
+                    {affiliateSearch && <button onClick={() => { setAffiliateSearch(''); setAffiliatesVisible(PAGE_SIZE); }} className="text-indigo-600 hover:underline ml-2">Clear search</button>}
                   </span>
                 )}
               </div>
@@ -1323,6 +1329,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
             {/* Affiliates Table */}
             <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
+              <p className="text-xs text-slate-400 px-5 pt-4">
+                Showing {Math.min(affiliatesVisible, displayUsers.length)} of {displayUsers.length} affiliates
+              </p>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-slate-50/80 border-b border-slate-100">
@@ -1339,11 +1348,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </tr>
                   </thead>
                   <tbody>
-                    {affiliateGroupBy ? (
-                      // Grouped by commission rate
-                      (() => {
+                    {(() => {
+                      const pagedUsers = displayUsers.slice(0, affiliatesVisible);
+                      if (affiliateGroupBy) {
+                        // Grouped by commission rate
                         const groups: Record<string, any[]> = {};
-                        displayUsers.forEach((u: any) => {
+                        pagedUsers.forEach((u: any) => {
                           const key = `${u.commissionRate || 50}%`;
                           if (!groups[key]) groups[key] = [];
                           groups[key].push(u);
@@ -1372,13 +1382,23 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             </React.Fragment>
                           );
                         });
-                      })()
-                    ) : (
-                      displayUsers.map((user: any) => renderUserRow(user))
-                    )}
+                      }
+                      return pagedUsers.map((user: any) => renderUserRow(user));
+                    })()}
                   </tbody>
                 </table>
               </div>
+              {affiliatesVisible < displayUsers.length && (
+                <div className="py-4 text-center">
+                  <button
+                    onClick={() => setAffiliatesVisible(n => n + PAGE_SIZE)}
+                    className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                  >
+                    Show {Math.min(PAGE_SIZE, displayUsers.length - affiliatesVisible)} more
+                    <span className="text-slate-400 ml-1">({displayUsers.length - affiliatesVisible} remaining)</span>
+                  </button>
+                </div>
+              )}
             </div>
           </Tabs.Content>
 
@@ -1623,7 +1643,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           <Tabs.Content value="cpa-rates">
             <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
               {/* Toolbar */}
-              <div className="p-5 border-b border-slate-100 space-y-3">
+              <div className="sticky top-16 z-10 bg-white p-5 border-b border-slate-100 space-y-3">
                 {/* Row 1: Search + Affiliate + Refresh */}
                 <div className="flex flex-wrap items-center gap-3">
                   {/* Search */}
@@ -1633,7 +1653,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       type="text"
                       placeholder="Search cards…"
                       value={cpaSearch}
-                      onChange={e => setCpaSearch(e.target.value)}
+                      onChange={e => { setCpaSearch(e.target.value); setCpaVisible(PAGE_SIZE); }}
                       className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
                     />
                   </div>
@@ -1646,6 +1666,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       onChange={(e) => {
                         const val = e.target.value;
                         setCpaAffiliateFilter(val);
+                        setCpaVisible(PAGE_SIZE);
                         fetchCpaRates(val);
                       }}
                       className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
@@ -1687,7 +1708,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       );
                     })()}
                     <button
-                      onClick={() => fetchCpaRates(cpaAffiliateFilter)}
+                      onClick={() => { setCpaVisible(PAGE_SIZE); fetchCpaRates(cpaAffiliateFilter); }}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
@@ -1704,7 +1725,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <span className="text-xs font-medium text-slate-400">Issuer:</span>
                       <select
                         value={cpaIssuerFilter}
-                        onChange={e => setCpaIssuerFilter(e.target.value)}
+                        onChange={e => { setCpaIssuerFilter(e.target.value); setCpaVisible(PAGE_SIZE); }}
                         className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
                       >
                         <option value="all">All issuers</option>
@@ -1725,7 +1746,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       ]).map(({ value, label }) => (
                         <button
                           key={value}
-                          onClick={() => setCpaCpaRange(value)}
+                          onClick={() => { setCpaCpaRange(value); setCpaVisible(PAGE_SIZE); }}
                           className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
                             cpaCpaRange === value
                               ? 'bg-indigo-600 text-white shadow-sm'
@@ -1740,7 +1761,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     {/* Active filter summary */}
                     {(cpaSearch || cpaIssuerFilter !== 'all' || cpaCpaRange !== 'all') && (
                       <button
-                        onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); }}
+                        onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(PAGE_SIZE); }}
                         className="text-xs text-indigo-600 hover:underline ml-1"
                       >
                         Clear filters
@@ -1802,15 +1823,18 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 if (filtered.length === 0) return (
                   <div className="text-center py-16">
                     <p className="text-slate-500 text-sm">No cards match the filters.</p>
-                    <button onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); }} className="text-xs text-indigo-600 hover:underline mt-2">Clear filters</button>
+                    <button onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(PAGE_SIZE); }} className="text-xs text-indigo-600 hover:underline mt-2">Clear filters</button>
                   </div>
                 );
+
+                const pagedFiltered = filtered.slice(0, cpaVisible);
 
                 return (
                   <div className="overflow-x-auto">
                     <div className="flex items-center justify-between px-5 py-2 flex-wrap gap-2">
                       <p className="text-xs text-slate-400">
-                        {filtered.length}{filtered.length !== cpaRates.length ? ` of ${cpaRates.length}` : ''} cards
+                        Showing {pagedFiltered.length} of {filtered.length} cards
+                        {filtered.length !== cpaRates.length ? ` (${cpaRates.length} total)` : ''}
                         {cpaAffiliateLabel ? ` · ${cpaAffiliateLabel}` : ''}
                       </p>
                       <LoadMoreYears showAll={cpaShowAllYears} setShowAll={setCpaShowAllYears} hiddenCount={cpaHiddenOlderCount} />
@@ -1832,7 +1856,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                           // Grouped by issuer with collapse/expand
                           (() => {
                             const groups: Record<string, any[]> = {};
-                            filtered.forEach(r => {
+                            pagedFiltered.forEach(r => {
                               const key = r.issuer || 'Other';
                               if (!groups[key]) groups[key] = [];
                               groups[key].push(r);
@@ -1865,10 +1889,21 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             });
                           })()
                         ) : (
-                          filtered.map(r => <CpaRow key={r.id} rate={r} />)
+                          pagedFiltered.map(r => <CpaRow key={r.id} rate={r} />)
                         )}
                       </tbody>
                     </table>
+                    {cpaVisible < filtered.length && (
+                      <div className="py-4 text-center">
+                        <button
+                          onClick={() => setCpaVisible(n => n + PAGE_SIZE)}
+                          className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                        >
+                          Show {Math.min(PAGE_SIZE, filtered.length - cpaVisible)} more
+                          <span className="text-slate-400 ml-1">({filtered.length - cpaVisible} remaining)</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -1878,14 +1913,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           <Tabs.Content value="invoices">
             <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
               {/* Toolbar */}
-              <div className="p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+              <div className="sticky top-16 z-10 bg-white p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-3">
                   {/* Affiliate filter */}
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-slate-500">Affiliate:</span>
                     <select
                       value={invoiceAffiliateFilter}
-                      onChange={e => setInvoiceAffiliateFilter(e.target.value)}
+                      onChange={e => { setInvoiceAffiliateFilter(e.target.value); setInvoicesVisible(PAGE_SIZE); }}
                       className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
                     >
                       <option value="all">All affiliates</option>
@@ -1899,7 +1934,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     <span className="text-xs font-medium text-slate-500">Month:</span>
                     <select
                       value={invoiceMonthFilter}
-                      onChange={e => setInvoiceMonthFilter(e.target.value)}
+                      onChange={e => { setInvoiceMonthFilter(e.target.value); setInvoicesVisible(PAGE_SIZE); }}
                       className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
                     >
                       <option value="all">All months</option>
@@ -1914,7 +1949,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <span className="text-xs font-medium text-slate-500">Status:</span>
                       <select
                         value={invoiceStatusFilter}
-                        onChange={e => setInvoiceStatusFilter(e.target.value)}
+                        onChange={e => { setInvoiceStatusFilter(e.target.value); setInvoicesVisible(PAGE_SIZE); }}
                         className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700"
                       >
                         <option value="all">All statuses</option>
@@ -1935,7 +1970,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     ] as { value: 'none'|'month'|'affiliate'; label: string }[]).map(({ value, label }) => (
                       <button
                         key={value}
-                        onClick={() => { setInvoiceGroupBy(value); setInvoiceCollapsed(new Set()); }}
+                        onClick={() => { setInvoiceGroupBy(value); setInvoiceCollapsed(new Set()); setInvoicesVisible(PAGE_SIZE); }}
                         className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all ${
                           invoiceGroupBy === value
                             ? 'bg-indigo-600 text-white shadow-sm'
@@ -1968,7 +2003,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     );
                   })()}
                   <button
-                    onClick={fetchInvoices}
+                    onClick={() => { setInvoicesVisible(PAGE_SIZE); fetchInvoices(); }}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${invoicesLoading ? 'animate-spin' : ''}`} />
@@ -2009,10 +2044,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     )}
                   </div>
                 );
+                const pagedFiltered = filtered.slice(0, invoicesVisible);
                 return (
                   <div className="overflow-x-auto">
                     <div className="flex items-center justify-between px-5 py-2 flex-wrap gap-2">
-                      <p className="text-xs text-slate-400">{filtered.length}{invoices.length !== filtered.length ? ` of ${invoices.length}` : ''} invoices</p>
+                      <p className="text-xs text-slate-400">
+                        Showing {pagedFiltered.length} of {filtered.length} invoices
+                        {invoices.length !== filtered.length ? ` (${invoices.length} total)` : ''}
+                      </p>
                       <LoadMoreYears showAll={invoiceShowAllYears} setShowAll={setInvoiceShowAllYears} hiddenCount={invoiceHiddenOlderCount} />
                     </div>
                     <table className="w-full">
@@ -2132,7 +2171,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             );
                           };
 
-                          if (invoiceGroupBy === 'none') return filtered.map((inv: any) => <InvRow key={inv.id} inv={inv} />);
+                          if (invoiceGroupBy === 'none') return pagedFiltered.map((inv: any) => <InvRow key={inv.id} inv={inv} />);
 
                           // Build groups
                           const getKey = (inv: any) => invoiceGroupBy === 'month'
@@ -2144,7 +2183,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                           const getSub = (key: string) => invoiceGroupBy === 'affiliate' ? key : undefined;
 
                           const groups: Record<string, any[]> = {};
-                          filtered.forEach((inv: any) => {
+                          pagedFiltered.forEach((inv: any) => {
                             const k = getKey(inv);
                             if (!groups[k]) groups[k] = [];
                             groups[k].push(inv);
@@ -2193,6 +2232,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         })()}
                       </tbody>
                     </table>
+                    {invoicesVisible < filtered.length && (
+                      <div className="py-4 text-center">
+                        <button
+                          onClick={() => setInvoicesVisible(n => n + PAGE_SIZE)}
+                          className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                        >
+                          Show {Math.min(PAGE_SIZE, filtered.length - invoicesVisible)} more
+                          <span className="text-slate-400 ml-1">({filtered.length - invoicesVisible} remaining)</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
