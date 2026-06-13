@@ -336,7 +336,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [error, setError]           = useState('');
 
   // Activity tab (Airtable API Output)
-  const [trackingFilter,       setTrackingFilter]       = useState<DateFilter>('all');
+  const [trackingFilter,       setTrackingFilter]       = useState<DateFilter>('week');
   const [trackingCustomFrom,   setTrackingCustomFrom]   = useState('');
   const [trackingCustomTo,     setTrackingCustomTo]     = useState('');
   const [trackingSort,         setTrackingSort]         = useState<SortState>({ field: 'clickDate', dir: 'desc' });
