@@ -51,31 +51,36 @@ function yearOf(dateStr: string | undefined): number | null {
   return isNaN(d.getTime()) ? null : d.getFullYear();
 }
 
-/** Small "Showing {year} only" notice + Load more toggle for year-limited tables. */
+/** Bottom pagination-style button to reveal/hide records from prior years. */
 function LoadMoreYears({
   showAll, setShowAll, hiddenCount,
 }: { showAll: boolean; setShowAll: (v: boolean) => void; hiddenCount: number }) {
   if (hiddenCount === 0 && !showAll) return null;
+  return !showAll ? (
+    <button
+      onClick={() => setShowAll(true)}
+      className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
+    >
+      Load {hiddenCount} older record{hiddenCount === 1 ? '' : 's'}
+      <span className="text-slate-400 ml-1">(prior years)</span>
+    </button>
+  ) : (
+    <button
+      onClick={() => setShowAll(false)}
+      className="px-4 py-2 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors duration-150 cursor-pointer"
+    >
+      Show {CURRENT_YEAR} only
+    </button>
+  );
+}
+
+/** Small pill marking a count as scoped to the current year by default (vs. an all-time/period figure). */
+function CurrentYearBadge({ active }: { active: boolean }) {
+  if (!active) return null;
   return (
-    <div className="flex items-center gap-2 text-xs text-slate-400">
-      {!showAll ? (
-        <>
-          <span>Showing {CURRENT_YEAR} only{hiddenCount > 0 ? ` · ${hiddenCount} older record${hiddenCount === 1 ? '' : 's'} hidden` : ''}</span>
-          {hiddenCount > 0 && (
-            <button onClick={() => setShowAll(true)} className="text-indigo-600 hover:underline font-medium cursor-pointer">
-              Load more
-            </button>
-          )}
-        </>
-      ) : (
-        <>
-          <span>Showing all years</span>
-          <button onClick={() => setShowAll(false)} className="text-indigo-600 hover:underline font-medium cursor-pointer">
-            Show {CURRENT_YEAR} only
-          </button>
-        </>
-      )}
-    </div>
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 ring-1 ring-amber-200/70 ml-2">
+      {CURRENT_YEAR} only
+    </span>
   );
 }
 
@@ -384,6 +389,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     lm:     'Last month vs month before',
     year:   'This year vs last year',
     custom: 'Custom range',
+  };
+  const STAT_PERIOD_SHORT: Record<StatPeriod, string> = {
+    today: 'Today', week: 'This Week', month: 'This Month', lm: 'Last Month', year: 'This Year', custom: 'Custom Range',
   };
 
   // Summary panel visibility — persisted in localStorage
@@ -1251,7 +1259,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               {/* ── Period header ── */}
               <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div>
-                  <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">Performance Overview</h2>
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                    Performance Overview
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200/70 ml-2 align-middle tracking-normal">
+                      {STAT_PERIOD_SHORT[statPeriod]}
+                    </span>
+                  </h2>
                   <p className="text-xs sm:text-sm text-slate-500">
                     {STAT_PERIOD_LABELS[statPeriod]}
                     <span className="text-slate-300 mx-1.5">•</span>
@@ -1599,7 +1612,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           {/* ── Tracking Activity Tab ── */}
           <Tabs.Content value="tracking">
             <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm overflow-hidden">
-              <div className="sticky top-16 z-10 bg-white p-5 border-b border-slate-100 space-y-3">
+              <div className="sticky top-16 z-10 bg-white p-4 border-b border-slate-100 space-y-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="text-base font-semibold text-slate-900">All Tracking Activity</h2>
@@ -1607,10 +1620,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       {displayTrackingActivity.length}
                       {(mgTrackingFilter !== 'all' || mgTrackingStatusFilter !== 'all' || mgTrackingAffiliateFilter !== 'all')
                         ? ` of ${trackingActivity.length}` : ''} records
+                      <CurrentYearBadge active={!trackingShowAllYears} />
                     </p>
-                    <div className="mt-1">
-                      <LoadMoreYears showAll={trackingShowAllYears} setShowAll={setTrackingShowAllYears} hiddenCount={trackingHiddenOlderCount} />
-                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {/* Group by segmented control */}
@@ -1838,15 +1849,18 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         </tbody>
                       </table>
                     </div>
-                    {trackingVisible < displayTrackingActivity.length && (
-                      <div className="pt-4 text-center">
-                        <button
-                          onClick={() => setTrackingVisible(n => n + PAGE_SIZE)}
-                          className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
-                        >
-                          Show {Math.min(PAGE_SIZE, displayTrackingActivity.length - trackingVisible)} more
-                          <span className="text-slate-400 ml-1">({displayTrackingActivity.length - trackingVisible} remaining)</span>
-                        </button>
+                    {(trackingVisible < displayTrackingActivity.length || trackingHiddenOlderCount > 0 || trackingShowAllYears) && (
+                      <div className="pt-4 flex flex-wrap items-center justify-center gap-2">
+                        {trackingVisible < displayTrackingActivity.length && (
+                          <button
+                            onClick={() => setTrackingVisible(n => n + PAGE_SIZE)}
+                            className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
+                          >
+                            Show {Math.min(PAGE_SIZE, displayTrackingActivity.length - trackingVisible)} more
+                            <span className="text-slate-400 ml-1">({displayTrackingActivity.length - trackingVisible} remaining)</span>
+                          </button>
+                        )}
+                        <LoadMoreYears showAll={trackingShowAllYears} setShowAll={v => { setTrackingShowAllYears(v); setTrackingVisible(PAGE_SIZE); }} hiddenCount={trackingHiddenOlderCount} />
                       </div>
                     )}
                   </>
@@ -2053,8 +2067,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         Showing {pagedFiltered.length} of {filtered.length} cards
                         {filtered.length !== cpaRates.length ? ` (${cpaRates.length} total)` : ''}
                         {cpaAffiliateLabel ? ` · ${cpaAffiliateLabel}` : ''}
+                        <CurrentYearBadge active={!cpaShowAllYears} />
                       </p>
-                      <LoadMoreYears showAll={cpaShowAllYears} setShowAll={setCpaShowAllYears} hiddenCount={cpaHiddenOlderCount} />
                     </div>
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50/80 border-b border-slate-100">
@@ -2110,15 +2124,18 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         )}
                       </tbody>
                     </table>
-                    {cpaVisible < filtered.length && (
-                      <div className="py-4 text-center">
-                        <button
-                          onClick={() => setCpaVisible(n => n + PAGE_SIZE)}
-                          className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
-                        >
-                          Show {Math.min(PAGE_SIZE, filtered.length - cpaVisible)} more
-                          <span className="text-slate-400 ml-1">({filtered.length - cpaVisible} remaining)</span>
-                        </button>
+                    {(cpaVisible < filtered.length || cpaHiddenOlderCount > 0 || cpaShowAllYears) && (
+                      <div className="py-4 flex flex-wrap items-center justify-center gap-2">
+                        {cpaVisible < filtered.length && (
+                          <button
+                            onClick={() => setCpaVisible(n => n + PAGE_SIZE)}
+                            className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
+                          >
+                            Show {Math.min(PAGE_SIZE, filtered.length - cpaVisible)} more
+                            <span className="text-slate-400 ml-1">({filtered.length - cpaVisible} remaining)</span>
+                          </button>
+                        )}
+                        <LoadMoreYears showAll={cpaShowAllYears} setShowAll={v => { setCpaShowAllYears(v); setCpaVisible(PAGE_SIZE); }} hiddenCount={cpaHiddenOlderCount} />
                       </div>
                     )}
                   </div>
@@ -2255,9 +2272,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </div>
                     <p className="text-slate-500 text-sm">No invoices match the selected filters.</p>
                     {invoiceHiddenOlderCount > 0 && !invoiceShowAllYears && (
-                      <button onClick={() => setInvoiceShowAllYears(true)} className="text-xs text-indigo-600 hover:underline mt-2 cursor-pointer">
-                        Load {invoiceHiddenOlderCount} older invoice{invoiceHiddenOlderCount === 1 ? '' : 's'} from prior years
-                      </button>
+                      <div className="mt-3">
+                        <LoadMoreYears showAll={invoiceShowAllYears} setShowAll={v => { setInvoiceShowAllYears(v); setInvoicesVisible(PAGE_SIZE); }} hiddenCount={invoiceHiddenOlderCount} />
+                      </div>
                     )}
                   </div>
                 );
@@ -2268,8 +2285,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <p className="text-xs text-slate-400">
                         Showing {pagedFiltered.length} of {filtered.length} invoices
                         {invoices.length !== filtered.length ? ` (${invoices.length} total)` : ''}
+                        <CurrentYearBadge active={!invoiceShowAllYears} />
                       </p>
-                      <LoadMoreYears showAll={invoiceShowAllYears} setShowAll={setInvoiceShowAllYears} hiddenCount={invoiceHiddenOlderCount} />
                     </div>
                     <table className="w-full">
                       <thead className="bg-slate-50/80 border-b border-slate-100">
@@ -2449,15 +2466,18 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         })()}
                       </tbody>
                     </table>
-                    {invoicesVisible < filtered.length && (
-                      <div className="py-4 text-center">
-                        <button
-                          onClick={() => setInvoicesVisible(n => n + PAGE_SIZE)}
-                          className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
-                        >
-                          Show {Math.min(PAGE_SIZE, filtered.length - invoicesVisible)} more
-                          <span className="text-slate-400 ml-1">({filtered.length - invoicesVisible} remaining)</span>
-                        </button>
+                    {(invoicesVisible < filtered.length || invoiceHiddenOlderCount > 0 || invoiceShowAllYears) && (
+                      <div className="py-4 flex flex-wrap items-center justify-center gap-2">
+                        {invoicesVisible < filtered.length && (
+                          <button
+                            onClick={() => setInvoicesVisible(n => n + PAGE_SIZE)}
+                            className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
+                          >
+                            Show {Math.min(PAGE_SIZE, filtered.length - invoicesVisible)} more
+                            <span className="text-slate-400 ml-1">({filtered.length - invoicesVisible} remaining)</span>
+                          </button>
+                        )}
+                        <LoadMoreYears showAll={invoiceShowAllYears} setShowAll={v => { setInvoiceShowAllYears(v); setInvoicesVisible(PAGE_SIZE); }} hiddenCount={invoiceHiddenOlderCount} />
                       </div>
                     )}
                   </div>
