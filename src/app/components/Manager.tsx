@@ -424,13 +424,13 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   // ── Pagination (load-more) ──────────────────────────────────────────────────
   const [affiliatesVisible, setAffiliatesVisible] = useState(PAGE_SIZE);
   const [cpaVisible,        setCpaVisible]        = useState(PAGE_SIZE);
+  const [cpaPageSize,       setCpaPageSize]       = useState<number>(PAGE_SIZE);
   const [invoicesVisible,   setInvoicesVisible]   = useState(PAGE_SIZE);
   const [trackingVisible,   setTrackingVisible]   = useState(PAGE_SIZE);
 
   // ── Year-limited views: default to current year, "Load more" reveals older ──
   const [trackingShowAllYears, setTrackingShowAllYears] = useState(false);
   const [invoiceShowAllYears,  setInvoiceShowAllYears]  = useState(false);
-  const [cpaShowAllYears,      setCpaShowAllYears]      = useState(false);
 
   // ── Tracking Activity filter / sort ────────────────────────────────────────
   const [mgTrackingFilter,           setMgTrackingFilter]           = useState<DateFilter>('all');
@@ -1884,7 +1884,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       type="text"
                       placeholder="Search cards…"
                       value={cpaSearch}
-                      onChange={e => { setCpaSearch(e.target.value); setCpaVisible(PAGE_SIZE); }}
+                      onChange={e => { setCpaSearch(e.target.value); setCpaVisible(cpaPageSize); }}
                       className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 transition-shadow"
                     />
                   </div>
@@ -1897,7 +1897,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       onChange={(e) => {
                         const val = e.target.value;
                         setCpaAffiliateFilter(val);
-                        setCpaVisible(PAGE_SIZE);
+                        setCpaVisible(cpaPageSize);
                         fetchCpaRates(val);
                       }}
                       className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
@@ -1939,7 +1939,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       );
                     })()}
                     <button
-                      onClick={() => { setCpaVisible(PAGE_SIZE); fetchCpaRates(cpaAffiliateFilter); }}
+                      onClick={() => { setCpaVisible(cpaPageSize); fetchCpaRates(cpaAffiliateFilter); }}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all duration-150 cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
@@ -1956,7 +1956,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <span className="text-xs font-medium text-slate-400">Issuer:</span>
                       <select
                         value={cpaIssuerFilter}
-                        onChange={e => { setCpaIssuerFilter(e.target.value); setCpaVisible(PAGE_SIZE); }}
+                        onChange={e => { setCpaIssuerFilter(e.target.value); setCpaVisible(cpaPageSize); }}
                         className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
                       >
                         <option value="all">All issuers</option>
@@ -1977,7 +1977,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       ]).map(({ value, label }) => (
                         <button
                           key={value}
-                          onClick={() => { setCpaCpaRange(value); setCpaVisible(PAGE_SIZE); }}
+                          onClick={() => { setCpaCpaRange(value); setCpaVisible(cpaPageSize); }}
                           className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
                             cpaCpaRange === value
                               ? 'bg-indigo-600 text-white shadow-sm'
@@ -1992,7 +1992,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     {/* Active filter summary */}
                     {(cpaSearch || cpaIssuerFilter !== 'all' || cpaCpaRange !== 'all') && (
                       <button
-                        onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(PAGE_SIZE); }}
+                        onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(cpaPageSize); }}
                         className="text-xs text-indigo-600 hover:underline ml-1 cursor-pointer"
                       >
                         Clear filters
@@ -2019,10 +2019,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               ) : (() => {
                 // Apply all filters + sort
                 const refPayout = (r: any) => cpaAffiliateFilter !== 'all' ? (r.affiliatePayout ?? r.bankCpa) : r.bankCpa;
-                const cpaHiddenOlderCount = (cpaRates as any[])
-                  .filter((r: any) => { const y = yearOf(r.date); return y !== null && y !== CURRENT_YEAR; }).length;
                 const filtered = applySort(cpaRates, cpaSort).filter(r => {
-                  if (!(cpaShowAllYears || yearOf(r.date) === null || yearOf(r.date) === CURRENT_YEAR)) return false;
                   if (cpaSearch && !r.card.toLowerCase().includes(cpaSearch.toLowerCase()) &&
                       !(r.issuer || '').toLowerCase().includes(cpaSearch.toLowerCase())) return false;
                   if (cpaIssuerFilter !== 'all' && r.issuer !== cpaIssuerFilter) return false;
@@ -2054,7 +2051,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 if (filtered.length === 0) return (
                   <div className="text-center py-16">
                     <p className="text-slate-500 text-sm">No cards match the filters.</p>
-                    <button onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(PAGE_SIZE); }} className="text-xs text-indigo-600 hover:underline mt-2 cursor-pointer">Clear filters</button>
+                    <button onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(cpaPageSize); }} className="text-xs text-indigo-600 hover:underline mt-2 cursor-pointer">Clear filters</button>
                   </div>
                 );
 
@@ -2067,8 +2064,33 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         Showing {pagedFiltered.length} of {filtered.length} cards
                         {filtered.length !== cpaRates.length ? ` (${cpaRates.length} total)` : ''}
                         {cpaAffiliateLabel ? ` · ${cpaAffiliateLabel}` : ''}
-                        <CurrentYearBadge active={!cpaShowAllYears} />
                       </p>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                        <span>Show</span>
+                        {[25, 50, 100].map(n => (
+                          <button
+                            key={n}
+                            onClick={() => { setCpaPageSize(n); setCpaVisible(n); }}
+                            className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
+                              cpaPageSize === n
+                                ? 'border-indigo-200 bg-indigo-50 text-indigo-600 font-medium'
+                                : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => { setCpaPageSize(Infinity); setCpaVisible(Infinity); }}
+                          className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
+                            cpaPageSize === Infinity
+                              ? 'border-indigo-200 bg-indigo-50 text-indigo-600 font-medium'
+                              : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                          }`}
+                        >
+                          All
+                        </button>
+                      </div>
                     </div>
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50/80 border-b border-slate-100">
@@ -2124,18 +2146,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         )}
                       </tbody>
                     </table>
-                    {(cpaVisible < filtered.length || cpaHiddenOlderCount > 0 || cpaShowAllYears) && (
+                    {cpaVisible < filtered.length && (
                       <div className="py-4 flex flex-wrap items-center justify-center gap-2">
-                        {cpaVisible < filtered.length && (
-                          <button
-                            onClick={() => setCpaVisible(n => n + PAGE_SIZE)}
-                            className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
-                          >
-                            Show {Math.min(PAGE_SIZE, filtered.length - cpaVisible)} more
-                            <span className="text-slate-400 ml-1">({filtered.length - cpaVisible} remaining)</span>
-                          </button>
-                        )}
-                        <LoadMoreYears showAll={cpaShowAllYears} setShowAll={v => { setCpaShowAllYears(v); setCpaVisible(PAGE_SIZE); }} hiddenCount={cpaHiddenOlderCount} />
+                        <button
+                          onClick={() => setCpaVisible(n => n + cpaPageSize)}
+                          className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
+                        >
+                          Show {Math.min(cpaPageSize, filtered.length - cpaVisible)} more
+                          <span className="text-slate-400 ml-1">({filtered.length - cpaVisible} remaining)</span>
+                        </button>
                       </div>
                     )}
                   </div>
