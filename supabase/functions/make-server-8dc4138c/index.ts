@@ -630,23 +630,27 @@ app.get("/make-server-8dc4138c/tracking", async (c) => {
       return c.json({ tracking: [] });
     }
 
-    // Fetch ALL records for this affiliate, paginating until exhausted
-    const filterFormula = `{affiliate-id}='${affiliateId}'`;
-    const params = `filterByFormula=${encodeURIComponent(filterFormula)}&sort[0][field]=Click%20Date&sort[0][direction]=desc`;
-
-    console.log(`Fetching all tracking records for affiliate ${affiliateId}`);
+    // Fetch ALL records from the full table (no view/formula filter, since
+    // `affiliate-id` is an Airtable lookup field and can't be matched with
+    // filterByFormula), then filter to this affiliate's rows in JS.
+    console.log(`Fetching all tracking records and filtering for affiliate ${affiliateId}`);
 
     const records = await fetchAllAirtableRecords(
       airtableToken,
       baseId,
       encodeURIComponent(tableName),
-      params,
+      'sort[0][field]=Click%20Date&sort[0][direction]=desc',
     );
 
-    console.log(`Found ${records.length} tracking records for affiliate ${affiliateId}`);
+    const matchesAffiliate = (value: unknown) =>
+      Array.isArray(value) ? value.includes(affiliateId) : value === affiliateId;
+
+    const ownRecords = records.filter(record => matchesAffiliate(record.fields['affiliate-id']));
+
+    console.log(`Found ${ownRecords.length} of ${records.length} tracking records for affiliate ${affiliateId}`);
 
     // Format tracking records
-    const tracking = records.map(record => ({
+    const tracking = ownRecords.map(record => ({
       id: record.id,
       cardName: record.fields['Card Name'] || 'Unknown',
       status: record.fields['Status'] || 'N/A',
@@ -1486,20 +1490,19 @@ app.get("/make-server-8dc4138c/manager/user/:userId/debug", async (c) => {
     let airtableRecords = [];
 
     if (airtableToken && userData.affiliateId) {
-      const filterFormula = `{affiliate-id}='${userData.affiliateId}'`;
-      const airtableUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}?filterByFormula=${encodeURIComponent(filterFormula)}&pageSize=10`;
+      // `affiliate-id` is an Airtable lookup field and can't be matched with
+      // filterByFormula, so fetch all records and filter in JS (same as /tracking).
+      const allRecords = await fetchAllAirtableRecords(
+        airtableToken,
+        baseId,
+        encodeURIComponent(tableName),
+        '',
+      );
 
-      const airtableResponse = await fetch(airtableUrl, {
-        headers: {
-          'Authorization': `Bearer ${airtableToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const matchesAffiliate = (value: unknown) =>
+        Array.isArray(value) ? value.includes(userData.affiliateId) : value === userData.affiliateId;
 
-      if (airtableResponse.ok) {
-        const airtableData = await airtableResponse.json();
-        airtableRecords = airtableData.records || [];
-      }
+      airtableRecords = allRecords.filter(record => matchesAffiliate(record.fields['affiliate-id'])).slice(0, 10);
     }
 
     return c.json({
