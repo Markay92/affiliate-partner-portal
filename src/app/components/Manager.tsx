@@ -430,8 +430,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
   // ── Year-limited views: default to current year, "Load more" reveals older ──
   const [trackingShowAllYears, setTrackingShowAllYears] = useState(false);
-  const [invoiceShowAllYears,  setInvoiceShowAllYears]  = useState(false);
-  const [cpaShowAllYears,      setCpaShowAllYears]      = useState(false);
+  const [invoiceShowAllYears,  setInvoiceShowAllYears]  = useState(true);
+  const [cpaShowAllYears,      setCpaShowAllYears]      = useState(true);
 
   // ── Tracking Activity filter / sort ────────────────────────────────────────
   const [mgTrackingFilter,           setMgTrackingFilter]           = useState<DateFilter>('all');
@@ -2125,18 +2125,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         )}
                       </tbody>
                     </table>
-                    {(cpaVisible < filtered.length || cpaHiddenOlderCount > 0 || cpaShowAllYears) && (
+                    {!cpaGroupBy && cpaVisible < filtered.length && (
                       <div className="py-4 flex flex-wrap items-center justify-center gap-2">
-                        {cpaVisible < filtered.length && (
-                          <button
-                            onClick={() => setCpaVisible(n => n + PAGE_SIZE)}
-                            className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
-                          >
-                            Show {Math.min(PAGE_SIZE, filtered.length - cpaVisible)} more
-                            <span className="text-slate-400 ml-1">({filtered.length - cpaVisible} remaining)</span>
-                          </button>
-                        )}
-                        <LoadMoreYears showAll={cpaShowAllYears} setShowAll={v => { setCpaShowAllYears(v); setCpaVisible(PAGE_SIZE); }} hiddenCount={cpaHiddenOlderCount} />
+                        <button
+                          onClick={() => setCpaVisible(n => n + PAGE_SIZE)}
+                          className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
+                        >
+                          Show {Math.min(PAGE_SIZE, filtered.length - cpaVisible)} more
+                          <span className="text-slate-400 ml-1">({filtered.length - cpaVisible} remaining)</span>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -2272,11 +2269,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <FileText className="w-7 h-7 text-slate-300" />
                     </div>
                     <p className="text-slate-500 text-sm">No invoices match the selected filters.</p>
-                    {invoiceHiddenOlderCount > 0 && !invoiceShowAllYears && (
-                      <div className="mt-3">
-                        <LoadMoreYears showAll={invoiceShowAllYears} setShowAll={v => { setInvoiceShowAllYears(v); setInvoicesVisible(PAGE_SIZE); }} hiddenCount={invoiceHiddenOlderCount} />
-                      </div>
-                    )}
                   </div>
                 );
                 const pagedFiltered = filtered.slice(0, invoicesVisible);
@@ -2467,18 +2459,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         })()}
                       </tbody>
                     </table>
-                    {(invoicesVisible < filtered.length || invoiceHiddenOlderCount > 0 || invoiceShowAllYears) && (
+                    {invoicesVisible < filtered.length && (
                       <div className="py-4 flex flex-wrap items-center justify-center gap-2">
-                        {invoicesVisible < filtered.length && (
-                          <button
-                            onClick={() => setInvoicesVisible(n => n + PAGE_SIZE)}
-                            className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
-                          >
-                            Show {Math.min(PAGE_SIZE, filtered.length - invoicesVisible)} more
-                            <span className="text-slate-400 ml-1">({filtered.length - invoicesVisible} remaining)</span>
-                          </button>
-                        )}
-                        <LoadMoreYears showAll={invoiceShowAllYears} setShowAll={v => { setInvoiceShowAllYears(v); setInvoicesVisible(PAGE_SIZE); }} hiddenCount={invoiceHiddenOlderCount} />
+                        <button
+                          onClick={() => setInvoicesVisible(n => n + PAGE_SIZE)}
+                          className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
+                        >
+                          Show {Math.min(PAGE_SIZE, filtered.length - invoicesVisible)} more
+                          <span className="text-slate-400 ml-1">({filtered.length - invoicesVisible} remaining)</span>
+                        </button>
                       </div>
                     )}
                   </div>
