@@ -1133,9 +1133,11 @@ app.post("/make-server-8dc4138c/manager/sync-airtable", async (c) => {
       const ezrxRef = (fields['ezrxref-'] || '').trim();
 
       try {
-        // Check if user exists
+        // Check if user exists. Supabase Auth normalizes emails to lowercase,
+        // but Airtable's Email field may preserve the original casing, so
+        // compare case-insensitively to avoid creating duplicate accounts.
         const { data: existingUsers } = await supabase.auth.admin.listUsers();
-        const existingUser = existingUsers?.users?.find(u => u.email === email);
+        const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
 
         if (existingUser) {
           // Update existing user
