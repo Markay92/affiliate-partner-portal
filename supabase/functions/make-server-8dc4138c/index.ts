@@ -321,7 +321,7 @@ app.post("/make-server-8dc4138c/signup", async (c) => {
     }
 
     // Initialize user's affiliate data
-    const affiliateId = `AF${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+    const affiliateId = `ai-${Math.random().toString(36).substring(2, 7)}`;
     await kv.set(`user:${data.user.id}`, {
       email,
       name,
@@ -1121,11 +1121,12 @@ app.post("/make-server-8dc4138c/manager/sync-airtable", async (c) => {
       const phone = fields.Phone || fields.Zelle || '';
       // ezrxref- is the only per-affiliate variable in the master link URL
       const ezrxRef = (fields['ezrxref-'] || '').trim();
+      const memberJoinDate = fields['Member Join Date'] || null;
 
       try {
         // Check if user exists
         const { data: existingUsers } = await supabase.auth.admin.listUsers();
-        const existingUser = existingUsers?.users?.find(u => u.email === email);
+        const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
 
         if (existingUser) {
           // Update existing user
@@ -1139,6 +1140,7 @@ app.post("/make-server-8dc4138c/manager/sync-airtable", async (c) => {
             email,
             airtableRecordId: record.id, // Store Airtable record ID for bidirectional sync
             ...(ezrxRef && { ezrxRef }),
+            ...(memberJoinDate && { joinedDate: memberJoinDate }),
           });
           updated++;
           console.log(`Updated user: ${email}`);
@@ -1159,7 +1161,7 @@ app.post("/make-server-8dc4138c/manager/sync-airtable", async (c) => {
           }
 
           // Initialize user data
-          const newAffiliateId = affiliateId || `AF${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+          const newAffiliateId = affiliateId || `ai-${Math.random().toString(36).substring(2, 7)}`;
           await kv.set(`user:${newUser.user.id}`, {
             email,
             name,
@@ -1169,6 +1171,7 @@ app.post("/make-server-8dc4138c/manager/sync-airtable", async (c) => {
             createdAt: new Date().toISOString(),
             airtableRecordId: record.id, // Store Airtable record ID for bidirectional sync
             ...(ezrxRef && { ezrxRef }),
+            ...(memberJoinDate && { joinedDate: memberJoinDate }),
           });
 
           // Initialize tracking links
@@ -2084,7 +2087,7 @@ app.post("/make-server-8dc4138c/manager/user", async (c) => {
     console.log('Supabase auth user created:', newUserData.user.id);
 
     // Initialize user data
-    const affiliateId = `AF${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+    const affiliateId = `ai-${Math.random().toString(36).substring(2, 7)}`;
     console.log('Generated affiliate ID:', affiliateId);
 
     await kv.set(`user:${newUserData.user.id}`, {
