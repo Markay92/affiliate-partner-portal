@@ -211,6 +211,12 @@ async function syncToAirtable(airtableRecordId, userData, userId = null) {
       'Activity':     true,
     };
 
+    // Only sync the affiliate link reference when we have a value for it in KV,
+    // so we don't blow away an Airtable-side value that hasn't been pulled yet.
+    if (userData.ezrxRef !== undefined) {
+      fields['ezrxref-'] = userData.ezrxRef;
+    }
+
     // If no Airtable record ID yet, try to find existing record by email
     // to avoid creating duplicates
     if (!airtableRecordId && userData.email) {
@@ -1736,7 +1742,7 @@ app.put("/make-server-8dc4138c/manager/user/:userId", async (c) => {
   try {
     const sessionToken = c.req.header('X-Manager-Session');
     const userId = c.req.param('userId');
-    const { name, email, phone, address, city, state, zip, country } = await c.req.json();
+    const { name, email, phone, address, city, state, zip, country, ezrxRef } = await c.req.json();
 
     // Verify manager session
     const session = await kv.get(`manager_session:${sessionToken}`);
@@ -1773,6 +1779,7 @@ app.put("/make-server-8dc4138c/manager/user/:userId", async (c) => {
       state,
       zip,
       country,
+      ezrxRef: (ezrxRef ?? userData.ezrxRef ?? '').trim(),
       updatedAt: new Date().toISOString()
     };
 
