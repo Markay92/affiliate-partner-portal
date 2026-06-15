@@ -1126,7 +1126,7 @@ app.post("/make-server-8dc4138c/manager/sync-airtable", async (c) => {
       try {
         // Check if user exists
         const { data: existingUsers } = await supabase.auth.admin.listUsers();
-        const existingUser = existingUsers?.users?.find(u => u.email === email);
+        const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
 
         if (existingUser) {
           // Update existing user
