@@ -355,6 +355,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   // Pagination
   const [cardsVisible,    setCardsVisible]    = useState(PAGE_SIZE);
   const [activityVisible, setActivityVisible] = useState(PAGE_SIZE);
+  const [activityPageSize, setActivityPageSize] = useState<number>(PAGE_SIZE);
   const [invoicesVisible, setInvoicesVisible] = useState(PAGE_SIZE);
 
   // Stats grid comparison period
@@ -1081,7 +1082,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 </tr>
               );
               const colCount = cardsGroupBy ? 4 : 5;
-              const pagedCards = displayCards.slice(0, cardsVisible);
+              const pagedCards = cardsGroupBy ? displayCards : displayCards.slice(0, cardsVisible);
               return (
                 <>
                   <p className="text-xs text-slate-400 mb-3">
@@ -1128,7 +1129,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       </tbody>
                     </table>
                   </div>
-                  {cardsVisible < displayCards.length && (
+                  {!cardsGroupBy && cardsVisible < displayCards.length && (
                     <div className="pt-4 text-center">
                       <button
                         onClick={() => setCardsVisible(n => n + PAGE_SIZE)}
@@ -1166,11 +1167,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             <div className="flex flex-wrap items-center gap-3 mb-3">
               <FilterBar
                 filter={trackingFilter}
-                setFilter={v => { setTrackingFilter(v); setActivityVisible(PAGE_SIZE); }}
+                setFilter={v => { setTrackingFilter(v); setActivityVisible(activityPageSize); }}
                 customFrom={trackingCustomFrom}
-                setCustomFrom={v => { setTrackingCustomFrom(v); setActivityVisible(PAGE_SIZE); }}
+                setCustomFrom={v => { setTrackingCustomFrom(v); setActivityVisible(activityPageSize); }}
                 customTo={trackingCustomTo}
-                setCustomTo={v => { setTrackingCustomTo(v); setActivityVisible(PAGE_SIZE); }}
+                setCustomTo={v => { setTrackingCustomTo(v); setActivityVisible(activityPageSize); }}
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -1183,7 +1184,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               ].map(({ value, label }) => (
                 <button
                   key={value}
-                  onClick={() => { setTrackingStatusFilter(value); setActivityVisible(PAGE_SIZE); }}
+                  onClick={() => { setTrackingStatusFilter(value); setActivityVisible(activityPageSize); }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
                     trackingStatusFilter === value
                       ? 'bg-indigo-600 text-white shadow-sm'
@@ -1218,9 +1219,37 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
             ) : (
               <>
-                <p className="text-xs text-slate-400 mb-3">
-                  Showing {Math.min(activityVisible, displayTracking.length)} of {displayTracking.length} records
-                </p>
+                <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                  <p className="text-xs text-slate-400">
+                    Showing {Math.min(activityVisible, displayTracking.length)} of {displayTracking.length} records
+                  </p>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                    <span>Show</span>
+                    {[25, 50, 100].map(n => (
+                      <button
+                        key={n}
+                        onClick={() => { setActivityPageSize(n); setActivityVisible(n); }}
+                        className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
+                          activityPageSize === n
+                            ? 'border-indigo-200 bg-indigo-50 text-indigo-600 font-medium'
+                            : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => { setActivityPageSize(Infinity); setActivityVisible(Infinity); }}
+                      className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
+                        activityPageSize === Infinity
+                          ? 'border-indigo-200 bg-indigo-50 text-indigo-600 font-medium'
+                          : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                      }`}
+                    >
+                      All
+                    </button>
+                  </div>
+                </div>
                 <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
                   <table className="w-full">
                     <thead className="bg-slate-50/80 border-b border-slate-100">
@@ -1263,10 +1292,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 {activityVisible < displayTracking.length && (
                   <div className="pt-4 text-center">
                     <button
-                      onClick={() => setActivityVisible(n => n + PAGE_SIZE)}
+                      onClick={() => setActivityVisible(n => n + activityPageSize)}
                       className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
                     >
-                      Show {Math.min(PAGE_SIZE, displayTracking.length - activityVisible)} more
+                      Show {Math.min(activityPageSize, displayTracking.length - activityVisible)} more
                       <span className="text-slate-400 ml-1">({displayTracking.length - activityVisible} remaining)</span>
                     </button>
                   </div>

@@ -210,6 +210,7 @@ function sortUsers(items: any[], sort: SortState): any[] {
       case 'totalClicks':       return item.stats?.totalClicks       || 0;
       case 'totalConversions':  return item.stats?.totalConversions  || 0;
       case 'totalCommissions':  return item.stats?.totalCommissions  || 0;
+      case 'createdAt':         return item.joinedDate || item.createdAt;
       default:                  return item[sort.field];
     }
   };
@@ -428,6 +429,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [cpaPageSize,       setCpaPageSize]       = useState<number>(PAGE_SIZE);
   const [invoicesVisible,   setInvoicesVisible]   = useState(PAGE_SIZE);
   const [trackingVisible,   setTrackingVisible]   = useState(PAGE_SIZE);
+  const [trackingPageSize,  setTrackingPageSize]  = useState<number>(PAGE_SIZE);
 
   // ── Year-limited views: default to current year, "Load more" reveals older ──
   const [trackingShowAllYears, setTrackingShowAllYears] = useState(false);
@@ -470,7 +472,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   // ── Derived display data ────────────────────────────────────────────────────
   const displayUsers = sortUsers(
     users.filter((u: any) => {
-      if (!inDateRange(u.createdAt, affiliatesFilter, affiliatesCustomFrom, affiliatesCustomTo)) return false;
+      if (!inDateRange(u.joinedDate || u.createdAt, affiliatesFilter, affiliatesCustomFrom, affiliatesCustomTo)) return false;
       if (affiliateSearch) {
         const q = affiliateSearch.toLowerCase();
         if (!(u.name || '').toLowerCase().includes(q) && !(u.email || '').toLowerCase().includes(q)) return false;
@@ -1097,7 +1099,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       <td className="py-4 px-6 text-right text-sm text-slate-700">{(user.stats?.totalClicks || 0).toLocaleString()}</td>
       <td className="py-4 px-6 text-right text-sm text-slate-700">{(user.stats?.totalConversions || 0).toLocaleString()}</td>
       <td className="py-4 px-6 text-right text-sm font-semibold text-slate-900">${Math.round(user.stats?.totalCommissions || 0).toLocaleString()}</td>
-      <td className="py-4 px-6 text-right text-xs text-slate-500">{formatDate(user.createdAt)}</td>
+      <td className="py-4 px-6 text-right text-xs text-slate-500">{formatDate(user.joinedDate || user.createdAt)}</td>
       <td className="py-4 px-6">
         <div className="flex items-center justify-end gap-1">
           <button onClick={() => loginAsUser(user.id, user.email)} className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Login as this affiliate"><LogIn className="w-4 h-4" /></button>
@@ -1654,7 +1656,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       ] as { value: 'none'|'month'|'affiliate'; label: string }[]).map(({ value, label }) => (
                         <button
                           key={value}
-                          onClick={() => { setTrackingGroupBy(value); setTrackingCollapsed(new Set()); setTrackingVisible(PAGE_SIZE); }}
+                          onClick={() => { setTrackingGroupBy(value); setTrackingCollapsed(new Set()); setTrackingVisible(trackingPageSize); }}
                           className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all duration-150 cursor-pointer ${
                             trackingGroupBy === value
                               ? 'bg-indigo-600 text-white shadow-sm'
@@ -1681,7 +1683,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       );
                     })()}
                     <button
-                      onClick={() => { setTrackingVisible(PAGE_SIZE); fetchTrackingActivity(); }}
+                      onClick={() => { setTrackingVisible(trackingPageSize); fetchTrackingActivity(); }}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all duration-150 cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
@@ -1692,9 +1694,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
                 {/* Date filter */}
                 <FilterBar
-                  filter={mgTrackingFilter}         setFilter={v => { setMgTrackingFilter(v); setTrackingVisible(PAGE_SIZE); }}
-                  customFrom={mgTrackingCustomFrom} setCustomFrom={v => { setMgTrackingCustomFrom(v); setTrackingVisible(PAGE_SIZE); }}
-                  customTo={mgTrackingCustomTo}     setCustomTo={v => { setMgTrackingCustomTo(v); setTrackingVisible(PAGE_SIZE); }}
+                  filter={mgTrackingFilter}         setFilter={v => { setMgTrackingFilter(v); setTrackingVisible(trackingPageSize); }}
+                  customFrom={mgTrackingCustomFrom} setCustomFrom={v => { setMgTrackingCustomFrom(v); setTrackingVisible(trackingPageSize); }}
+                  customTo={mgTrackingCustomTo}     setCustomTo={v => { setMgTrackingCustomTo(v); setTrackingVisible(trackingPageSize); }}
                 />
 
                 {/* Status filter */}
@@ -1708,7 +1710,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   ].map(({ value, label }) => (
                     <button
                       key={value}
-                      onClick={() => { setMgTrackingStatusFilter(value); setTrackingVisible(PAGE_SIZE); }}
+                      onClick={() => { setMgTrackingStatusFilter(value); setTrackingVisible(trackingPageSize); }}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
                         mgTrackingStatusFilter === value
                           ? 'bg-indigo-600 text-white shadow-sm'
@@ -1726,7 +1728,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     <span className="text-xs font-medium text-slate-400 mr-1">Affiliate:</span>
                     <select
                       value={mgTrackingAffiliateFilter}
-                      onChange={(e) => { setMgTrackingAffiliateFilter(e.target.value); setTrackingVisible(PAGE_SIZE); }}
+                      onChange={(e) => { setMgTrackingAffiliateFilter(e.target.value); setTrackingVisible(trackingPageSize); }}
                       className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
                     >
                       <option value="all">All affiliates</option>
@@ -1736,7 +1738,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </select>
                     {mgTrackingAffiliateFilter !== 'all' && (
                       <button
-                        onClick={() => { setMgTrackingAffiliateFilter('all'); setTrackingVisible(PAGE_SIZE); }}
+                        onClick={() => { setMgTrackingAffiliateFilter('all'); setTrackingVisible(trackingPageSize); }}
                         className="text-xs text-indigo-600 hover:underline cursor-pointer"
                       >
                         Clear
@@ -1751,9 +1753,37 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 const pagedTracking = displayTrackingActivity.slice(0, trackingVisible);
                 return (
                   <>
-                    <p className="text-xs text-slate-400 mb-3">
-                      Showing {pagedTracking.length} of {displayTrackingActivity.length} records
-                    </p>
+                    <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                      <p className="text-xs text-slate-400">
+                        Showing {pagedTracking.length} of {displayTrackingActivity.length} records
+                      </p>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                        <span>Show</span>
+                        {[25, 50, 100].map(n => (
+                          <button
+                            key={n}
+                            onClick={() => { setTrackingPageSize(n); setTrackingVisible(n); }}
+                            className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
+                              trackingPageSize === n
+                                ? 'border-indigo-200 bg-indigo-50 text-indigo-600 font-medium'
+                                : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => { setTrackingPageSize(Infinity); setTrackingVisible(Infinity); }}
+                          className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
+                            trackingPageSize === Infinity
+                              ? 'border-indigo-200 bg-indigo-50 text-indigo-600 font-medium'
+                              : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                          }`}
+                        >
+                          All
+                        </button>
+                      </div>
+                    </div>
                     <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
                       <table className="w-full">
                         <thead className="bg-slate-50/80 border-b border-slate-100">
@@ -1874,14 +1904,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <div className="pt-4 flex flex-wrap items-center justify-center gap-2">
                         {trackingVisible < displayTrackingActivity.length && (
                           <button
-                            onClick={() => setTrackingVisible(n => n + PAGE_SIZE)}
+                            onClick={() => setTrackingVisible(n => n + trackingPageSize)}
                             className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
                           >
-                            Show {Math.min(PAGE_SIZE, displayTrackingActivity.length - trackingVisible)} more
+                            Show {Math.min(trackingPageSize, displayTrackingActivity.length - trackingVisible)} more
                             <span className="text-slate-400 ml-1">({displayTrackingActivity.length - trackingVisible} remaining)</span>
                           </button>
                         )}
-                        <LoadMoreYears showAll={trackingShowAllYears} setShowAll={v => { setTrackingShowAllYears(v); setTrackingVisible(PAGE_SIZE); }} hiddenCount={trackingHiddenOlderCount} />
+                        <LoadMoreYears showAll={trackingShowAllYears} setShowAll={v => { setTrackingShowAllYears(v); setTrackingVisible(trackingPageSize); }} hiddenCount={trackingHiddenOlderCount} />
                       </div>
                     )}
                   </>
@@ -2076,7 +2106,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   </div>
                 );
 
-                const pagedFiltered = filtered.slice(0, cpaVisible);
+                const pagedFiltered = cpaGroupBy ? filtered : filtered.slice(0, cpaVisible);
 
                 return (
                   <div className="overflow-x-auto">
@@ -2167,7 +2197,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         )}
                       </tbody>
                     </table>
-                    {cpaVisible < filtered.length && (
+                    {!cpaGroupBy && cpaVisible < filtered.length && (
                       <div className="py-4 flex flex-wrap items-center justify-center gap-2">
                         <button
                           onClick={() => setCpaVisible(n => n + cpaPageSize)}
@@ -2533,8 +2563,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         {/* Create Affiliate */}
         <Dialog.Root open={showCreateModal} onOpenChange={setShowCreateModal}>
           <Dialog.Portal>
-            <Dialog.Overlay className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
-            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl ring-1 ring-slate-900/10">
+            <Dialog.Overlay className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50" />
+            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl ring-1 ring-slate-900/10 z-50">
               <Dialog.Title className="text-lg font-semibold text-slate-900 mb-4">Create New Affiliate</Dialog.Title>
               <Dialog.Description className="sr-only">Create a new affiliate account with name, email, password, and commission rate</Dialog.Description>
               <form onSubmit={createUser} className="space-y-4">
@@ -2577,8 +2607,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         {/* Reset Password */}
         <Dialog.Root open={showResetModal} onOpenChange={setShowResetModal}>
           <Dialog.Portal>
-            <Dialog.Overlay className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
-            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl ring-1 ring-slate-900/10">
+            <Dialog.Overlay className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50" />
+            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl ring-1 ring-slate-900/10 z-50">
               <Dialog.Title className="text-lg font-semibold text-slate-900 mb-4">Reset Password</Dialog.Title>
               <Dialog.Description className="sr-only">Reset the password for the selected affiliate account</Dialog.Description>
               {selectedUser && <p className="mb-4 text-sm text-slate-600">Reset password for <strong className="text-slate-900">{selectedUser.email}</strong></p>}
@@ -2605,8 +2635,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         {/* Edit Affiliate */}
         <Dialog.Root open={showEditModal} onOpenChange={setShowEditModal}>
           <Dialog.Portal>
-            <Dialog.Overlay className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
-            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 w-full max-w-2xl shadow-2xl ring-1 ring-slate-900/10 max-h-[90vh] overflow-y-auto">
+            <Dialog.Overlay className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50" />
+            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 w-full max-w-2xl shadow-2xl ring-1 ring-slate-900/10 max-h-[90vh] overflow-y-auto z-50">
               <Dialog.Title className="text-lg font-semibold text-slate-900 mb-4">Edit Affiliate</Dialog.Title>
               <Dialog.Description className="sr-only">Edit affiliate profile information</Dialog.Description>
               {selectedUser && <p className="mb-4 text-sm text-slate-600">Editing: <strong className="text-slate-900">{selectedUser.email}</strong></p>}
