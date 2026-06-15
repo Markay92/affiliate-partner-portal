@@ -368,6 +368,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [editState, setEditState]     = useState('');
   const [editZip, setEditZip]         = useState('');
   const [editCountry, setEditCountry] = useState('');
+  const [editEzrxRef, setEditEzrxRef] = useState('');
 
   // Create user form
   const [newUserEmail, setNewUserEmail]           = useState('');
@@ -850,7 +851,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           body: JSON.stringify({
             name: editName, email: editEmail, phone: editPhone,
             address: editAddress, city: editCity, state: editState,
-            zip: editZip, country: editCountry,
+            zip: editZip, country: editCountry, ezrxRef: editEzrxRef,
           }),
         },
       );
@@ -1103,7 +1104,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       <td className="py-4 px-6">
         <div className="flex items-center justify-end gap-1">
           <button onClick={() => loginAsUser(user.id, user.email)} className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Login as this affiliate"><LogIn className="w-4 h-4" /></button>
-          <button onClick={() => { setSelectedUser(user); setEditName(user.name||''); setEditEmail(user.email||''); setEditPhone(user.phone||''); setEditAddress(user.address||''); setEditCity(user.city||''); setEditState(user.state||''); setEditZip(user.zip||''); setEditCountry(user.country||''); setShowEditModal(true); }}
+          <button onClick={() => { setSelectedUser(user); setEditName(user.name||''); setEditEmail(user.email||''); setEditPhone(user.phone||''); setEditAddress(user.address||''); setEditCity(user.city||''); setEditState(user.state||''); setEditZip(user.zip||''); setEditCountry(user.country||''); setEditEzrxRef(user.ezrxRef||''); setShowEditModal(true); }}
             className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Edit affiliate"><Edit className="w-4 h-4" /></button>
           <button onClick={() => { setSelectedUser(user); setShowResetModal(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Reset password"><Key className="w-4 h-4" /></button>
           <button onClick={() => deleteUser(user.id, user.email)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete affiliate"><Trash2 className="w-4 h-4" /></button>
@@ -2663,6 +2664,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       />
                     </div>
                   ))}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Affiliate Link Reference (ezrxref)</label>
+                  <input
+                    type="text"
+                    value={editEzrxRef}
+                    onChange={(e) => setEditEzrxRef(e.target.value)}
+                    placeholder="e.g. 12345"
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 text-sm"
+                  />
+                  <p className="text-xs text-slate-500 mt-1.5">Powers the affiliate's cardratings.com link shown on their dashboard. Leave blank if not yet assigned.</p>
                 </div>
                 <div className="flex gap-3 mt-6">
                   <button type="submit" className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">Save Changes</button>
