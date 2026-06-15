@@ -370,6 +370,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       return saved ? new Set(JSON.parse(saved)) : new Set(['stats', 'charts', 'topCards']);
     } catch { return new Set(['stats', 'charts', 'topCards']); }
   });
+  const [insightsTab, setInsightsTab] = useState<'charts' | 'topCards'>('charts');
   const togglePanel = (key: string) => setVisiblePanels(prev => {
     const next = new Set(prev);
     next.has(key) ? next.delete(key) : next.add(key);
@@ -839,74 +840,94 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 </div>
               )}
 
-              {/* ── Stat cards — always visible, the primary numbers ── */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
+              {/* ── Stat strip — compact, single row, the primary numbers ── */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4">
                 {statRows.map(({ label, value, iconColor, bgColor, Icon, sub, pct }) => (
-                  <div key={label} className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-200">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${bgColor} ring-1 ring-inset ${iconColor.replace('text-', 'ring-')}/10`}>
-                        <Icon className={`w-4.5 h-4.5 ${iconColor}`} />
-                      </div>
-                      {pct !== undefined && <PctBadge pct={pct} compact />}
+                  <div key={label} className="bg-white rounded-xl ring-1 ring-slate-900/5 shadow-sm px-3 py-2.5 flex items-center gap-2.5 hover:shadow-md transition-shadow duration-200 min-w-0">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${bgColor} ring-1 ring-inset ${iconColor.replace('text-', 'ring-')}/10`}>
+                      <Icon className={`w-4 h-4 ${iconColor}`} />
                     </div>
-                    <div className="text-2xl sm:text-[28px] font-bold text-slate-900 leading-none tracking-tight tabular-nums">{value}</div>
-                    <div className="text-xs text-slate-400 font-medium mt-1.5 uppercase tracking-wide">{label}</div>
-                    {sub && <div className="text-xs text-slate-400 font-medium mt-0.5">{sub}</div>}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-lg sm:text-xl font-bold text-slate-900 leading-none tracking-tight tabular-nums">{value}</span>
+                        {pct !== undefined && <PctBadge pct={pct} compact />}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-medium mt-0.5 uppercase tracking-wide truncate">
+                        {label}{sub ? <span className="text-slate-300 normal-case"> · {sub}</span> : null}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
 
-              {/* ── Insights: charts + top cards ── */}
+              {/* ── Insights: tabbed chart / top cards ── */}
               {(showCharts || showTopCards) && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  {showCharts && (
-                    <div className={`bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 sm:p-5 ${showTopCards ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-semibold text-slate-700">Monthly Performance</h3>
-                        <div className="flex items-center gap-3 text-[11px] text-slate-400 font-medium">
-                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#bfdbfe]" />Clicks</span>
-                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#818cf8]" />Applications</span>
-                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#6366f1]" />Approvals</span>
-                        </div>
+                <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 sm:p-5">
+                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                    <div className="flex items-center gap-1 bg-slate-50 rounded-lg p-1 text-xs font-medium">
+                      {showCharts && (
+                        <button onClick={() => setInsightsTab('charts')}
+                          className={`px-3 py-1.5 rounded-md transition-all duration-150 cursor-pointer ${
+                            insightsTab === 'charts' || !showTopCards
+                              ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-900/5'
+                              : 'text-slate-500 hover:text-slate-700'
+                          }`}>
+                          Monthly Performance
+                        </button>
+                      )}
+                      {showTopCards && (
+                        <button onClick={() => setInsightsTab('topCards')}
+                          className={`px-3 py-1.5 rounded-md transition-all duration-150 cursor-pointer flex items-center gap-1.5 ${
+                            insightsTab === 'topCards' || !showCharts
+                              ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-900/5'
+                              : 'text-slate-500 hover:text-slate-700'
+                          }`}>
+                          <Award className="w-3.5 h-3.5 text-emerald-500" /> Top Cards
+                        </button>
+                      )}
+                    </div>
+                    {(insightsTab === 'charts' || !showTopCards) && showCharts && (
+                      <div className="flex items-center gap-3 text-[11px] text-slate-400 font-medium">
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#bfdbfe]" />Clicks</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#818cf8]" />Applications</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#6366f1]" />Approvals</span>
                       </div>
-                      <div className="h-56 sm:h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={monthlyData} margin={{ top:4, right:8, left:0, bottom:0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                            <XAxis dataKey="month" tick={{ fontSize:11, fill:'#94a3b8' }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fontSize:11, fill:'#94a3b8' }} axisLine={false} tickLine={false} width={32} />
-                            <Tooltip contentStyle={{ fontSize:12, borderRadius:8, border:'1px solid #e2e8f0' }} />
-                            <Line dataKey="clicks"       name="Clicks"       stroke="#bfdbfe" strokeWidth={2} dot={false} />
-                            <Line dataKey="applications" name="Applications" stroke="#818cf8" strokeWidth={2} dot={false} />
-                            <Line dataKey="approvals"    name="Approvals"    stroke="#6366f1" strokeWidth={2.5} dot={{ r:3 }} />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
+                    )}
+                  </div>
+
+                  {showCharts && (insightsTab === 'charts' || !showTopCards) && (
+                    <div className="h-48 sm:h-56">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={monthlyData} margin={{ top:4, right:8, left:0, bottom:0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="month" tick={{ fontSize:11, fill:'#94a3b8' }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fontSize:11, fill:'#94a3b8' }} axisLine={false} tickLine={false} width={32} />
+                          <Tooltip contentStyle={{ fontSize:12, borderRadius:8, border:'1px solid #e2e8f0' }} />
+                          <Line dataKey="clicks"       name="Clicks"       stroke="#bfdbfe" strokeWidth={2} dot={false} />
+                          <Line dataKey="applications" name="Applications" stroke="#818cf8" strokeWidth={2} dot={false} />
+                          <Line dataKey="approvals"    name="Approvals"    stroke="#6366f1" strokeWidth={2.5} dot={{ r:3 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
                     </div>
                   )}
 
-                  {showTopCards && (
-                    <div className={`bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 sm:p-5 ${showCharts ? 'lg:col-span-1' : 'lg:col-span-3'} flex flex-col`}>
-                      <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-1.5">
-                        <Award className="w-4 h-4 text-emerald-500" /> Top Approved Cards
-                      </h3>
-                      <div className="flex flex-col gap-1 flex-1">
-                        {mostApprovedCards.map((c, idx) => (
-                          <div key={c.name} className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-slate-50 transition-colors duration-150 min-w-0">
-                            <span className={`text-xs font-bold flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center ${
-                              idx === 0 ? 'bg-amber-50 text-amber-500' : idx === 1 ? 'bg-slate-100 text-slate-400' : idx === 2 ? 'bg-orange-50 text-orange-500' : 'bg-slate-50 text-slate-300'
-                            }`}>{idx+1}</span>
-                            <span className="text-sm text-slate-700 truncate flex-1 min-w-0 font-medium">{decodeHtml(c.name)}</span>
-                            <span className="text-xs text-slate-400 flex-shrink-0 font-semibold tabular-nums">{c.approvals}×</span>
-                          </div>
-                        ))}
-                      </div>
+                  {showTopCards && (insightsTab === 'topCards' || !showCharts) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-1">
+                      {mostApprovedCards.map((c, idx) => (
+                        <div key={c.name} className="flex items-center gap-2.5 py-2 px-2 rounded-lg hover:bg-slate-50 transition-colors duration-150 min-w-0">
+                          <span className={`text-xs font-bold flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center ${
+                            idx === 0 ? 'bg-amber-50 text-amber-500' : idx === 1 ? 'bg-slate-100 text-slate-400' : idx === 2 ? 'bg-orange-50 text-orange-500' : 'bg-slate-50 text-slate-300'
+                          }`}>{idx+1}</span>
+                          <span className="text-sm text-slate-700 truncate flex-1 min-w-0 font-medium">{decodeHtml(c.name)}</span>
+                          <span className="text-xs text-slate-400 flex-shrink-0 font-semibold tabular-nums">{c.approvals}×</span>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
               )}
 
-              {/* ── Visibility toggles for the insights row ── */}
+              {/* ── Visibility toggles for the insights panel ── */}
               <div className="flex items-center gap-1.5 mt-3">
                 <span className="text-[11px] font-semibold text-slate-400 mr-0.5 uppercase tracking-wider">Show:</span>
                 {(['charts', 'topCards'] as const).map(key => {
