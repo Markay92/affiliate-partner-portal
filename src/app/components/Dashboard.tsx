@@ -829,56 +829,60 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-        {/* ── Referral link — pinned at top, always visible across tabs (mock layout) ── */}
+        {/* ── Referral link — clean sticky bar at top, always visible (mock design) ── */}
         {masterLink ? (() => {
           const builtLink = linkBuilderIds.length > 0
             ? `https://www.cardratings.com/bestcards/featured-credit-cards?src=693350&shnq=${linkBuilderIds.join(',')}${ezrxRef ? `&var2=ezrxref-${ezrxRef}` : ''}`
             : null;
           const displayLink = builtLink ?? masterLink;
           return (
-          <div className={`sticky top-[60px] z-20 mb-6 bg-gradient-to-br from-brand to-brand-dark rounded-2xl shadow-sm relative overflow-hidden transition-all duration-300 ${scrolled ? 'px-5 py-3' : 'p-5'}`}>
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
-            <div className={`relative flex items-center justify-between overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mb-0' : 'max-h-10 opacity-100 mb-3'}`}>
-              <p className="text-xs font-semibold text-brand-soft uppercase tracking-wider">
-                {builtLink ? `Your Link · ${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} selected` : 'Your Affiliate Link'}
-              </p>
-              {builtLink && (
-                <button onClick={() => setLinkBuilderIds([])} className="text-[11px] text-white/70 hover:text-white transition-colors">
-                  Clear
-                </button>
-              )}
-            </div>
-            <div className="relative flex items-center gap-2">
-              <code className="flex-1 text-sm text-ink bg-white px-4 py-3 rounded-xl truncate font-mono shadow-sm">
+          <div
+            className="sticky top-[60px] z-20 mb-6 flex items-center gap-[18px] flex-wrap bg-white/90 backdrop-blur-md border-b border-hair transition-all duration-300"
+            style={{ paddingTop: scrolled ? 9 : 22, paddingBottom: scrolled ? 9 : 22 }}
+          >
+            <div className="flex-1 min-w-[240px]">
+              <div className={`flex items-center overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mb-0' : 'max-h-5 opacity-100 mb-1.5'}`}>
+                <span className="text-[12.5px] font-medium text-faint">
+                  {builtLink ? `Your link · ${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} selected` : 'Your affiliate link'}
+                </span>
+                {builtLink && (
+                  <button onClick={() => setLinkBuilderIds([])} className="ml-3 text-[11px] font-medium text-faint hover:text-brand transition-colors cursor-pointer">
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className={`font-mono-ds font-medium text-ink break-all transition-all duration-300 ${scrolled ? 'text-[13.5px]' : 'text-[15.5px]'}`}>
                 {displayLink}
-              </code>
+              </div>
+              <div className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mt-0' : 'max-h-5 opacity-100 mt-1'}`}>
+                <span className="text-xs font-medium text-faint">
+                  {builtLink
+                    ? `${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} on your link · ready to share`
+                    : 'Add cards from the table to build a custom link'}
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-2.5 flex-shrink-0">
               <button
                 onClick={() => copyToClipboard(displayLink, -1)}
-                className={`flex-shrink-0 flex items-center gap-1.5 h-[46px] px-4 rounded-xl font-semibold text-sm active:scale-95 transition-all duration-150 cursor-pointer ${copiedId === -1 ? 'bg-white text-brand' : 'bg-white/15 ring-1 ring-white/20 text-white hover:bg-white/25'}`}
+                className="flex items-center gap-1.5 h-10 px-[18px] rounded-[10px] bg-brand text-white text-sm font-semibold hover:bg-brand-dark active:scale-95 transition-all duration-150 cursor-pointer"
                 title="Copy link"
               >
                 {copiedId === -1
-                  ? <><CheckCircle className="w-4 h-4" /> Copied!</>
+                  ? <><CheckCircle className="w-4 h-4" /> Copied</>
                   : <><Copy className="w-4 h-4" /> Copy</>}
               </button>
               <a href={displayLink} target="_blank" rel="noopener noreferrer"
-                className="flex-shrink-0 p-3 bg-white/15 ring-1 ring-white/20 rounded-xl hover:bg-white/25 active:scale-95 transition-all duration-150 cursor-pointer"
-                title="Open link">
-                <ExternalLink className="w-5 h-5 text-white" />
+                className="flex items-center gap-1.5 h-10 px-4 rounded-[10px] border border-line bg-white text-ink text-sm font-semibold hover:bg-surface transition-colors cursor-pointer"
+                title="Preview link">
+                <ExternalLink className="w-[15px] h-[15px]" />
+                Preview
               </a>
-            </div>
-            {/* summary line */}
-            <div className={`relative overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mt-0' : 'max-h-6 opacity-100 mt-2.5'}`}>
-              <p className="text-xs font-medium text-white/80">
-                {builtLink
-                  ? `${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} on your link · ready to share`
-                  : 'Your default tracking link · add cards from the table to build a custom link'}
-              </p>
             </div>
           </div>
           );
         })() : (
-          <div className="mb-6 p-4 bg-surface rounded-2xl ring-1 ring-hair/60 text-sm text-faint">
+          <div className="mb-6 py-4 border-b border-hair text-sm text-faint">
             No affiliate link configured yet — contact your manager to set up your link.
           </div>
         )}
