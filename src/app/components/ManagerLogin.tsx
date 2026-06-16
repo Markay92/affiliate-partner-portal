@@ -49,11 +49,11 @@ export function ManagerLogin({ onLogin }: ManagerLoginProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4">
-      <div className="w-full max-w-sm">
-        <div className="flex justify-center mb-8">
-          <div className="bg-[#4F46E5] p-3 rounded-2xl shadow-lg shadow-indigo-500/30">
-            <svg width="36" height="34" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <div className="min-h-screen flex items-center justify-center bg-canvas px-6">
+      <div className="w-full max-w-[360px]">
+        <div className="flex items-center gap-2.5 mb-12">
+          <div className="flex items-center justify-center">
+            <svg width="30" height="28" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
               <g clipPath="url(#clip0_login_mgr)">
                 <mask id="mask0_login_mgr" style={{maskType:'luminance'}} maskUnits="userSpaceOnUse" x="0" y="0" width="38" height="37">
                   <path d="M37.9056 0H0.00134277V36.2562H37.9056V0Z" fill="white"/>
@@ -75,11 +75,12 @@ export function ManagerLogin({ onLogin }: ManagerLoginProps) {
               </defs>
             </svg>
           </div>
+          <span className="font-bold text-[17px] tracking-tight text-ink">Manager Portal</span>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-2xl p-8 ring-1 ring-white/10">
-          <h1 className="text-center text-xl font-semibold text-slate-900 mb-1">Manager Portal</h1>
-          <p className="text-center text-sm text-slate-500 mb-7">Sign in to manage affiliates</p>
+        <div>
+          <h1 className="text-[30px] font-bold tracking-[-0.03em] text-ink mb-2">Sign in</h1>
+          <p className="text-[15px] text-subtle leading-relaxed mb-8">Manage affiliates, payouts, and CPA rates.</p>
 
           {error && (
             <div className="mb-5 p-3 rounded-xl text-sm bg-red-50 text-red-700 ring-1 ring-red-200/60">
@@ -87,24 +88,24 @@ export function ManagerLogin({ onLogin }: ManagerLoginProps) {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-[18px]">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">
-                Email Address
+              <label htmlFor="email" className="block text-[13px] font-semibold text-ink mb-1.5">
+                Email
               </label>
               <input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 text-base sm:text-sm"
+                className="w-full h-12 px-4 rounded-xl border border-line bg-white text-[15px] text-ink outline-none transition focus:border-brand focus:ring-[3px] focus:ring-brand/15"
                 placeholder="manager@example.com"
                 required
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5">
+              <label htmlFor="password" className="block text-[13px] font-semibold text-ink mb-1.5">
                 Password
               </label>
               <div className="relative">
@@ -113,14 +114,14 @@ export function ManagerLogin({ onLogin }: ManagerLoginProps) {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 pr-11 text-base sm:text-sm"
+                  className="w-full h-12 pl-4 pr-12 rounded-xl border border-line bg-white text-[15px] text-ink outline-none transition focus:border-brand focus:ring-[3px] focus:ring-brand/15"
                   placeholder="Enter your password"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-faint hover:text-subtle"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -130,15 +131,16 @@ export function ManagerLogin({ onLogin }: ManagerLoginProps) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-indigo-600 text-white py-2.5 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm font-medium"
+              className="w-full h-[50px] bg-brand text-white rounded-xl hover:bg-brand-dark transition-colors disabled:opacity-50 text-[15px] font-bold"
             >
-              {loading ? 'Signing in…' : 'Sign In'}
+              {loading ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
 
           {/* Subtle visual cue that this is the manager portal */}
-          <div className="mt-5 px-3 py-2 bg-slate-50 rounded-lg ring-1 ring-slate-200/60">
-            <p className="text-xs text-slate-400 text-center">Manager access only</p>
+          <div className="mt-7 flex items-center justify-center gap-2 text-xs text-faint">
+            <Shield className="w-3.5 h-3.5" />
+            Manager access only
           </div>
         </div>
       </div>

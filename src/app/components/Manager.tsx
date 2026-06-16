@@ -15,6 +15,7 @@ import {
   LogIn,
   ChevronUp,
   ChevronDown,
+  ChevronRight,
   ChevronsUpDown,
   FileText,
   CheckCircle,
@@ -29,6 +30,7 @@ import {
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Tabs from '@radix-ui/react-tabs';
+import gsap from 'gsap';
 
 interface ManagerProps {
   sessionToken: string;
@@ -60,15 +62,15 @@ function LoadMoreYears({
   return !showAll ? (
     <button
       onClick={() => setShowAll(true)}
-      className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
+      className="px-4 py-2 text-xs font-medium text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors duration-150 cursor-pointer"
     >
       Load {hiddenCount} older record{hiddenCount === 1 ? '' : 's'}
-      <span className="text-slate-400 ml-1">(prior years)</span>
+      <span className="text-faint ml-1">(prior years)</span>
     </button>
   ) : (
     <button
       onClick={() => setShowAll(false)}
-      className="px-4 py-2 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors duration-150 cursor-pointer"
+      className="px-4 py-2 text-xs font-medium text-faint border border-hair rounded-lg hover:bg-surface transition-colors duration-150 cursor-pointer"
     >
       Show {CURRENT_YEAR} only
     </button>
@@ -256,11 +258,11 @@ function FilterBar({
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <span className="text-xs font-medium text-slate-400 flex-shrink-0">Period:</span>
+        <span className="text-xs font-medium text-faint flex-shrink-0">Period:</span>
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value as DateFilter)}
-          className="sm:hidden flex-1 min-w-0 text-xs font-medium bg-slate-100 border border-transparent rounded-lg px-2.5 py-1.5 text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+          className="sm:hidden flex-1 min-w-0 text-xs font-medium bg-hair2 border border-transparent rounded-lg px-2.5 py-1.5 text-subtle focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
         >
           {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
             <option key={f} value={f}>{DATE_LABELS[f]}</option>
@@ -272,8 +274,8 @@ function FilterBar({
               <button key={f} onClick={() => setFilter(f)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
                   filter === f
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
+                    ? 'bg-brand text-white shadow-sm'
+                    : 'text-faint bg-hair2 hover:bg-hair'
                 }`}>
                 {DATE_LABELS[f]}
               </button>
@@ -284,10 +286,10 @@ function FilterBar({
       {filter === 'custom' && (
         <div className="flex flex-wrap items-center gap-2">
           <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
-            className="flex-1 min-w-[130px] px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-shadow" />
-          <span className="text-slate-400 text-xs">to</span>
+            className="flex-1 min-w-[130px] px-2.5 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-shadow" />
+          <span className="text-faint text-xs">to</span>
           <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)}
-            className="flex-1 min-w-[130px] px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-shadow" />
+            className="flex-1 min-w-[130px] px-2.5 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-shadow" />
         </div>
       )}
     </div>
@@ -305,11 +307,11 @@ function SortTh({
       ? sort.dir === 'asc'
         ? <ChevronUp className="w-3 h-3 flex-shrink-0" />
         : <ChevronDown className="w-3 h-3 flex-shrink-0" />
-      : <ChevronsUpDown className="w-3 h-3 flex-shrink-0 text-slate-300" />;
+      : <ChevronsUpDown className="w-3 h-3 flex-shrink-0 text-faint2" />;
   return (
     <th
       onClick={() => onSort(field)}
-      className={`py-3.5 px-6 text-slate-500 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-slate-50 transition-colors text-${align}`}
+      className={`py-3.5 px-6 text-faint text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-surface transition-colors text-${align}`}
     >
       <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''}`}>
         {label}{icon}
@@ -329,11 +331,11 @@ function SortThSm({
       ? sort.dir === 'asc'
         ? <ChevronUp className="w-3 h-3 flex-shrink-0" />
         : <ChevronDown className="w-3 h-3 flex-shrink-0" />
-      : <ChevronsUpDown className="w-3 h-3 flex-shrink-0 text-slate-300" />;
+      : <ChevronsUpDown className="w-3 h-3 flex-shrink-0 text-faint2" />;
   return (
     <th
       onClick={() => onSort(field)}
-      className={`py-3 px-4 text-slate-500 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-slate-50 transition-colors text-${align}`}
+      className={`py-3 px-4 text-faint text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-surface transition-colors text-${align}`}
     >
       <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''}`}>
         {label}{icon}
@@ -406,6 +408,29 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     } catch { return new Set(['stats', 'charts', 'topCards']); }
   });
   const [insightsTab, setInsightsTab] = useState<'charts' | 'topCards'>('charts');
+  const [insightsOpen, setInsightsOpen] = useState(true);
+  const [scrolled, setScrolled] = useState(false);
+
+  // Sticky tab bar shrinks its labels to icons once scrolled (mock behavior)
+  useEffect(() => {
+    const onScroll = () => setScrolled((window.scrollY || 0) > 40);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // GSAP entrance — staggered rise/fade of the main sections once data is in
+  useEffect(() => {
+    if (loading) return;
+    const els = document.querySelectorAll('[data-anim]');
+    if (!els.length) return;
+    const ctx = gsap.context(() => {
+      gsap.from(els, {
+        y: 16, opacity: 0, duration: 0.55, stagger: 0.08, ease: 'power2.out', clearProps: 'all',
+      });
+    });
+    return () => ctx.revert();
+  }, [loading]);
   const togglePanel = (key: string) => setVisiblePanels(prev => {
     const next = new Set(prev);
     next.has(key) ? next.delete(key) : next.add(key);
@@ -656,13 +681,13 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const PctBadge = ({ pct, compact = false }: { pct: number | null; compact?: boolean }) => {
     if (pct === null) {
       return compact
-        ? <span className="text-slate-300 text-xs">—</span>
-        : <span className="text-slate-400 text-xs">No prior-period data</span>;
+        ? <span className="text-faint2 text-xs">—</span>
+        : <span className="text-faint text-xs">No prior-period data</span>;
     }
     if (pct === 0) {
       return compact
-        ? <span className="text-slate-400 text-xs font-medium">No change</span>
-        : <span className="text-slate-400 text-xs flex items-center gap-1">— No change <span className="font-normal">{_periodLabel}</span></span>;
+        ? <span className="text-faint text-xs font-medium">No change</span>
+        : <span className="text-faint text-xs flex items-center gap-1">— No change <span className="font-normal">{_periodLabel}</span></span>;
     }
     const up = pct > 0;
     return (
@@ -670,6 +695,19 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         <TrendingUp className={`w-3 h-3 ${!up ? 'rotate-180' : ''}`} />
         <span>{up ? '+' : ''}{pct}%{!compact ? ` ${_periodLabel}` : ''}</span>
       </div>
+    );
+  };
+
+  // Borderless inline delta for the KPI band (colored arrow + %, no pill)
+  const DeltaInline = ({ pct }: { pct: number | null }) => {
+    if (pct === null) return <span className="text-faint2 text-[13px] font-medium">—</span>;
+    if (pct === 0) return <span className="text-faint text-[13px] font-medium">No change</span>;
+    const up = pct > 0;
+    return (
+      <span className={`inline-flex items-center gap-1 ${up ? 'text-emerald-600' : 'text-neg'}`}>
+        <TrendingUp className={`w-3 h-3 ${!up ? 'rotate-180' : ''}`} strokeWidth={3} />
+        <span className="text-[13.5px] font-semibold tabular-nums">{up ? '+' : ''}{pct}%</span>
+      </span>
     );
   };
 
@@ -1101,47 +1139,47 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   // Renders a single affiliate table row — defined as a closure so it
   // captures all state/callbacks without prop drilling.
   const renderUserRow = (user: any) => (
-    <tr key={user.id} className="border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150">
+    <tr key={user.id} className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150">
       <td className="py-4 px-6">
-        <div className="font-medium text-slate-900">{user.name || 'N/A'}</div>
-        <div className="text-xs text-slate-500 mt-0.5">{user.email}</div>
+        <div className="font-medium text-ink">{user.name || 'N/A'}</div>
+        <div className="text-xs text-faint mt-0.5">{user.email}</div>
       </td>
       <td className="py-4 px-6">
-        <div className="text-xs text-slate-500 space-y-0.5">
+        <div className="text-xs text-faint space-y-0.5">
           {user.phone && <div>{user.phone}</div>}
           {(user.city || user.state) && <div>{[user.city, user.state].filter(Boolean).join(', ')}</div>}
-          {!user.phone && !user.city && !user.state && <span className="text-slate-300">—</span>}
+          {!user.phone && !user.city && !user.state && <span className="text-faint2">—</span>}
         </div>
       </td>
       <td className="py-4 px-6">
-        <code className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded-lg font-mono">{user.affiliateId || 'N/A'}</code>
+        <code className="text-xs bg-hair2 text-subtle px-2 py-1 rounded-lg font-mono">{user.affiliateId || 'N/A'}</code>
       </td>
       <td className="py-4 px-6 text-right">
         {editingCommission === user.id ? (
           <div className="flex items-center justify-end gap-2">
             <input type="number" value={commissionValue} onChange={e => setCommissionValue(e.target.value)}
-              className="w-20 px-2 py-1 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" min="0" max="100" />
+              className="w-20 px-2 py-1 border border-hair rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand" min="0" max="100" />
             <button onClick={() => updateCommission(user.id, parseInt(commissionValue))} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"><Save className="w-4 h-4" /></button>
-            <button onClick={() => setEditingCommission(null)} className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+            <button onClick={() => setEditingCommission(null)} className="p-1.5 text-faint hover:bg-hair2 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
           </div>
         ) : (
           <div className="flex items-center justify-end gap-2">
-            <span className="text-sm font-medium text-slate-700">{user.commissionRate || 100}%</span>
+            <span className="text-sm font-medium text-subtle">{user.commissionRate || 100}%</span>
             <button onClick={() => { setEditingCommission(user.id); setCommissionValue((user.commissionRate || 100).toString()); }}
-              className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"><Edit className="w-4 h-4" /></button>
+              className="p-1.5 text-faint hover:bg-hair2 rounded-lg transition-colors"><Edit className="w-4 h-4" /></button>
           </div>
         )}
       </td>
-      <td className="py-4 px-6 text-right text-sm text-slate-700">{(user.stats?.totalClicks || 0).toLocaleString()}</td>
-      <td className="py-4 px-6 text-right text-sm text-slate-700">{(user.stats?.totalConversions || 0).toLocaleString()}</td>
-      <td className="py-4 px-6 text-right text-sm font-semibold text-slate-900">${Math.round(user.stats?.totalCommissions || 0).toLocaleString()}</td>
-      <td className="py-4 px-6 text-right text-xs text-slate-500">{formatDate(user.joinedDate || user.createdAt)}</td>
+      <td className="py-4 px-6 text-right text-sm text-subtle">{(user.stats?.totalClicks || 0).toLocaleString()}</td>
+      <td className="py-4 px-6 text-right text-sm text-subtle">{(user.stats?.totalConversions || 0).toLocaleString()}</td>
+      <td className="py-4 px-6 text-right text-sm font-semibold text-ink">${Math.round(user.stats?.totalCommissions || 0).toLocaleString()}</td>
+      <td className="py-4 px-6 text-right text-xs text-faint">{formatDate(user.joinedDate || user.createdAt)}</td>
       <td className="py-4 px-6">
         <div className="flex items-center justify-end gap-1">
           <button onClick={() => loginAsUser(user.id, user.email)} className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Login as this affiliate"><LogIn className="w-4 h-4" /></button>
           <button onClick={() => { setSelectedUser(user); setEditName(user.name||''); setEditEmail(user.email||''); setEditPhone(user.phone||''); setEditAddress(user.address||''); setEditCity(user.city||''); setEditState(user.state||''); setEditZip(user.zip||''); setEditCountry(user.country||''); setEditEzrxRef(user.ezrxRef||''); setShowEditModal(true); }}
-            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Edit affiliate"><Edit className="w-4 h-4" /></button>
-          <button onClick={() => { setSelectedUser(user); setShowResetModal(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Reset password"><Key className="w-4 h-4" /></button>
+            className="p-2 text-brand hover:bg-brand-soft rounded-lg transition-colors" title="Edit affiliate"><Edit className="w-4 h-4" /></button>
+          <button onClick={() => { setSelectedUser(user); setShowResetModal(true); }} className="p-2 text-brand hover:bg-brand-soft rounded-lg transition-colors" title="Reset password"><Key className="w-4 h-4" /></button>
           <button onClick={() => deleteUser(user.id, user.email)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete affiliate"><Trash2 className="w-4 h-4" /></button>
         </div>
       </td>
@@ -1150,26 +1188,26 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-surface flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <RefreshCw className="w-5 h-5 animate-spin text-indigo-600" />
+          <div className="w-12 h-12 bg-brand-soft rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <RefreshCw className="w-5 h-5 animate-spin text-brand" />
           </div>
-          <p className="text-slate-500 text-sm">Loading manager dashboard…</p>
+          <p className="text-faint text-sm">Loading manager dashboard…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-canvas">
       {/* Header */}
-      <header className="bg-slate-900/95 backdrop-blur-md sticky top-0 z-10 border-b border-slate-800/60 shadow-sm">
+      <header className="bg-white/90 backdrop-blur-md sticky top-0 z-10 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <div className="p-1">
-                <svg width="36" height="34" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <div className="flex justify-between items-center h-[60px]">
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center">
+                <svg width="24" height="22" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <g clipPath="url(#clip0_mgr_logo)">
                     <mask id="mask0_mgr_logo" style={{maskType:'luminance'}} maskUnits="userSpaceOnUse" x="0" y="0" width="38" height="37">
                       <path d="M37.9056 0H0.00134277V36.2562H37.9056V0Z" fill="white"/>
@@ -1186,9 +1224,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   </defs>
                 </svg>
               </div>
-              <div>
-                <h1 className="text-white font-semibold text-lg tracking-tight leading-none">Manager Portal</h1>
-                <p className="text-slate-400 text-xs mt-0.5 hidden sm:block">Welcome, {managerName}</p>
+              <div className="flex items-baseline gap-2.5">
+                <h1 className="text-ink font-bold text-[16px] tracking-tight leading-none">Manager Portal</h1>
+                <p className="text-faint text-xs hidden sm:block">Welcome, {managerName}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -1199,10 +1237,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   <div className="relative">
                     <button
                       onClick={() => setActionsOpen(o => !o)}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg hover:bg-slate-700 hover:text-white transition-colors text-sm font-medium"
+                      className="flex items-center gap-2 px-3 h-9 bg-white border border-line text-subtle rounded-lg hover:bg-surface hover:text-ink transition-colors text-sm font-medium"
                     >
                       {anyBusy
-                        ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                        ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-brand" />
                         : <RefreshCw className="w-3.5 h-3.5" />}
                       Actions
                       <ChevronDown className={`w-3.5 h-3.5 transition-transform ${actionsOpen ? 'rotate-180' : ''}`} />
@@ -1210,21 +1248,21 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     {actionsOpen && (
                       <>
                         <div className="fixed inset-0 z-10" onClick={() => setActionsOpen(false)} />
-                        <div className="absolute right-0 mt-1 w-52 bg-white rounded-xl shadow-lg ring-1 ring-slate-900/10 z-20 overflow-hidden">
+                        <div className="absolute right-0 mt-1 w-52 bg-white rounded-xl shadow-lg ring-1 ring-ink/10 z-20 overflow-hidden">
                           <div className="py-1">
-                            <p className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Sync</p>
+                            <p className="px-3 py-1.5 text-xs font-semibold text-faint uppercase tracking-wider">Sync</p>
                             <button
                               onClick={() => { setActionsOpen(false); syncFromAirtable(); }}
                               disabled={syncing}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-subtle hover:bg-surface disabled:opacity-50 transition-colors"
                             >
-                              <RefreshCw className={`w-4 h-4 text-violet-600 ${syncing ? 'animate-spin' : ''}`} />
+                              <RefreshCw className={`w-4 h-4 text-brand ${syncing ? 'animate-spin' : ''}`} />
                               {syncing ? 'Syncing affiliates…' : 'Sync Affiliates'}
                             </button>
                             <button
                               onClick={() => { setActionsOpen(false); syncTrackingFromAirtable(); }}
                               disabled={syncingTracking}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-subtle hover:bg-surface disabled:opacity-50 transition-colors"
                             >
                               <RefreshCw className={`w-4 h-4 text-emerald-600 ${syncingTracking ? 'animate-spin' : ''}`} />
                               {syncingTracking ? 'Syncing tracking…' : 'Sync Tracking'}
@@ -1232,7 +1270,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             <button
                               onClick={() => { setActionsOpen(false); importCPAData(); }}
                               disabled={importingCPA}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-subtle hover:bg-surface disabled:opacity-50 transition-colors"
                             >
                               <RefreshCw className={`w-4 h-4 text-orange-500 ${importingCPA ? 'animate-spin' : ''}`} />
                               {importingCPA ? 'Importing…' : 'Import CPA Rates'}
@@ -1240,9 +1278,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             <button
                               onClick={() => { setActionsOpen(false); syncCardRatingData(); }}
                               disabled={syncingCardRating}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-subtle hover:bg-surface disabled:opacity-50 transition-colors"
                             >
-                              <RefreshCw className={`w-4 h-4 text-violet-600 ${syncingCardRating ? 'animate-spin' : ''}`} />
+                              <RefreshCw className={`w-4 h-4 text-brand ${syncingCardRating ? 'animate-spin' : ''}`} />
                               {syncingCardRating ? 'Syncing…' : 'Sync Card Rating API'}
                             </button>
                           </div>
@@ -1254,7 +1292,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               })()}
               <button
                 onClick={onLogout}
-                className="flex items-center gap-2 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors text-sm"
+                className="flex items-center gap-2 px-3 h-9 text-faint hover:text-neg rounded-lg transition-colors text-sm font-medium"
               >
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline">Logout</span>
@@ -1270,7 +1308,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
             message.includes('success') || message.includes('updated')
               ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200/60'
               : message.includes('No affiliates') || message.includes('get started')
-              ? 'bg-blue-50 text-blue-800 ring-1 ring-blue-200/60'
+              ? 'bg-brand-soft text-brand-dark ring-1 ring-brand/30'
               : 'bg-red-50 text-red-700 ring-1 ring-red-200/60'
           }`}>
             {message}
@@ -1289,32 +1327,32 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               clicks: u.stats?.totalClicks || 0,
               approvals: u.stats?.totalConversions || 0,
             }));
-          const CHART_COLORS = ['#6366f1','#8b5cf6','#a78bfa','#818cf8','#c4b5fd','#ddd6fe','#ede9fe','#f5f3ff'];
+          const CHART_COLORS = ['#0a84ff','#3d9dff','#6bb4ff','#93c9ff','#b9dbff','#d4e9ff','#e6f2ff','#f0f7ff'];
           const isEmptyPeriod = hasTracking && totalStats.clicks === 0 && totalStats.commissions === 0;
           const showCharts   = visiblePanels.has('charts')   && chartData.length > 0;
           const showTopCards = visiblePanels.has('topCards') && mostApprovedCards.length > 0;
 
           const statRows = [
-            { label: 'Clicks',       value: totalStats.clicks.toLocaleString(),                       iconColor: 'text-blue-600',    bgColor: 'bg-blue-50',    Icon: MousePointerClick, sub: null,                                                                                                          pct: clicksPct },
+            { label: 'Clicks',       value: totalStats.clicks.toLocaleString(),                       iconColor: 'text-brand',    bgColor: 'bg-brand-soft',    Icon: MousePointerClick, sub: null,                                                                                                          pct: clicksPct },
             { label: 'Approvals',    value: totalStats.conversions.toLocaleString(),                  iconColor: 'text-emerald-600', bgColor: 'bg-emerald-50', Icon: CheckCircle,       sub: totalStats.clicks > 0 && totalStats.conversions > 0 ? `${((totalStats.conversions/totalStats.clicks)*100).toFixed(1)}% conv.` : null,    pct: approvalsPct },
-            { label: 'Commissions',  value: `$${Math.round(totalStats.commissions).toLocaleString()}`, iconColor: 'text-indigo-600', bgColor: 'bg-indigo-50', Icon: DollarSign,        sub: avgEPC > 0 ? `EPC $${avgEPC.toFixed(2)}` : null,                                                                                  pct: commissionsPct },
+            { label: 'Commissions',  value: `$${Math.round(totalStats.commissions).toLocaleString()}`, iconColor: 'text-brand', bgColor: 'bg-brand-soft', Icon: DollarSign,        sub: avgEPC > 0 ? `EPC $${avgEPC.toFixed(2)}` : null,                                                                                  pct: commissionsPct },
             { label: 'Applications', value: totalStats.applications.toLocaleString(),                 iconColor: 'text-orange-500',  bgColor: 'bg-orange-50', Icon: Activity,          sub: totalStats.clicks > 0 && totalStats.applications > 0 ? `${((totalStats.applications/totalStats.clicks)*100).toFixed(1)}% c→a` : null,    pct: applicationsPct },
           ];
 
           return (
             <div className="mb-6 sm:mb-8">
               {/* ── Period header ── */}
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+              <div data-anim className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div>
-                  <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                  <h2 className="text-base sm:text-lg font-bold text-ink tracking-tight">
                     Performance Overview
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200/70 ml-2 align-middle tracking-normal">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-soft text-brand-dark ring-1 ring-brand/30 ml-2 align-middle tracking-normal">
                       {STAT_PERIOD_SHORT[statPeriod]}
                     </span>
                   </h2>
-                  <p className="text-xs sm:text-sm text-slate-500">
+                  <p className="text-xs sm:text-sm text-faint">
                     {STAT_PERIOD_LABELS[statPeriod]}
-                    <span className="text-slate-300 mx-1.5">•</span>
+                    <span className="text-faint2 mx-1.5">•</span>
                     {users.length.toLocaleString()} affiliate{users.length === 1 ? '' : 's'}
                   </p>
                 </div>
@@ -1323,7 +1361,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   <select
                     value={statPeriod}
                     onChange={e => setStatPeriod(e.target.value as StatPeriod)}
-                    className="sm:hidden text-xs font-medium bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer"
+                    className="sm:hidden text-xs font-medium bg-white border border-hair rounded-lg px-2.5 py-2 text-subtle shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30 cursor-pointer"
                   >
                     {([
                       { value: 'today',  label: 'Today' },
@@ -1337,7 +1375,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     ))}
                   </select>
                   {/* Desktop: pill row */}
-                  <div className="hidden sm:flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl p-1 text-xs font-medium shadow-sm">
+                  <div className="hidden sm:flex items-center gap-0.5 bg-white border border-hair rounded-xl p-1 text-xs font-medium shadow-sm">
                     {([
                       { value: 'today',  label: 'Today' },
                       { value: 'week',   label: 'This Week' },
@@ -1348,7 +1386,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
                       <button key={value} onClick={() => setStatPeriod(value)}
                         className={`px-2.5 py-1.5 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer ${
-                          statPeriod === value ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                          statPeriod === value ? 'bg-brand text-white shadow-sm' : 'text-faint hover:text-subtle hover:bg-surface'
                         }`}>
                         {label}
                       </button>
@@ -1358,36 +1396,30 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   {statPeriod === 'custom' && (
                     <div className="flex items-center gap-1.5">
                       <input type="date" value={statCustomFrom} onChange={e => setStatCustomFrom(e.target.value)}
-                        className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
-                      <span className="text-xs text-slate-400">→</span>
+                        className="text-xs border border-hair rounded-lg px-2 py-1.5 text-subtle bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
+                      <span className="text-xs text-faint">→</span>
                       <input type="date" value={statCustomTo} onChange={e => setStatCustomTo(e.target.value)}
-                        className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
+                        className="text-xs border border-hair rounded-lg px-2 py-1.5 text-subtle bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
                     </div>
                   )}
                 </div>
               </div>
 
               {isEmptyPeriod && (
-                <div className="mb-3 flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+                <div className="mb-3 flex items-center gap-1.5 text-xs text-faint font-medium">
                   <RefreshCw className="w-3 h-3" /> No activity recorded for {STAT_PERIOD_LABELS[statPeriod].split(' vs ')[0].toLowerCase()}
                 </div>
               )}
 
-              {/* ── Stat strip — compact, single row, the primary numbers ── */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4">
-                {statRows.map(({ label, value, iconColor, bgColor, Icon, sub, pct }) => (
-                  <div key={label} className="bg-white rounded-xl ring-1 ring-slate-900/5 shadow-sm px-3 py-2.5 flex items-center gap-2.5 hover:shadow-md transition-shadow duration-200 min-w-0">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${bgColor} ring-1 ring-inset ${iconColor.replace('text-', 'ring-')}/10`}>
-                      <Icon className={`w-4 h-4 ${iconColor}`} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-lg sm:text-xl font-bold text-slate-900 leading-none tracking-tight tabular-nums">{value}</span>
-                        {pct !== undefined && <PctBadge pct={pct} compact />}
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-medium mt-0.5 uppercase tracking-wide truncate">
-                        {label}{sub ? <span className="text-slate-300 normal-case"> · {sub}</span> : null}
-                      </div>
+              {/* ── KPI band — borderless big numbers, hairline-separated (mock layout) ── */}
+              <div data-anim className="grid [grid-template-columns:repeat(auto-fit,minmax(140px,1fr))] gap-x-3 gap-y-6 pb-7 mb-7 border-b border-hair">
+                {statRows.map(({ label, value, sub, pct }) => (
+                  <div key={label} className="min-w-0">
+                    <div className="text-[13px] font-medium text-faint mb-2">{label}</div>
+                    <div className="text-[27px] sm:text-[31px] font-bold text-ink leading-none tracking-[-0.025em] tabular-nums">{value}</div>
+                    <div className="flex items-center gap-2.5 mt-2.5 flex-wrap">
+                      {pct !== undefined && <DeltaInline pct={pct} />}
+                      {sub ? <span className="text-[12.5px] text-faint font-medium whitespace-nowrap">{sub}</span> : null}
                     </div>
                   </div>
                 ))}
@@ -1395,15 +1427,24 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
               {/* ── Insights: tabbed charts / top cards ── */}
               {(showCharts || showTopCards) && (
-                <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 sm:p-5">
+                <div data-anim className="pb-7 mb-2 border-b border-hair">
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <button onClick={() => setInsightsOpen(o => !o)} title={insightsOpen ? 'Minimize insights' : 'Show insights'}
+                      className="flex items-center gap-2 cursor-pointer group">
+                      <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${insightsOpen ? 'rotate-90' : ''}`} strokeWidth={2.6} />
+                      <span className="text-[15px] font-bold text-ink group-hover:opacity-70 transition-opacity">Insights</span>
+                    </button>
+                    {!insightsOpen && <span className="text-[12.5px] text-faint font-medium">Trends &amp; top cards hidden</span>}
+                  </div>
+                  {insightsOpen && (<>
                   <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                    <div className="flex items-center gap-1 bg-slate-50 rounded-lg p-1 text-xs font-medium">
+                    <div className="flex items-center gap-1 bg-surface rounded-lg p-1 text-xs font-medium">
                       {showCharts && (
                         <button onClick={() => setInsightsTab('charts')}
                           className={`px-3 py-1.5 rounded-md transition-all duration-150 cursor-pointer ${
                             insightsTab === 'charts' || !showTopCards
-                              ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-900/5'
-                              : 'text-slate-500 hover:text-slate-700'
+                              ? 'bg-white text-ink shadow-sm ring-1 ring-ink/5'
+                              : 'text-faint hover:text-subtle'
                           }`}>
                           Top Affiliates
                         </button>
@@ -1412,17 +1453,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         <button onClick={() => setInsightsTab('topCards')}
                           className={`px-3 py-1.5 rounded-md transition-all duration-150 cursor-pointer flex items-center gap-1.5 ${
                             insightsTab === 'topCards' || !showCharts
-                              ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-900/5'
-                              : 'text-slate-500 hover:text-slate-700'
+                              ? 'bg-white text-ink shadow-sm ring-1 ring-ink/5'
+                              : 'text-faint hover:text-subtle'
                           }`}>
                           <Award className="w-3.5 h-3.5 text-emerald-500" /> Top Cards
                         </button>
                       )}
                     </div>
                     {(insightsTab === 'charts' || !showTopCards) && showCharts && (
-                      <div className="flex items-center gap-3 text-[11px] text-slate-400 font-medium">
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#bfdbfe]" />Clicks</span>
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#6366f1]" />Approvals</span>
+                      <div className="flex items-center gap-3 text-[11px] text-faint font-medium">
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#b9dbff]" />Clicks</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#0a84ff]" />Approvals</span>
                       </div>
                     )}
                   </div>
@@ -1430,12 +1471,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   {showCharts && (insightsTab === 'charts' || !showTopCards) && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 h-48 sm:h-56">
                       <div className="h-full flex flex-col overflow-hidden">
-                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 flex-none">Earnings (all-time)</div>
+                        <div className="text-[11px] font-semibold text-faint uppercase tracking-wider mb-1 flex-none">Earnings (all-time)</div>
                         <div className="flex-1 min-h-0">
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={chartData} margin={{ top:4, right:8, left:0, bottom:0 }}>
-                              <XAxis dataKey="name" tick={{ fontSize:10, fill:'#94a3b8' }} axisLine={false} tickLine={false} />
-                              <YAxis tick={{ fontSize:10, fill:'#94a3b8' }} axisLine={false} tickLine={false}
+                              <XAxis dataKey="name" tick={{ fontSize:10, fill:'#9499a0' }} axisLine={false} tickLine={false} />
+                              <YAxis tick={{ fontSize:10, fill:'#9499a0' }} axisLine={false} tickLine={false}
                                 tickFormatter={v => v >= 1000 ? `$${(v/1000).toFixed(0)}k` : `$${v}`} width={36} />
                               <Tooltip formatter={(val: any) => [`$${Number(val).toLocaleString()}`, 'Earnings']}
                                 contentStyle={{ fontSize:12, borderRadius:8, border:'1px solid #e2e8f0' }} />
@@ -1447,15 +1488,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         </div>
                       </div>
                       <div className="h-full flex flex-col overflow-hidden">
-                        <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 flex-none">Clicks vs Approvals</div>
+                        <div className="text-[11px] font-semibold text-faint uppercase tracking-wider mb-1 flex-none">Clicks vs Approvals</div>
                         <div className="flex-1 min-h-0">
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={chartData} margin={{ top:4, right:8, left:0, bottom:0 }}>
-                              <XAxis dataKey="name" tick={{ fontSize:10, fill:'#94a3b8' }} axisLine={false} tickLine={false} />
-                              <YAxis tick={{ fontSize:10, fill:'#94a3b8' }} axisLine={false} tickLine={false} width={32} />
+                              <XAxis dataKey="name" tick={{ fontSize:10, fill:'#9499a0' }} axisLine={false} tickLine={false} />
+                              <YAxis tick={{ fontSize:10, fill:'#9499a0' }} axisLine={false} tickLine={false} width={32} />
                               <Tooltip contentStyle={{ fontSize:12, borderRadius:8, border:'1px solid #e2e8f0' }} />
-                              <Bar dataKey="clicks" name="Clicks" fill="#bfdbfe" radius={[2,2,0,0]} />
-                              <Bar dataKey="approvals" name="Approvals" fill="#6366f1" radius={[2,2,0,0]} />
+                              <Bar dataKey="clicks" name="Clicks" fill="#b9dbff" radius={[2,2,0,0]} />
+                              <Bar dataKey="approvals" name="Approvals" fill="#0a84ff" radius={[2,2,0,0]} />
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
@@ -1466,30 +1507,31 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   {showTopCards && (insightsTab === 'topCards' || !showCharts) && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-1">
                       {mostApprovedCards.map((c, idx) => (
-                        <div key={c.name} className="flex items-center gap-2.5 py-2 px-2 rounded-lg hover:bg-slate-50 transition-colors duration-150 min-w-0">
+                        <div key={c.name} className="flex items-center gap-2.5 py-2 px-2 rounded-lg hover:bg-surface transition-colors duration-150 min-w-0">
                           <span className={`text-xs font-bold flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center ${
-                            idx === 0 ? 'bg-amber-50 text-amber-500' : idx === 1 ? 'bg-slate-100 text-slate-400' : idx === 2 ? 'bg-orange-50 text-orange-500' : 'bg-slate-50 text-slate-300'
+                            idx === 0 ? 'bg-amber-50 text-amber-500' : idx === 1 ? 'bg-hair2 text-faint' : idx === 2 ? 'bg-orange-50 text-orange-500' : 'bg-surface text-faint2'
                           }`}>{idx+1}</span>
-                          <span className="text-sm text-slate-700 truncate flex-1 min-w-0 font-medium">{c.name}</span>
-                          <span className="text-xs text-slate-400 flex-shrink-0 font-semibold tabular-nums">{c.approvals}×</span>
+                          <span className="text-sm text-subtle truncate flex-1 min-w-0 font-medium">{c.name}</span>
+                          <span className="text-xs text-faint flex-shrink-0 font-semibold tabular-nums">{c.approvals}×</span>
                         </div>
                       ))}
                     </div>
                   )}
+                  </>)}
                 </div>
               )}
 
               {/* ── Visibility toggles for the insights panel ── */}
               <div className="flex items-center gap-1.5 mt-3">
-                <span className="text-[11px] font-semibold text-slate-400 mr-0.5 uppercase tracking-wider">Show:</span>
+                <span className="text-[11px] font-semibold text-faint mr-0.5 uppercase tracking-wider">Show:</span>
                 {(['charts', 'topCards'] as const).map(key => {
                   const labels = { charts: 'Top Affiliates', topCards: 'Top Cards' };
                   return (
                     <button key={key} onClick={() => togglePanel(key)}
                       className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-150 border cursor-pointer ${
                         visiblePanels.has(key)
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                          : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                          ? 'bg-brand text-white border-brand shadow-sm'
+                          : 'bg-white text-faint border-hair hover:border-brand hover:text-brand'
                       }`}>
                       {labels[key]}
                     </button>
@@ -1502,51 +1544,44 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
         {/* Tabs */}
         <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <Tabs.List className="flex border-b border-slate-200 mb-6 overflow-x-auto">
-            <Tabs.Trigger
-              value="affiliates"
-              className="px-4 sm:px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-slate-800 transition-colors -mb-px whitespace-nowrap"
-            >
-              Affiliates
-            </Tabs.Trigger>
-            <Tabs.Trigger
-              value="tracking"
-              className="px-4 sm:px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-slate-800 transition-colors -mb-px whitespace-nowrap"
-            >
-              Activity
-            </Tabs.Trigger>
-            <Tabs.Trigger
-              value="cpa-rates"
-              className="px-4 sm:px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-slate-800 transition-colors -mb-px whitespace-nowrap"
-            >
-              CPA Rates
-            </Tabs.Trigger>
-            <Tabs.Trigger
-              value="invoices"
-              className="px-4 sm:px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 hover:text-slate-800 transition-colors -mb-px whitespace-nowrap"
-            >
-              <span className="flex items-center gap-1.5">
-                Invoices
-                {invoices.length > 0 && <span className="bg-indigo-100 text-indigo-700 text-xs font-semibold px-1.5 py-0.5 rounded-full">{invoices.length}</span>}
-              </span>
-            </Tabs.Trigger>
+          <Tabs.List className="flex gap-1 border-b border-hair mb-6 overflow-x-auto sticky top-[59px] z-20 bg-canvas/95 backdrop-blur-md">
+            {([
+              { key: 'affiliates', label: 'Affiliates', Icon: Users,      badge: undefined as number | undefined },
+              { key: 'tracking',   label: 'Activity',   Icon: Activity,   badge: undefined },
+              { key: 'cpa-rates',  label: 'CPA Rates',  Icon: Layers,     badge: undefined },
+              { key: 'invoices',   label: 'Invoices',   Icon: FileText,   badge: invoices.length || undefined },
+            ] as const).map(({ key, label, Icon, badge }) => (
+              <Tabs.Trigger
+                key={key}
+                value={key}
+                className="group relative flex items-center gap-2 px-3 py-3.5 text-sm font-medium text-faint data-[state=active]:text-ink data-[state=active]:font-bold hover:text-ink transition-colors whitespace-nowrap cursor-pointer"
+              >
+                <Icon className="w-4 h-4 flex-shrink-0 text-faint2 group-data-[state=active]:text-brand transition-colors" />
+                <span className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
+                  <span className="flex items-center gap-1.5">
+                    {label}
+                    {badge && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{badge}</span>}
+                  </span>
+                </span>
+              </Tabs.Trigger>
+            ))}
           </Tabs.List>
 
           {/* ── Affiliates Tab ── */}
           <Tabs.Content value="affiliates">
 
             {/* Toolbar: Search + Date filter + Group + Create */}
-            <div className="sticky top-16 z-10 bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 mb-4 space-y-3">
+            <div className="sticky top-[106px] z-10 bg-canvas/95 backdrop-blur-md py-4 mb-4 space-y-3 border-b border-hair">
               <div className="flex flex-wrap items-center gap-3">
                 {/* Search */}
                 <div className="relative flex-1 min-w-[200px]">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-faint pointer-events-none" />
                   <input
                     type="text"
                     placeholder="Search by name or email…"
                     value={affiliateSearch}
                     onChange={e => { setAffiliateSearch(e.target.value); setAffiliatesVisible(PAGE_SIZE); }}
-                    className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 transition-shadow"
+                    className="w-full pl-8 pr-3 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle transition-shadow"
                   />
                 </div>
 
@@ -1556,8 +1591,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     onClick={() => { setAffiliateGroupBy(g => !g); setAffiliateCollapsed(new Set()); setAffiliatesVisible(PAGE_SIZE); }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all duration-150 cursor-pointer ${
                       affiliateGroupBy
-                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                        : 'text-slate-600 bg-white border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                        ? 'bg-brand text-white border-brand shadow-sm'
+                        : 'text-subtle bg-white border-hair hover:border-brand hover:text-brand'
                     }`}
                   >
                     <Layers className="w-3.5 h-3.5" />
@@ -1569,7 +1604,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     return (
                       <button
                         onClick={() => setAffiliateCollapsed(allCollapsed ? new Set() : new Set(allRates))}
-                        className="text-xs text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer"
+                        className="text-xs text-faint hover:text-brand transition-colors cursor-pointer"
                       >
                         {allCollapsed ? 'Expand All' : 'Collapse All'}
                       </button>
@@ -1577,7 +1612,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   })()}
                   <button
                     onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium shadow-sm"
+                    className="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium shadow-sm"
                   >
                     <Plus className="w-4 h-4" />
                     Create Affiliate
@@ -1593,32 +1628,32 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   customTo={affiliatesCustomTo}     setCustomTo={v => { setAffiliatesCustomTo(v); setAffiliatesVisible(PAGE_SIZE); }}
                 />
                 {(affiliateSearch || affiliatesFilter !== 'all') && (
-                  <span className="text-xs text-slate-500 ml-1">
+                  <span className="text-xs text-faint ml-1">
                     {displayUsers.length} of {users.length} members
-                    {affiliateSearch && <button onClick={() => { setAffiliateSearch(''); setAffiliatesVisible(PAGE_SIZE); }} className="text-indigo-600 hover:underline ml-2 cursor-pointer">Clear search</button>}
+                    {affiliateSearch && <button onClick={() => { setAffiliateSearch(''); setAffiliatesVisible(PAGE_SIZE); }} className="text-brand hover:underline ml-2 cursor-pointer">Clear search</button>}
                   </span>
                 )}
               </div>
             </div>
 
             {/* Affiliates Table */}
-            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm">
-              <p className="text-xs text-slate-400 px-5 pt-4">
+            <div className="mt-1">
+              <p className="text-xs text-faint px-5 pt-4">
                 Showing {Math.min(affiliatesVisible, displayUsers.length)} of {displayUsers.length} affiliates
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-slate-50/80 border-b border-slate-100">
+                  <thead className="bg-surface/80 border-b border-hair2">
                     <tr>
                       <SortTh label="Affiliate"     field="name"             sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} />
-                      <th className="text-left py-3.5 px-6 text-slate-500 text-xs font-semibold uppercase tracking-wider">Contact Info</th>
-                      <th className="text-left py-3.5 px-6 text-slate-500 text-xs font-semibold uppercase tracking-wider">Affiliate ID</th>
+                      <th className="text-left py-3.5 px-6 text-faint text-xs font-semibold uppercase tracking-wider">Contact Info</th>
+                      <th className="text-left py-3.5 px-6 text-faint text-xs font-semibold uppercase tracking-wider">Affiliate ID</th>
                       <SortTh label="Commission %"  field="commissionRate"   sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
                       <SortTh label="Clicks"        field="totalClicks"      sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
                       <SortTh label="Conversions"   field="totalConversions" sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
                       <SortTh label="Earned"        field="totalCommissions" sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
                       <SortTh label="Joined"        field="createdAt"        sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
-                      <th className="text-right py-3.5 px-6 text-slate-500 text-xs font-semibold uppercase tracking-wider">Actions</th>
+                      <th className="text-right py-3.5 px-6 text-faint text-xs font-semibold uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1643,12 +1678,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             });
                             return (
                               <React.Fragment key={`group-${rate}`}>
-                                <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none">
+                                <tr onClick={toggle} className="bg-surface border-b border-hair cursor-pointer hover:bg-hair2 transition-colors duration-150 select-none">
                                   <td colSpan={9} className="py-2.5 px-6">
                                     <div className="flex items-center gap-2">
-                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                      <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{rate} Commission</span>
-                                      <span className="text-xs font-normal text-slate-400 ml-0.5">({members.length} {members.length === 1 ? 'member' : 'members'})</span>
+                                      <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+                                      <span className="text-xs font-semibold text-subtle uppercase tracking-wider">{rate} Commission</span>
+                                      <span className="text-xs font-normal text-faint ml-0.5">({members.length} {members.length === 1 ? 'member' : 'members'})</span>
                                     </div>
                                   </td>
                                 </tr>
@@ -1666,10 +1701,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 <div className="py-4 text-center">
                   <button
                     onClick={() => setAffiliatesVisible(n => n + PAGE_SIZE)}
-                    className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
+                    className="px-4 py-2 text-xs font-medium text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors duration-150 cursor-pointer"
                   >
                     Show {Math.min(PAGE_SIZE, displayUsers.length - affiliatesVisible)} more
-                    <span className="text-slate-400 ml-1">({displayUsers.length - affiliatesVisible} remaining)</span>
+                    <span className="text-faint ml-1">({displayUsers.length - affiliatesVisible} remaining)</span>
                   </button>
                 </div>
               )}
@@ -1678,12 +1713,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
           {/* ── Tracking Activity Tab ── */}
           <Tabs.Content value="tracking">
-            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm">
-              <div className="sticky top-16 z-10 bg-white p-4 border-b border-slate-100 space-y-2.5">
+            <div className="mt-1">
+              <div className="sticky top-16 z-10 bg-white p-4 border-b border-hair2 space-y-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-base font-semibold text-slate-900">All Tracking Activity</h2>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <h2 className="text-base font-semibold text-ink">All Tracking Activity</h2>
+                    <p className="text-xs text-faint mt-0.5">
                       {displayTrackingActivity.length}
                       {(mgTrackingFilter !== 'all' || mgTrackingStatusFilter !== 'all' || mgTrackingAffiliateFilter !== 'all')
                         ? ` of ${trackingActivity.length}` : ''} records
@@ -1692,7 +1727,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   </div>
                   <div className="flex items-center gap-2">
                     {/* Group by segmented control */}
-                    <div className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl p-1 text-xs font-medium">
+                    <div className="flex items-center gap-0.5 bg-white border border-hair rounded-xl p-1 text-xs font-medium">
                       {([
                         { value: 'none',      label: 'No Group' },
                         { value: 'month',     label: 'Month' },
@@ -1703,8 +1738,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                           onClick={() => { setTrackingGroupBy(value); setTrackingCollapsed(new Set()); setTrackingVisible(trackingPageSize); }}
                           className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all duration-150 cursor-pointer ${
                             trackingGroupBy === value
-                              ? 'bg-indigo-600 text-white shadow-sm'
-                              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                              ? 'bg-brand text-white shadow-sm'
+                              : 'text-faint hover:text-subtle hover:bg-surface'
                           }`}
                         >
                           {value !== 'none' && <Layers className="w-3 h-3" />}
@@ -1721,14 +1756,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       const allCollapsed = allKeys.every(k => trackingCollapsed.has(k));
                       return (
                         <button onClick={() => setTrackingCollapsed(allCollapsed ? new Set() : new Set(allKeys))}
-                          className="text-xs text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer">
+                          className="text-xs text-faint hover:text-brand transition-colors cursor-pointer">
                           {allCollapsed ? 'Expand All' : 'Collapse All'}
                         </button>
                       );
                     })()}
                     <button
                       onClick={() => { setTrackingVisible(trackingPageSize); fetchTrackingActivity(); }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all duration-150 cursor-pointer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-subtle bg-white border border-hair rounded-lg hover:border-brand hover:text-brand transition-all duration-150 cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       Refresh
@@ -1745,7 +1780,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
                 {/* Status filter */}
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-medium text-slate-400 mr-1">Status:</span>
+                  <span className="text-xs font-medium text-faint mr-1">Status:</span>
                   {[
                     { value: 'all',         label: 'All' },
                     { value: 'click',       label: 'Click' },
@@ -1757,8 +1792,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       onClick={() => { setMgTrackingStatusFilter(value); setTrackingVisible(trackingPageSize); }}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
                         mgTrackingStatusFilter === value
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                          ? 'bg-brand text-white shadow-sm'
+                          : 'text-subtle bg-white border border-hair hover:border-brand hover:text-brand'
                       }`}
                     >
                       {label}
@@ -1769,11 +1804,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 {/* Affiliate filter */}
                 {affiliateOptions.length > 0 && (
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-medium text-slate-400 mr-1">Affiliate:</span>
+                    <span className="text-xs font-medium text-faint mr-1">Affiliate:</span>
                     <select
                       value={mgTrackingAffiliateFilter}
                       onChange={(e) => { setMgTrackingAffiliateFilter(e.target.value); setTrackingVisible(trackingPageSize); }}
-                      className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
+                      className="px-2.5 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle cursor-pointer transition-shadow"
                     >
                       <option value="all">All affiliates</option>
                       {affiliateOptions.map((a) => (
@@ -1783,7 +1818,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     {mgTrackingAffiliateFilter !== 'all' && (
                       <button
                         onClick={() => { setMgTrackingAffiliateFilter('all'); setTrackingVisible(trackingPageSize); }}
-                        className="text-xs text-indigo-600 hover:underline cursor-pointer"
+                        className="text-xs text-brand hover:underline cursor-pointer"
                       >
                         Clear
                       </button>
@@ -1798,10 +1833,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 return (
                   <>
                     <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-faint">
                         Showing {pagedTracking.length} of {displayTrackingActivity.length} records
                       </p>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                      <div className="flex items-center gap-1.5 text-xs text-faint">
                         <span>Show</span>
                         {[25, 50, 100].map(n => (
                           <button
@@ -1809,8 +1844,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             onClick={() => { setTrackingPageSize(n); setTrackingVisible(n); }}
                             className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
                               trackingPageSize === n
-                                ? 'border-indigo-200 bg-indigo-50 text-indigo-600 font-medium'
-                                : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                                ? 'border-brand/30 bg-brand-soft text-brand font-medium'
+                                : 'border-hair text-faint hover:bg-surface'
                             }`}
                           >
                             {n}
@@ -1820,17 +1855,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                           onClick={() => { setTrackingPageSize(Infinity); setTrackingVisible(Infinity); }}
                           className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
                             trackingPageSize === Infinity
-                              ? 'border-indigo-200 bg-indigo-50 text-indigo-600 font-medium'
-                              : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                              ? 'border-brand/30 bg-brand-soft text-brand font-medium'
+                              : 'border-hair text-faint hover:bg-surface'
                           }`}
                         >
                           All
                         </button>
                       </div>
                     </div>
-                    <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
+                    <div className="overflow-x-auto rounded-xl ring-1 ring-hair2">
                       <table className="w-full">
-                        <thead className="bg-slate-50/80 border-b border-slate-100">
+                        <thead className="bg-surface/80 border-b border-hair2">
                           <tr>
                             <SortThSm label="Date / Time"  field="clickDate"     sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
                             <SortThSm label="Affiliate"    field="memberName"    sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
@@ -1845,28 +1880,28 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                           {(() => {
                             // Single row renderer — used in both flat and grouped modes
                             const TrackRow = ({ a }: { a: any }) => (
-                              <tr key={a.id} className="border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150">
+                              <tr key={a.id} className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150">
                                 <td className="py-3.5 px-4 text-sm">
-                                  <div className="font-medium text-slate-900">{formatDate(a.clickDate)}</div>
-                                  <div className="text-xs text-slate-400 mt-0.5">{formatTime(a.clickTime)}</div>
+                                  <div className="font-medium text-ink">{formatDate(a.clickDate)}</div>
+                                  <div className="text-xs text-faint mt-0.5">{formatTime(a.clickTime)}</div>
                                 </td>
                                 <td className="py-3.5 px-4 text-sm">
-                                  <div className="font-medium text-slate-900">{a.memberName}</div>
-                                  <div className="text-xs text-slate-400 mt-0.5">{a.affiliateId}</div>
+                                  <div className="font-medium text-ink">{a.memberName}</div>
+                                  <div className="text-xs text-faint mt-0.5">{a.affiliateId}</div>
                                 </td>
-                                <td className="py-3.5 px-4 text-sm text-slate-700">{a.cardName}</td>
+                                <td className="py-3.5 px-4 text-sm text-subtle">{a.cardName}</td>
                                 <td className="py-3.5 px-4">
                                   <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
                                     a.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
-                                    a.status === 'application' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70' :
-                                    'bg-slate-100 text-slate-600'
+                                    a.status === 'application' ? 'bg-brand-soft text-brand-dark ring-1 ring-brand/30' :
+                                    'bg-hair2 text-subtle'
                                   }`}>{a.status}</span>
                                 </td>
-                                <td className="py-3.5 px-4 text-sm text-right font-semibold text-slate-900 tabular-nums">
-                                  {a.totalEarnings > 0 ? `$${a.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
+                                <td className="py-3.5 px-4 text-sm text-right font-semibold text-ink tabular-nums">
+                                  {a.totalEarnings > 0 ? `$${a.totalEarnings.toFixed(2)}` : <span className="text-faint2 font-normal">—</span>}
                                 </td>
-                                <td className="py-3.5 px-4 text-sm text-slate-500">{a.deviceType || '—'}</td>
-                                <td className="py-3.5 px-4 text-sm text-slate-500">{a.state || '—'}</td>
+                                <td className="py-3.5 px-4 text-sm text-faint">{a.deviceType || '—'}</td>
+                                <td className="py-3.5 px-4 text-sm text-faint">{a.state || '—'}</td>
                               </tr>
                             );
 
@@ -1918,16 +1953,16 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               const sublabel     = trackingGroupBy === 'affiliate' ? key : undefined;
                               return (
                                 <React.Fragment key={key}>
-                                  <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none">
+                                  <tr onClick={toggle} className="bg-surface border-b border-hair cursor-pointer hover:bg-hair2 transition-colors duration-150 select-none">
                                     <td colSpan={7} className="py-2.5 px-4">
                                       <div className="flex items-center gap-3 flex-wrap">
                                         <div className="flex items-center gap-2">
-                                          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                          <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{label}</span>
-                                          {sublabel && <span className="text-xs text-slate-400 font-mono normal-case">{sublabel}</span>}
-                                          <span className="text-xs font-normal text-slate-400">({rows.length} records)</span>
+                                          <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+                                          <span className="text-xs font-semibold text-subtle uppercase tracking-wider">{label}</span>
+                                          {sublabel && <span className="text-xs text-faint font-mono normal-case">{sublabel}</span>}
+                                          <span className="text-xs font-normal text-faint">({rows.length} records)</span>
                                         </div>
-                                        <div className="flex items-center gap-3 ml-2 text-xs text-slate-500">
+                                        <div className="flex items-center gap-3 ml-2 text-xs text-faint">
                                           {grpClicks    > 0 && <span>{grpClicks.toLocaleString()} clicks</span>}
                                           {grpApps      > 0 && <span>{grpApps} apps</span>}
                                           {grpApprovals > 0 && <span>{grpApprovals} approvals</span>}
@@ -1949,10 +1984,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         {trackingVisible < displayTrackingActivity.length && (
                           <button
                             onClick={() => setTrackingVisible(n => n + trackingPageSize)}
-                            className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
+                            className="px-4 py-2 text-xs font-medium text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors duration-150 cursor-pointer"
                           >
                             Show {Math.min(trackingPageSize, displayTrackingActivity.length - trackingVisible)} more
-                            <span className="text-slate-400 ml-1">({displayTrackingActivity.length - trackingVisible} remaining)</span>
+                            <span className="text-faint ml-1">({displayTrackingActivity.length - trackingVisible} remaining)</span>
                           </button>
                         )}
                         <LoadMoreYears showAll={trackingShowAllYears} setShowAll={v => { setTrackingShowAllYears(v); setTrackingVisible(trackingPageSize); }} hiddenCount={trackingHiddenOlderCount} />
@@ -1967,26 +2002,26 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
           {/* ── CPA Rates Tab ── */}
           <Tabs.Content value="cpa-rates">
-            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm">
+            <div className="mt-1">
               {/* Toolbar */}
-              <div className="sticky top-16 z-10 bg-white p-5 border-b border-slate-100 space-y-3">
+              <div className="sticky top-16 z-10 bg-white p-5 border-b border-hair2 space-y-3">
                 {/* Row 1: Search + Affiliate + Refresh */}
                 <div className="flex flex-wrap items-center gap-3">
                   {/* Search */}
                   <div className="relative flex-1 min-w-[180px]">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-faint pointer-events-none" />
                     <input
                       type="text"
                       placeholder="Search cards…"
                       value={cpaSearch}
                       onChange={e => { setCpaSearch(e.target.value); setCpaVisible(cpaPageSize); }}
-                      className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 transition-shadow"
+                      className="w-full pl-8 pr-3 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle transition-shadow"
                     />
                   </div>
 
                   {/* Affiliate */}
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-slate-500">Affiliate:</span>
+                    <span className="text-xs font-medium text-faint">Affiliate:</span>
                     <select
                       value={cpaAffiliateFilter}
                       onChange={(e) => {
@@ -1995,7 +2030,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         setCpaVisible(cpaPageSize);
                         fetchCpaRates(val);
                       }}
-                      className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
+                      className="px-2.5 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle cursor-pointer transition-shadow"
                     >
                       <option value="all">All (bank CPA only)</option>
                       {(users as any[]).map((u: any) => (
@@ -2013,8 +2048,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       title="Group by issuer"
                       className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all duration-150 cursor-pointer ${
                         cpaGroupBy
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                          : 'text-slate-600 bg-white border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                          ? 'bg-brand text-white border-brand shadow-sm'
+                          : 'text-subtle bg-white border-hair hover:border-brand hover:text-brand'
                       }`}
                     >
                       <Layers className="w-3.5 h-3.5" />
@@ -2027,7 +2062,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       return (
                         <button
                           onClick={() => setCpaCollapsed(allCollapsed ? new Set() : new Set(allIssuers))}
-                          className="text-xs text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer"
+                          className="text-xs text-faint hover:text-brand transition-colors cursor-pointer"
                         >
                           {allCollapsed ? 'Expand All' : 'Collapse All'}
                         </button>
@@ -2035,7 +2070,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     })()}
                     <button
                       onClick={() => { setCpaVisible(cpaPageSize); fetchCpaRates(cpaAffiliateFilter); }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all duration-150 cursor-pointer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-subtle bg-white border border-hair rounded-lg hover:border-brand hover:text-brand transition-all duration-150 cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       Refresh
@@ -2048,11 +2083,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   <div className="flex flex-wrap items-center gap-3">
                     {/* Issuer dropdown */}
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-slate-400">Issuer:</span>
+                      <span className="text-xs font-medium text-faint">Issuer:</span>
                       <select
                         value={cpaIssuerFilter}
                         onChange={e => { setCpaIssuerFilter(e.target.value); setCpaVisible(cpaPageSize); }}
-                        className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
+                        className="px-2.5 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle cursor-pointer transition-shadow"
                       >
                         <option value="all">All issuers</option>
                         {Array.from(new Set(cpaRates.map(r => r.issuer).filter(Boolean))).sort().map((iss: any) => (
@@ -2063,7 +2098,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
                     {/* CPA range pills */}
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-medium text-slate-400">Payout:</span>
+                      <span className="text-xs font-medium text-faint">Payout:</span>
                       {([
                         { value: 'all',    label: 'All' },
                         { value: 'lt100',  label: '<$100' },
@@ -2075,8 +2110,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                           onClick={() => { setCpaCpaRange(value); setCpaVisible(cpaPageSize); }}
                           className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
                             cpaCpaRange === value
-                              ? 'bg-indigo-600 text-white shadow-sm'
-                              : 'text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                              ? 'bg-brand text-white shadow-sm'
+                              : 'text-subtle bg-white border border-hair hover:border-brand hover:text-brand'
                           }`}
                         >
                           {label}
@@ -2088,7 +2123,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     {(cpaSearch || cpaIssuerFilter !== 'all' || cpaCpaRange !== 'all') && (
                       <button
                         onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(cpaPageSize); }}
-                        className="text-xs text-indigo-600 hover:underline ml-1 cursor-pointer"
+                        className="text-xs text-brand hover:underline ml-1 cursor-pointer"
                       >
                         Clear filters
                       </button>
@@ -2099,17 +2134,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
               {cpaRatesLoading ? (
                 <div className="text-center py-16">
-                  <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <RefreshCw className="w-5 h-5 animate-spin text-indigo-600" />
+                  <div className="w-12 h-12 bg-brand-soft rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <RefreshCw className="w-5 h-5 animate-spin text-brand" />
                   </div>
-                  <p className="text-slate-500 text-sm">Loading CPA rates from Airtable…</p>
+                  <p className="text-faint text-sm">Loading CPA rates from Airtable…</p>
                 </div>
               ) : cpaRates.length === 0 ? (
                 <div className="text-center py-16">
-                  <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <DollarSign className="w-7 h-7 text-slate-300" />
+                  <div className="w-14 h-14 bg-surface rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <DollarSign className="w-7 h-7 text-faint2" />
                   </div>
-                  <p className="text-slate-500 text-sm">No CPA rates found. Try refreshing.</p>
+                  <p className="text-faint text-sm">No CPA rates found. Try refreshing.</p>
                 </div>
               ) : (() => {
                 // Apply all filters + sort
@@ -2126,8 +2161,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 });
 
                 const CpaRow = ({ rate }: { rate: any }) => (
-                  <tr className="border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150">
-                    <td className="py-3 px-4 font-medium text-sm text-slate-900">
+                  <tr className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150">
+                    <td className="py-3 px-4 font-medium text-sm text-ink">
                       <div className="flex items-center gap-2.5">
                         {rate.imageUrl ? (
                           <img
@@ -2137,51 +2172,51 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                           />
                         ) : (
-                          <div className="w-10 h-6 bg-slate-100 rounded shrink-0" />
+                          <div className="w-10 h-6 bg-hair2 rounded shrink-0" />
                         )}
                         <div className="flex items-center gap-1.5 min-w-0">
                           <span className="truncate">{rate.card}</span>
                           {rate.cardType && (
                             <span className={`inline-flex shrink-0 items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                               /business/i.test(rate.cardType)
-                                ? 'bg-violet-100 text-violet-700'
+                                ? 'bg-brand-soft text-brand-dark'
                                 : 'bg-sky-100 text-sky-700'
                             }`}>{rate.cardType}</span>
                           )}
                         </div>
                       </div>
                     </td>
-                    {!cpaGroupBy && <td className="py-3 px-4 text-sm text-slate-500">{rate.issuer || '—'}</td>}
-                    <td className="py-3 px-4 text-right font-semibold text-sm text-slate-900">
-                      {rate.bankCpa > 0 ? `$${rate.bankCpa.toLocaleString()}` : <span className="text-slate-300 font-normal">—</span>}
+                    {!cpaGroupBy && <td className="py-3 px-4 text-sm text-faint">{rate.issuer || '—'}</td>}
+                    <td className="py-3 px-4 text-right font-semibold text-sm text-ink">
+                      {rate.bankCpa > 0 ? `$${rate.bankCpa.toLocaleString()}` : <span className="text-faint2 font-normal">—</span>}
                     </td>
                     {cpaAffiliateFilter !== 'all' && (
-                      <td className="py-3 px-4 text-right font-semibold text-sm text-indigo-600">
+                      <td className="py-3 px-4 text-right font-semibold text-sm text-brand">
                         {rate.affiliatePayout != null && rate.affiliatePayout > 0
                           ? `$${rate.affiliatePayout.toLocaleString()}`
-                          : <span className="text-slate-300 font-normal">—</span>}
+                          : <span className="text-faint2 font-normal">—</span>}
                       </td>
                     )}
-                    <td className="py-3 px-4 text-sm text-slate-500">{formatDate(rate.date)}</td>
+                    <td className="py-3 px-4 text-sm text-faint">{formatDate(rate.date)}</td>
                     <td className="py-3 px-4 text-right">
                       {rate.cardId ? (
                         <button
                           onClick={() => navigator.clipboard.writeText(rate.cardId)}
                           title={`Copy Card ID: ${rate.cardId}`}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono text-faint hover:text-brand hover:bg-brand-soft rounded transition-colors cursor-pointer"
                         >
                           <Copy className="w-3 h-3" />
                           {rate.cardId}
                         </button>
-                      ) : <span className="text-slate-200 text-xs">—</span>}
+                      ) : <span className="text-hair text-xs">—</span>}
                     </td>
                   </tr>
                 );
 
                 if (filtered.length === 0) return (
                   <div className="text-center py-16">
-                    <p className="text-slate-500 text-sm">No cards match the filters.</p>
-                    <button onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(cpaPageSize); }} className="text-xs text-indigo-600 hover:underline mt-2 cursor-pointer">Clear filters</button>
+                    <p className="text-faint text-sm">No cards match the filters.</p>
+                    <button onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(cpaPageSize); }} className="text-xs text-brand hover:underline mt-2 cursor-pointer">Clear filters</button>
                   </div>
                 );
 
@@ -2190,12 +2225,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 return (
                   <div className="overflow-x-auto">
                     <div className="flex items-center justify-between px-5 py-2 flex-wrap gap-2">
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-faint">
                         Showing {pagedFiltered.length} of {filtered.length} cards
                         {filtered.length !== cpaRates.length ? ` (${cpaRates.length} total)` : ''}
                         {cpaAffiliateLabel ? ` · ${cpaAffiliateLabel}` : ''}
                       </p>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                      <div className="flex items-center gap-1.5 text-xs text-faint">
                         <span>Show</span>
                         {[25, 50, 100].map(n => (
                           <button
@@ -2203,8 +2238,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             onClick={() => { setCpaPageSize(n); setCpaVisible(n); }}
                             className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
                               cpaPageSize === n
-                                ? 'border-indigo-200 bg-indigo-50 text-indigo-600 font-medium'
-                                : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                                ? 'border-brand/30 bg-brand-soft text-brand font-medium'
+                                : 'border-hair text-faint hover:bg-surface'
                             }`}
                           >
                             {n}
@@ -2214,8 +2249,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                           onClick={() => { setCpaPageSize(Infinity); setCpaVisible(Infinity); }}
                           className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
                             cpaPageSize === Infinity
-                              ? 'border-indigo-200 bg-indigo-50 text-indigo-600 font-medium'
-                              : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                              ? 'border-brand/30 bg-brand-soft text-brand font-medium'
+                              : 'border-hair text-faint hover:bg-surface'
                           }`}
                         >
                           All
@@ -2223,7 +2258,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       </div>
                     </div>
                     <table className="w-full text-sm">
-                      <thead className="bg-slate-50/80 border-b border-slate-100">
+                      <thead className="bg-surface/80 border-b border-hair2">
                         <tr>
                           <SortThSm label="Card"     field="card"    sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} />
                           {!cpaGroupBy && <SortThSm label="Issuer" field="issuer" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} />}
@@ -2232,7 +2267,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             <SortThSm label="Affiliate Payout" field="affiliatePayout" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} align="right" />
                           )}
                           <SortThSm label="Rate Date" field="date" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} />
-                          <th className="py-3 px-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Card ID</th>
+                          <th className="py-3 px-4 text-right text-xs font-semibold text-faint uppercase tracking-wider">Card ID</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2257,13 +2292,13 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                 <React.Fragment key={`group-${issuer}`}>
                                   <tr
                                     onClick={toggle}
-                                    className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none"
+                                    className="bg-surface border-b border-hair cursor-pointer hover:bg-hair2 transition-colors duration-150 select-none"
                                   >
                                     <td colSpan={colCount} className="py-2.5 px-4">
                                       <div className="flex items-center gap-2">
-                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                        <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{issuer}</span>
-                                        <span className="text-xs font-normal text-slate-400 ml-0.5">({rates.length} {rates.length === 1 ? 'card' : 'cards'})</span>
+                                        <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+                                        <span className="text-xs font-semibold text-subtle uppercase tracking-wider">{issuer}</span>
+                                        <span className="text-xs font-normal text-faint ml-0.5">({rates.length} {rates.length === 1 ? 'card' : 'cards'})</span>
                                       </div>
                                     </td>
                                   </tr>
@@ -2281,10 +2316,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <div className="py-4 flex flex-wrap items-center justify-center gap-2">
                         <button
                           onClick={() => setCpaVisible(n => n + cpaPageSize)}
-                          className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
+                          className="px-4 py-2 text-xs font-medium text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors duration-150 cursor-pointer"
                         >
                           Show {Math.min(cpaPageSize, filtered.length - cpaVisible)} more
-                          <span className="text-slate-400 ml-1">({filtered.length - cpaVisible} remaining)</span>
+                          <span className="text-faint ml-1">({filtered.length - cpaVisible} remaining)</span>
                         </button>
                       </div>
                     )}
@@ -2295,17 +2330,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           </Tabs.Content>
           {/* ── Invoices Tab ── */}
           <Tabs.Content value="invoices">
-            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm">
+            <div className="mt-1">
               {/* Toolbar */}
-              <div className="sticky top-16 z-10 bg-white p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+              <div className="sticky top-16 z-10 bg-white p-5 border-b border-hair2 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-3">
                   {/* Affiliate filter */}
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-slate-500">Affiliate:</span>
+                    <span className="text-xs font-medium text-faint">Affiliate:</span>
                     <select
                       value={invoiceAffiliateFilter}
                       onChange={e => { setInvoiceAffiliateFilter(e.target.value); setInvoicesVisible(PAGE_SIZE); }}
-                      className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
+                      className="px-2.5 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle cursor-pointer transition-shadow"
                     >
                       <option value="all">All affiliates</option>
                       {Array.from(new Set(invoices.map((inv: any) => inv.email).filter(Boolean))).sort().map((email: any) => (
@@ -2315,11 +2350,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   </div>
                   {/* Month filter */}
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-slate-500">Month:</span>
+                    <span className="text-xs font-medium text-faint">Month:</span>
                     <select
                       value={invoiceMonthFilter}
                       onChange={e => { setInvoiceMonthFilter(e.target.value); setInvoicesVisible(PAGE_SIZE); }}
-                      className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
+                      className="px-2.5 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle cursor-pointer transition-shadow"
                     >
                       <option value="all">All months</option>
                       {Array.from(new Set(invoices.map((inv: any) => inv.month).filter(Boolean))).map((m: any) => (
@@ -2330,11 +2365,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   {/* Status filter */}
                   {Array.from(new Set(invoices.map((inv: any) => inv.status).filter(Boolean))).length > 0 && (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-slate-500">Status:</span>
+                      <span className="text-xs font-medium text-faint">Status:</span>
                       <select
                         value={invoiceStatusFilter}
                         onChange={e => { setInvoiceStatusFilter(e.target.value); setInvoicesVisible(PAGE_SIZE); }}
-                        className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer transition-shadow"
+                        className="px-2.5 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle cursor-pointer transition-shadow"
                       >
                         <option value="all">All statuses</option>
                         {Array.from(new Set(invoices.map((inv: any) => inv.status).filter(Boolean))).map((s: any) => (
@@ -2346,7 +2381,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Group by segmented control */}
-                  <div className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl p-1 text-xs font-medium">
+                  <div className="flex items-center gap-0.5 bg-white border border-hair rounded-xl p-1 text-xs font-medium">
                     {([
                       { value: 'none',      label: 'No Group' },
                       { value: 'month',     label: 'Month' },
@@ -2357,8 +2392,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         onClick={() => { setInvoiceGroupBy(value); setInvoiceCollapsed(new Set()); setInvoicesVisible(PAGE_SIZE); }}
                         className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all duration-150 cursor-pointer ${
                           invoiceGroupBy === value
-                            ? 'bg-indigo-600 text-white shadow-sm'
-                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                            ? 'bg-brand text-white shadow-sm'
+                            : 'text-faint hover:text-subtle hover:bg-surface'
                         }`}
                       >
                         {value !== 'none' && <Layers className="w-3 h-3" />}
@@ -2381,14 +2416,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     const allCollapsed = allKeys.every(k => invoiceCollapsed.has(k));
                     return (
                       <button onClick={() => setInvoiceCollapsed(allCollapsed ? new Set() : new Set(allKeys))}
-                        className="text-xs text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer">
+                        className="text-xs text-faint hover:text-brand transition-colors cursor-pointer">
                         {allCollapsed ? 'Expand All' : 'Collapse All'}
                       </button>
                     );
                   })()}
                   <button
                     onClick={() => { setInvoicesVisible(PAGE_SIZE); fetchInvoices(); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 transition-all duration-150 cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-subtle bg-white border border-hair rounded-lg hover:border-brand hover:text-brand transition-all duration-150 cursor-pointer"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${invoicesLoading ? 'animate-spin' : ''}`} />
                     Refresh
@@ -2398,10 +2433,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
               {invoicesLoading ? (
                 <div className="text-center py-16">
-                  <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <RefreshCw className="w-5 h-5 animate-spin text-indigo-600" />
+                  <div className="w-12 h-12 bg-brand-soft rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <RefreshCw className="w-5 h-5 animate-spin text-brand" />
                   </div>
-                  <p className="text-slate-500 text-sm">Loading invoices…</p>
+                  <p className="text-faint text-sm">Loading invoices…</p>
                 </div>
               ) : (() => {
                 const invoiceHiddenOlderCount = (invoices as any[])
@@ -2417,10 +2452,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 );
                 if (filtered.length === 0) return (
                   <div className="text-center py-16">
-                    <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <FileText className="w-7 h-7 text-slate-300" />
+                    <div className="w-14 h-14 bg-surface rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <FileText className="w-7 h-7 text-faint2" />
                     </div>
-                    <p className="text-slate-500 text-sm">No invoices match the selected filters.</p>
+                    <p className="text-faint text-sm">No invoices match the selected filters.</p>
                     {invoiceHiddenOlderCount > 0 && !invoiceShowAllYears && (
                       <div className="mt-3">
                         <LoadMoreYears showAll={invoiceShowAllYears} setShowAll={v => { setInvoiceShowAllYears(v); setInvoicesVisible(PAGE_SIZE); }} hiddenCount={invoiceHiddenOlderCount} />
@@ -2432,24 +2467,24 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 return (
                   <div className="overflow-x-auto">
                     <div className="flex items-center justify-between px-5 py-2 flex-wrap gap-2">
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-faint">
                         Showing {pagedFiltered.length} of {filtered.length} invoices
                         {invoices.length !== filtered.length ? ` (${invoices.length} total)` : ''}
                         <CurrentYearBadge active={!invoiceShowAllYears} />
                       </p>
                     </div>
                     <table className="w-full">
-                      <thead className="bg-slate-50/80 border-b border-slate-100">
+                      <thead className="bg-surface/80 border-b border-hair2">
                         <tr>
                           <SortThSm label="Affiliate"  field="name"      sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} />
                           <SortThSm label="Month"      field="month"     sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} />
                           <SortThSm label="Amount"     field="amount"    sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} align="right" />
                           <SortThSm label="Approvals"  field="approvals" sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} align="right" />
                           <SortThSm label="Status"     field="status"    sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} />
-                          <th className="py-3 px-4 text-slate-500 text-xs font-semibold uppercase tracking-wider text-center">Sent</th>
-                          <th className="py-3 px-4 text-slate-500 text-xs font-semibold uppercase tracking-wider text-center">Zelle</th>
-                          <th className="py-3 px-4 text-slate-500 text-xs font-semibold uppercase tracking-wider">Contact</th>
-                          <th className="py-3 px-4 text-slate-500 text-xs font-semibold uppercase tracking-wider text-right">Actions</th>
+                          <th className="py-3 px-4 text-faint text-xs font-semibold uppercase tracking-wider text-center">Sent</th>
+                          <th className="py-3 px-4 text-faint text-xs font-semibold uppercase tracking-wider text-center">Zelle</th>
+                          <th className="py-3 px-4 text-faint text-xs font-semibold uppercase tracking-wider">Contact</th>
+                          <th className="py-3 px-4 text-faint text-xs font-semibold uppercase tracking-wider text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2470,22 +2505,22 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               <React.Fragment key={inv.id}>
                                 <tr
                                   onClick={toggleOpen}
-                                  className={`border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150 cursor-pointer ${isOpen ? 'bg-indigo-50/40' : ''}`}
+                                  className={`border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150 cursor-pointer ${isOpen ? 'bg-brand-soft/40' : ''}`}
                                 >
                                   <td className="py-3.5 px-4">
                                     <div className="flex items-center gap-2">
-                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${isOpen ? '' : '-rotate-90'}`} />
+                                      <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 shrink-0 ${isOpen ? '' : '-rotate-90'}`} />
                                       <div>
-                                        <div className="font-medium text-sm text-slate-900">{inv.name}</div>
-                                        <div className="text-xs text-slate-400 mt-0.5">{inv.email}</div>
+                                        <div className="font-medium text-sm text-ink">{inv.name}</div>
+                                        <div className="text-xs text-faint mt-0.5">{inv.email}</div>
                                       </div>
                                     </div>
                                   </td>
-                                  <td className="py-3.5 px-4 text-sm text-slate-700">{inv.month}</td>
-                                  <td className="py-3.5 px-4 text-right font-semibold text-sm text-slate-900">
-                                    {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}` : <span className="text-slate-300 font-normal">—</span>}
+                                  <td className="py-3.5 px-4 text-sm text-subtle">{inv.month}</td>
+                                  <td className="py-3.5 px-4 text-right font-semibold text-sm text-ink">
+                                    {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}` : <span className="text-faint2 font-normal">—</span>}
                                   </td>
-                                  <td className="py-3.5 px-4 text-right text-sm text-slate-600">{approvalsCount}</td>
+                                  <td className="py-3.5 px-4 text-right text-sm text-subtle">{approvalsCount}</td>
                                   <td className="py-3.5 px-4">
                                     {inv.status ? (
                                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
@@ -2493,56 +2528,56 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                           ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70'
                                           : inv.status.toLowerCase().includes('pending')
                                           ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/70'
-                                          : 'bg-slate-100 text-slate-600'
+                                          : 'bg-hair2 text-subtle'
                                       }`}>{inv.status}</span>
-                                    ) : <span className="text-slate-300 text-xs">—</span>}
+                                    ) : <span className="text-faint2 text-xs">—</span>}
                                   </td>
                                   <td className="py-3.5 px-4 text-center" onClick={e => e.stopPropagation()}>
                                     <button disabled={busy} onClick={() => updateInvoice(inv.id, { sent: !inv.sent })}
                                       title="Mark payout as sent"
-                                      className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sent ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
+                                      className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sent ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-hair2 text-faint hover:bg-hair'}`}>
                                       <CheckCircle className="w-4 h-4" />
                                     </button>
                                   </td>
                                   <td className="py-3.5 px-4 text-center" onClick={e => e.stopPropagation()}>
                                     <button disabled={busy} onClick={() => updateInvoice(inv.id, { sentZelle: !inv.sentZelle })}
                                       title="Mark Zelle payout as sent"
-                                      className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sentZelle ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
+                                      className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sentZelle ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-hair2 text-faint hover:bg-hair'}`}>
                                       <Send className="w-4 h-4" />
                                     </button>
                                   </td>
-                                  <td className="py-3.5 px-4 text-xs text-slate-500">{inv.zelle || '—'}</td>
+                                  <td className="py-3.5 px-4 text-xs text-faint">{inv.zelle || '—'}</td>
                                   <td className="py-3.5 px-4 text-right">
-                                    {busy && <RefreshCw className="w-4 h-4 animate-spin text-indigo-400 ml-auto" />}
+                                    {busy && <RefreshCw className="w-4 h-4 animate-spin text-brand ml-auto" />}
                                   </td>
                                 </tr>
                                 {isOpen && (
-                                  <tr className="bg-slate-50/40 border-b border-slate-100">
+                                  <tr className="bg-surface/40 border-b border-hair2">
                                     <td colSpan={9} className="px-4 pl-12 py-3">
                                       {!trackingActivity.length ? (
-                                        <p className="text-xs text-slate-400 py-2 flex items-center gap-2">
+                                        <p className="text-xs text-faint py-2 flex items-center gap-2">
                                           <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Loading cards…
                                         </p>
                                       ) : cards.length === 0 ? (
-                                        <p className="text-xs text-slate-400 py-2">No approvals found for {inv.name} in {inv.month}.</p>
+                                        <p className="text-xs text-faint py-2">No approvals found for {inv.name} in {inv.month}.</p>
                                       ) : (
                                         <div className="space-y-1.5 py-1">
-                                          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                                          <p className="text-xs font-semibold uppercase tracking-wider text-faint mb-1.5">
                                             Approvals for {inv.name} in {inv.month} ({cards.length})
                                           </p>
                                           {cards.map((c: any) => (
-                                            <div key={c.id} className="flex items-center justify-between text-sm py-1.5 px-3 bg-white rounded-lg border border-slate-100">
+                                            <div key={c.id} className="flex items-center justify-between text-sm py-1.5 px-3 bg-white rounded-lg border border-hair2">
                                               <div className="flex items-center gap-3 min-w-0">
-                                                <span className="font-medium text-slate-900 truncate">{c.cardName}</span>
+                                                <span className="font-medium text-ink truncate">{c.cardName}</span>
                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 ${
                                                   c.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
-                                                  c.status === 'application' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70' :
-                                                  'bg-slate-100 text-slate-500'
+                                                  c.status === 'application' ? 'bg-brand-soft text-brand-dark ring-1 ring-brand/30' :
+                                                  'bg-hair2 text-faint'
                                                 }`}>{c.status}</span>
-                                                <span className="text-xs text-slate-400 shrink-0">{formatDate(c.clickDate)}</span>
+                                                <span className="text-xs text-faint shrink-0">{formatDate(c.clickDate)}</span>
                                               </div>
                                               <span className="font-semibold text-emerald-600 shrink-0 ml-3">
-                                                {c.totalEarnings > 0 ? `$${c.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
+                                                {c.totalEarnings > 0 ? `$${c.totalEarnings.toFixed(2)}` : <span className="text-faint2 font-normal">—</span>}
                                               </span>
                                             </div>
                                           ))}
@@ -2592,16 +2627,16 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             const sublabel     = getSub(key);
                             return (
                               <React.Fragment key={key}>
-                                <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none">
+                                <tr onClick={toggle} className="bg-surface border-b border-hair cursor-pointer hover:bg-hair2 transition-colors duration-150 select-none">
                                   <td colSpan={9} className="py-2.5 px-4">
                                     <div className="flex items-center gap-3 flex-wrap">
                                       <div className="flex items-center gap-2">
-                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                        <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{getLabel(key, rows)}</span>
-                                        {sublabel && <span className="text-xs text-slate-400 font-mono normal-case">{sublabel}</span>}
-                                        <span className="text-xs font-normal text-slate-400">({rows.length} invoice{rows.length !== 1 ? 's' : ''})</span>
+                                        <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+                                        <span className="text-xs font-semibold text-subtle uppercase tracking-wider">{getLabel(key, rows)}</span>
+                                        {sublabel && <span className="text-xs text-faint font-mono normal-case">{sublabel}</span>}
+                                        <span className="text-xs font-normal text-faint">({rows.length} invoice{rows.length !== 1 ? 's' : ''})</span>
                                       </div>
-                                      <div className="flex items-center gap-3 ml-2 text-xs text-slate-500">
+                                      <div className="flex items-center gap-3 ml-2 text-xs text-faint">
                                         {grpAmount    > 0 && <span className="font-medium text-emerald-600">${grpAmount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}</span>}
                                         {grpApprovals > 0 && <span>{grpApprovals} approvals</span>}
                                         {grpSent      > 0 && <span>{grpSent} paid</span>}
@@ -2621,10 +2656,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         {invoicesVisible < filtered.length && (
                           <button
                             onClick={() => setInvoicesVisible(n => n + PAGE_SIZE)}
-                            className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors duration-150 cursor-pointer"
+                            className="px-4 py-2 text-xs font-medium text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors duration-150 cursor-pointer"
                           >
                             Show {Math.min(PAGE_SIZE, filtered.length - invoicesVisible)} more
-                            <span className="text-slate-400 ml-1">({filtered.length - invoicesVisible} remaining)</span>
+                            <span className="text-faint ml-1">({filtered.length - invoicesVisible} remaining)</span>
                           </button>
                         )}
                         <LoadMoreYears showAll={invoiceShowAllYears} setShowAll={v => { setInvoiceShowAllYears(v); setInvoicesVisible(PAGE_SIZE); }} hiddenCount={invoiceHiddenOlderCount} />
@@ -2643,9 +2678,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         {/* Create Affiliate */}
         <Dialog.Root open={showCreateModal} onOpenChange={setShowCreateModal}>
           <Dialog.Portal>
-            <Dialog.Overlay className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50" />
-            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl ring-1 ring-slate-900/10 z-50">
-              <Dialog.Title className="text-lg font-semibold text-slate-900 mb-4">Create New Affiliate</Dialog.Title>
+            <Dialog.Overlay className="fixed inset-0 bg-ink/60 backdrop-blur-sm z-50" />
+            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl ring-1 ring-ink/10 z-50">
+              <Dialog.Title className="text-lg font-semibold text-ink mb-4">Create New Affiliate</Dialog.Title>
               <Dialog.Description className="sr-only">Create a new affiliate account with name, email, password, and commission rate</Dialog.Description>
               <form onSubmit={createUser} className="space-y-4">
                 {[
@@ -2654,30 +2689,30 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   { label: 'Password', value: newUserPassword, set: setNewUserPassword, type: 'password' },
                 ].map(({ label, value, set, type }) => (
                   <div key={label}>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+                    <label className="block text-sm font-medium text-subtle mb-1.5">{label}</label>
                     <input
                       type={type}
                       value={value}
                       onChange={(e) => set(e.target.value)}
-                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 text-sm"
+                      className="w-full px-3.5 py-2.5 border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-sm"
                       required
                       minLength={type === 'password' ? 6 : undefined}
                     />
                   </div>
                 ))}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Commission Rate (%)</label>
+                  <label className="block text-sm font-medium text-subtle mb-1.5">Commission Rate (%)</label>
                   <input
                     type="number"
                     value={newUserCommission}
                     onChange={(e) => setNewUserCommission(e.target.value)}
-                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 text-sm"
+                    className="w-full px-3.5 py-2.5 border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-sm"
                     min="0" max="100" required
                   />
                 </div>
                 <div className="flex gap-3 mt-6">
-                  <button type="submit" className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">Create Affiliate</button>
-                  <button type="button" onClick={() => setShowCreateModal(false)} className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium">Cancel</button>
+                  <button type="submit" className="flex-1 bg-brand text-white py-2.5 rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium">Create Affiliate</button>
+                  <button type="button" onClick={() => setShowCreateModal(false)} className="flex-1 bg-hair2 text-subtle py-2.5 rounded-lg hover:bg-hair transition-colors text-sm font-medium">Cancel</button>
                 </div>
               </form>
             </Dialog.Content>
@@ -2687,25 +2722,25 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         {/* Reset Password */}
         <Dialog.Root open={showResetModal} onOpenChange={setShowResetModal}>
           <Dialog.Portal>
-            <Dialog.Overlay className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50" />
-            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl ring-1 ring-slate-900/10 z-50">
-              <Dialog.Title className="text-lg font-semibold text-slate-900 mb-4">Reset Password</Dialog.Title>
+            <Dialog.Overlay className="fixed inset-0 bg-ink/60 backdrop-blur-sm z-50" />
+            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl ring-1 ring-ink/10 z-50">
+              <Dialog.Title className="text-lg font-semibold text-ink mb-4">Reset Password</Dialog.Title>
               <Dialog.Description className="sr-only">Reset the password for the selected affiliate account</Dialog.Description>
-              {selectedUser && <p className="mb-4 text-sm text-slate-600">Reset password for <strong className="text-slate-900">{selectedUser.email}</strong></p>}
+              {selectedUser && <p className="mb-4 text-sm text-subtle">Reset password for <strong className="text-ink">{selectedUser.email}</strong></p>}
               <form onSubmit={resetUserPassword} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">New Password</label>
+                  <label className="block text-sm font-medium text-subtle mb-1.5">New Password</label>
                   <input
                     type="password"
                     value={resetPassword}
                     onChange={(e) => setResetPassword(e.target.value)}
-                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 text-sm"
+                    className="w-full px-3.5 py-2.5 border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-sm"
                     required minLength={6}
                   />
                 </div>
                 <div className="flex gap-3 mt-6">
-                  <button type="submit" className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">Reset Password</button>
-                  <button type="button" onClick={() => { setShowResetModal(false); setSelectedUser(null); setResetPassword(''); }} className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium">Cancel</button>
+                  <button type="submit" className="flex-1 bg-brand text-white py-2.5 rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium">Reset Password</button>
+                  <button type="button" onClick={() => { setShowResetModal(false); setSelectedUser(null); setResetPassword(''); }} className="flex-1 bg-hair2 text-subtle py-2.5 rounded-lg hover:bg-hair transition-colors text-sm font-medium">Cancel</button>
                 </div>
               </form>
             </Dialog.Content>
@@ -2715,11 +2750,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         {/* Edit Affiliate */}
         <Dialog.Root open={showEditModal} onOpenChange={setShowEditModal}>
           <Dialog.Portal>
-            <Dialog.Overlay className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50" />
-            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 w-full max-w-2xl shadow-2xl ring-1 ring-slate-900/10 max-h-[90vh] overflow-y-auto z-50">
-              <Dialog.Title className="text-lg font-semibold text-slate-900 mb-4">Edit Affiliate</Dialog.Title>
+            <Dialog.Overlay className="fixed inset-0 bg-ink/60 backdrop-blur-sm z-50" />
+            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 w-full max-w-2xl shadow-2xl ring-1 ring-ink/10 max-h-[90vh] overflow-y-auto z-50">
+              <Dialog.Title className="text-lg font-semibold text-ink mb-4">Edit Affiliate</Dialog.Title>
               <Dialog.Description className="sr-only">Edit affiliate profile information</Dialog.Description>
-              {selectedUser && <p className="mb-4 text-sm text-slate-600">Editing: <strong className="text-slate-900">{selectedUser.email}</strong></p>}
+              {selectedUser && <p className="mb-4 text-sm text-subtle">Editing: <strong className="text-ink">{selectedUser.email}</strong></p>}
               <form onSubmit={editUser} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[
@@ -2733,31 +2768,31 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     { label: 'Country',  value: editCountry, set: setEditCountry, type: 'text',  req: false },
                   ].map(({ label, value, set, type, req }) => (
                     <div key={label}>
-                      <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+                      <label className="block text-sm font-medium text-subtle mb-1.5">{label}</label>
                       <input
                         type={type}
                         value={value}
                         onChange={(e) => set(e.target.value)}
-                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 text-sm"
+                        className="w-full px-3.5 py-2.5 border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-sm"
                         required={req}
                       />
                     </div>
                   ))}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Affiliate Link Reference (ezrxref)</label>
+                  <label className="block text-sm font-medium text-subtle mb-1.5">Affiliate Link Reference (ezrxref)</label>
                   <input
                     type="text"
                     value={editEzrxRef}
                     onChange={(e) => setEditEzrxRef(e.target.value)}
                     placeholder="e.g. 12345"
-                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 text-sm"
+                    className="w-full px-3.5 py-2.5 border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-sm"
                   />
-                  <p className="text-xs text-slate-500 mt-1.5">Powers the affiliate's cardratings.com link shown on their dashboard. Leave blank if not yet assigned.</p>
+                  <p className="text-xs text-faint mt-1.5">Powers the affiliate's cardratings.com link shown on their dashboard. Leave blank if not yet assigned.</p>
                 </div>
                 <div className="flex gap-3 mt-6">
-                  <button type="submit" className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">Save Changes</button>
-                  <button type="button" onClick={() => { setShowEditModal(false); setSelectedUser(null); }} className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium">Cancel</button>
+                  <button type="submit" className="flex-1 bg-brand text-white py-2.5 rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium">Save Changes</button>
+                  <button type="button" onClick={() => { setShowEditModal(false); setSelectedUser(null); }} className="flex-1 bg-hair2 text-subtle py-2.5 rounded-lg hover:bg-hair transition-colors text-sm font-medium">Cancel</button>
                 </div>
               </form>
             </Dialog.Content>

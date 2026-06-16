@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import gsap from 'gsap';
 import {
   CreditCard,
   TrendingUp,
@@ -12,6 +13,7 @@ import {
   RefreshCw,
   ChevronUp,
   ChevronDown,
+  ChevronRight,
   ChevronsUpDown,
   ArrowLeft,
   FileText,
@@ -19,9 +21,10 @@ import {
   Layers,
   Activity,
   Award,
+  User,
 } from 'lucide-react';
 import React from 'react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } from 'recharts';
+import { ComposedChart, LineChart, Line, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } from 'recharts';
 import * as Tabs from '@radix-ui/react-tabs';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { Profile } from './Profile';
@@ -250,11 +253,11 @@ function FilterBar({
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <span className="text-xs font-medium text-slate-400 flex-shrink-0">Period:</span>
+        <span className="text-xs font-medium text-faint flex-shrink-0">Period:</span>
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value as DateFilter)}
-          className="sm:hidden flex-1 min-w-0 text-xs font-medium bg-slate-100 border border-transparent rounded-lg px-2.5 py-1.5 text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+          className="sm:hidden flex-1 min-w-0 text-xs font-medium bg-hair2 border border-transparent rounded-lg px-2.5 py-1.5 text-subtle focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
         >
           {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
             <option key={f} value={f}>{DATE_LABELS[f]}</option>
@@ -266,8 +269,8 @@ function FilterBar({
               <button key={f} onClick={() => setFilter(f)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
                   filter === f
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
+                    ? 'bg-brand text-white shadow-sm'
+                    : 'text-faint bg-hair2 hover:bg-hair'
                 }`}>
                 {DATE_LABELS[f]}
               </button>
@@ -278,10 +281,10 @@ function FilterBar({
       {filter === 'custom' && (
         <div className="flex flex-wrap items-center gap-2">
           <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
-            className="flex-1 min-w-[130px] px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" />
-          <span className="text-slate-400 text-xs">to</span>
+            className="flex-1 min-w-[130px] px-2.5 py-1.5 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand" />
+          <span className="text-faint text-xs">to</span>
           <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)}
-            className="flex-1 min-w-[130px] px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400" />
+            className="flex-1 min-w-[130px] px-2.5 py-1.5 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand" />
         </div>
       )}
     </div>
@@ -299,14 +302,14 @@ function SortTh({
       ? sort.dir === 'asc'
         ? <ChevronUp className="w-3 h-3 flex-shrink-0" />
         : <ChevronDown className="w-3 h-3 flex-shrink-0" />
-      : <ChevronsUpDown className="w-3 h-3 flex-shrink-0 text-slate-300" />;
+      : <ChevronsUpDown className="w-3 h-3 flex-shrink-0 text-faint2" />;
   return (
     <th
       onClick={() => onSort(field)}
       aria-sort={sort.field === field ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-      className={`py-3 px-4 text-slate-500 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-slate-100/70 hover:text-slate-700 transition-colors duration-150 text-${align}`}
+      className={`py-3 px-4 text-faint text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-hair2/70 hover:text-subtle transition-colors duration-150 text-${align}`}
     >
-      <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''} ${sort.field === field ? 'text-indigo-600' : ''}`}>
+      <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''} ${sort.field === field ? 'text-brand' : ''}`}>
         {label}{icon}
       </span>
     </th>
@@ -379,6 +382,29 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     } catch { return new Set(['stats', 'charts', 'topCards']); }
   });
   const [insightsTab, setInsightsTab] = useState<'charts' | 'topCards'>('charts');
+  const [insightsOpen, setInsightsOpen] = useState(true);
+  const [scrolled, setScrolled] = useState(false);
+
+  // Sticky chrome shrinks once the page is scrolled (mock behavior)
+  useEffect(() => {
+    const onScroll = () => setScrolled((window.scrollY || 0) > 40);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // GSAP entrance — staggered rise/fade of the main sections once data is in
+  useEffect(() => {
+    if (loading) return;
+    const els = document.querySelectorAll('[data-anim]');
+    if (!els.length) return;
+    const ctx = gsap.context(() => {
+      gsap.from(els, {
+        y: 16, opacity: 0, duration: 0.55, stagger: 0.08, ease: 'power2.out', clearProps: 'all',
+      });
+    });
+    return () => ctx.revert();
+  }, [loading]);
   const togglePanel = (key: string) => setVisiblePanels(prev => {
     const next = new Set(prev);
     next.has(key) ? next.delete(key) : next.add(key);
@@ -643,13 +669,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const PctBadge = ({ pct, compact = false }: { pct: number | null; compact?: boolean }) => {
     if (pct === null) {
       return compact
-        ? <span className="text-slate-300 text-xs">—</span>
-        : <span className="text-slate-400 text-xs">No prior-period data</span>;
+        ? <span className="text-faint2 text-xs">—</span>
+        : <span className="text-faint text-xs">No prior-period data</span>;
     }
     if (pct === 0) {
       return compact
-        ? <span className="text-slate-400 text-xs font-medium">No change</span>
-        : <span className="text-slate-400 text-xs flex items-center gap-1">— No change <span className="font-normal">{_periodLabel}</span></span>;
+        ? <span className="text-faint text-xs font-medium">No change</span>
+        : <span className="text-faint text-xs flex items-center gap-1">— No change <span className="font-normal">{_periodLabel}</span></span>;
     }
     const up = pct > 0;
     return (
@@ -657,6 +683,20 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         <TrendingUp className={`w-3 h-3 ${!up ? 'rotate-180' : ''}`} />
         <span>{up ? '+' : ''}{pct}%{!compact ? ` ${_periodLabel}` : ''}</span>
       </div>
+    );
+  };
+
+  // Borderless inline delta for the KPI band (colored arrow + %, no pill)
+  const DeltaInline = ({ pct }: { pct: number | null }) => {
+    if (pct === null) return <span className="text-faint2 text-[13px] font-medium">—</span>;
+    if (pct === 0) return <span className="text-faint text-[13px] font-medium">No change</span>;
+    const up = pct > 0;
+    const color = up ? 'text-emerald-600' : 'text-neg';
+    return (
+      <span className={`inline-flex items-center gap-1 ${color}`}>
+        <TrendingUp className={`w-3 h-3 ${!up ? 'rotate-180' : ''}`} strokeWidth={3} />
+        <span className="text-[13.5px] font-semibold tabular-nums">{up ? '+' : ''}{pct}%</span>
+      </span>
     );
   };
 
@@ -680,26 +720,26 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-100 to-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-canvas flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-indigo-100">
-            <RefreshCw className="w-5 h-5 animate-spin text-indigo-600" />
+          <div className="w-12 h-12 bg-brand-soft rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-brand-soft">
+            <RefreshCw className="w-5 h-5 animate-spin text-brand" />
           </div>
-          <p className="text-slate-500 text-sm font-medium">Loading your dashboard…</p>
+          <p className="text-faint text-sm font-medium">Loading your dashboard…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-100 to-slate-50">
+    <div className="min-h-screen bg-canvas">
       {/* Header */}
-      <header className="bg-slate-900/95 backdrop-blur-md sticky top-0 z-10 border-b border-slate-800/60 shadow-sm">
+      <header className="bg-white/90 backdrop-blur-md sticky top-0 z-10 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <div className="p-1.5 bg-white/5 rounded-xl ring-1 ring-white/10">
-                <svg width="32" height="30" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <div className="flex justify-between items-center h-[60px]">
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center">
+                <svg width="24" height="22" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <g clipPath="url(#clip0_logo)">
                     <mask id="mask0_logo" style={{maskType:'luminance'}} maskUnits="userSpaceOnUse" x="0" y="0" width="38" height="37">
                       <path d="M37.9056 0H0.00134277V36.2562H37.9056V0Z" fill="white"/>
@@ -716,19 +756,19 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   </defs>
                 </svg>
               </div>
-              <h1 className="hidden sm:block text-white font-semibold text-lg tracking-tight">Affiliate Portal</h1>
+              <h1 className="hidden sm:block text-ink font-bold text-[16px] tracking-tight">Affiliate Portal</h1>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={fetchData}
-                className="p-2 hover:bg-white/10 active:scale-95 rounded-lg transition-all duration-150 cursor-pointer"
+                className="p-2 text-faint hover:text-brand hover:bg-surface active:scale-95 rounded-lg transition-all duration-150 cursor-pointer"
                 title="Refresh data"
               >
-                <RefreshCw className="w-4 h-4 text-slate-400" />
+                <RefreshCw className="w-4 h-4" />
               </button>
               {(firstName || userEmail) && (
-                <span className="hidden sm:flex items-center gap-2 text-slate-300 text-sm pl-1 pr-3 py-1 rounded-full bg-white/5 ring-1 ring-white/10">
-                  <span className="w-6 h-6 rounded-full bg-indigo-500/90 text-white text-[11px] font-semibold flex items-center justify-center flex-shrink-0">
+                <span className="hidden sm:flex items-center gap-2 text-subtle text-sm pl-1 pr-3 py-1 rounded-full">
+                  <span className="w-7 h-7 rounded-full bg-brand text-white text-[12px] font-bold flex items-center justify-center flex-shrink-0">
                     {(firstName || userEmail).charAt(0).toUpperCase()}
                   </span>
                   {firstName ? `Hi, ${firstName}` : userEmail}
@@ -736,7 +776,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               )}
               <button
                 onClick={onLogout}
-                className="flex items-center gap-2 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-white/10 active:scale-95 rounded-lg transition-all duration-150 text-sm cursor-pointer"
+                className="flex items-center gap-2 px-3 py-1.5 text-faint hover:text-neg active:scale-95 rounded-lg transition-all duration-150 text-sm font-medium cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline">Logout</span>
@@ -757,7 +797,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         <button
           onClick={handleBackToAdmin}
           title="Exit back to Admin Dashboard"
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-full shadow-lg hover:bg-slate-700 active:scale-95 transition-all duration-150 text-xs font-semibold cursor-pointer ring-1 ring-white/10"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 bg-ink text-white rounded-full shadow-lg hover:bg-subtle active:scale-95 transition-all duration-150 text-xs font-semibold cursor-pointer ring-1 ring-white/10"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           Exit to Admin
@@ -787,26 +827,26 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           const showTopCards = visiblePanels.has('topCards') && mostApprovedCards.length > 0;
 
           const statRows = [
-            { label: 'Clicks',       value: totalClicks.toLocaleString(),                  iconColor: 'text-blue-600',    bgColor: 'bg-blue-50',    Icon: MousePointerClick, sub: null,                                                                                              pct: clicksPct },
+            { label: 'Clicks',       value: totalClicks.toLocaleString(),                  iconColor: 'text-brand',    bgColor: 'bg-brand-soft',    Icon: MousePointerClick, sub: null,                                                                                              pct: clicksPct },
             { label: 'Approvals',    value: totalConversions.toLocaleString(),              iconColor: 'text-emerald-600', bgColor: 'bg-emerald-50', Icon: CheckCircle,       sub: totalClicks > 0 && totalConversions > 0 ? `${((totalConversions/totalClicks)*100).toFixed(1)}% conv.` : null,    pct: approvalsPct },
-            { label: 'Commissions',  value: `$${Math.round(totalCommissions).toLocaleString()}`, iconColor: 'text-indigo-600', bgColor: 'bg-indigo-50', Icon: DollarSign,   sub: avgEPC > 0 ? `EPC $${avgEPC.toFixed(2)}` : null,                                                  pct: commissionsPct },
+            { label: 'Commissions',  value: `$${Math.round(totalCommissions).toLocaleString()}`, iconColor: 'text-brand', bgColor: 'bg-brand-soft', Icon: DollarSign,   sub: avgEPC > 0 ? `EPC $${avgEPC.toFixed(2)}` : null,                                                  pct: commissionsPct },
             { label: 'Applications', value: totalApplications.toLocaleString(),             iconColor: 'text-orange-500',  bgColor: 'bg-orange-50',  Icon: Activity,          sub: totalClicks > 0 && totalApplications > 0 ? `${((totalApplications/totalClicks)*100).toFixed(1)}% c→a` : null,    pct: applicationsPct },
           ];
 
           return (
             <div className="mb-6 sm:mb-8">
               {/* ── Period header ── */}
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+              <div data-anim className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div>
-                  <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">Performance Overview</h2>
-                  <p className="text-xs sm:text-sm text-slate-500">{STAT_PERIOD_LABELS[statPeriod]}</p>
+                  <h2 className="text-base sm:text-lg font-bold text-ink tracking-tight">Performance Overview</h2>
+                  <p className="text-xs sm:text-sm text-faint">{STAT_PERIOD_LABELS[statPeriod]}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Mobile: dropdown */}
                   <select
                     value={statPeriod}
                     onChange={e => setStatPeriod(e.target.value as StatPeriod)}
-                    className="sm:hidden text-xs font-medium bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                    className="sm:hidden text-xs font-medium bg-white border border-hair rounded-lg px-2.5 py-2 text-subtle shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30"
                   >
                     {([
                       { value: 'today',  label: 'Today' },
@@ -820,7 +860,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     ))}
                   </select>
                   {/* Desktop: pill row */}
-                  <div className="hidden sm:flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl p-1 text-xs font-medium shadow-sm">
+                  <div className="hidden sm:flex items-center gap-0.5 bg-white border border-hair rounded-xl p-1 text-xs font-medium shadow-sm">
                     {([
                       { value: 'today',  label: 'Today' },
                       { value: 'week',   label: 'This Week' },
@@ -831,7 +871,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
                       <button key={value} onClick={() => setStatPeriod(value)}
                         className={`px-2.5 py-1.5 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer ${
-                          statPeriod === value ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                          statPeriod === value ? 'bg-brand text-white shadow-sm' : 'text-faint hover:text-subtle hover:bg-surface'
                         }`}>
                         {label}
                       </button>
@@ -841,36 +881,30 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   {statPeriod === 'custom' && (
                     <div className="flex items-center gap-1.5">
                       <input type="date" value={statCustomFrom} onChange={e => setStatCustomFrom(e.target.value)}
-                        className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
-                      <span className="text-xs text-slate-400">→</span>
+                        className="text-xs border border-hair rounded-lg px-2 py-1.5 text-subtle bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
+                      <span className="text-xs text-faint">→</span>
                       <input type="date" value={statCustomTo} onChange={e => setStatCustomTo(e.target.value)}
-                        className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
+                        className="text-xs border border-hair rounded-lg px-2 py-1.5 text-subtle bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
                     </div>
                   )}
                 </div>
               </div>
 
               {isEmptyPeriod && (
-                <div className="mb-3 flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+                <div className="mb-3 flex items-center gap-1.5 text-xs text-faint font-medium">
                   <RefreshCw className="w-3 h-3" /> No activity recorded for {STAT_PERIOD_LABELS[statPeriod].split(' vs ')[0].toLowerCase()}
                 </div>
               )}
 
-              {/* ── Stat strip — compact, single row, the primary numbers ── */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4">
-                {statRows.map(({ label, value, iconColor, bgColor, Icon, sub, pct }) => (
-                  <div key={label} className="bg-white rounded-xl ring-1 ring-slate-900/5 shadow-sm px-3 py-2.5 flex items-center gap-2.5 hover:shadow-md transition-shadow duration-200 min-w-0">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${bgColor} ring-1 ring-inset ${iconColor.replace('text-', 'ring-')}/10`}>
-                      <Icon className={`w-4 h-4 ${iconColor}`} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-lg sm:text-xl font-bold text-slate-900 leading-none tracking-tight tabular-nums">{value}</span>
-                        {pct !== undefined && <PctBadge pct={pct} compact />}
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-medium mt-0.5 uppercase tracking-wide truncate">
-                        {label}{sub ? <span className="text-slate-300 normal-case"> · {sub}</span> : null}
-                      </div>
+              {/* ── KPI band — borderless big numbers, hairline-separated (mock layout) ── */}
+              <div data-anim className="grid [grid-template-columns:repeat(auto-fit,minmax(140px,1fr))] gap-x-3 gap-y-6 pb-7 mb-7 border-b border-hair">
+                {statRows.map(({ label, value, sub, pct }) => (
+                  <div key={label} className="min-w-0">
+                    <div className="text-[13px] font-medium text-faint mb-2">{label}</div>
+                    <div className="text-[27px] sm:text-[31px] font-bold text-ink leading-none tracking-[-0.025em] tabular-nums">{value}</div>
+                    <div className="flex items-center gap-2.5 mt-2.5 flex-wrap">
+                      {pct !== undefined && <DeltaInline pct={pct} />}
+                      {sub ? <span className="text-[12.5px] text-faint font-medium whitespace-nowrap">{sub}</span> : null}
                     </div>
                   </div>
                 ))}
@@ -878,15 +912,24 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
               {/* ── Insights: tabbed chart / top cards ── */}
               {(showCharts || showTopCards) && (
-                <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 sm:p-5">
+                <div data-anim className="pb-7 mb-2 border-b border-hair">
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <button onClick={() => setInsightsOpen(o => !o)} title={insightsOpen ? 'Minimize insights' : 'Show insights'}
+                      className="flex items-center gap-2 cursor-pointer group">
+                      <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${insightsOpen ? 'rotate-90' : ''}`} strokeWidth={2.6} />
+                      <span className="text-[15px] font-bold text-ink group-hover:opacity-70 transition-opacity">Insights</span>
+                    </button>
+                    {!insightsOpen && <span className="text-[12.5px] text-faint font-medium">Trends &amp; top cards hidden</span>}
+                  </div>
+                  {insightsOpen && (<>
                   <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                    <div className="flex items-center gap-1 bg-slate-50 rounded-lg p-1 text-xs font-medium">
+                    <div className="flex items-center gap-1 bg-surface rounded-lg p-1 text-xs font-medium">
                       {showCharts && (
                         <button onClick={() => setInsightsTab('charts')}
                           className={`px-3 py-1.5 rounded-md transition-all duration-150 cursor-pointer ${
                             insightsTab === 'charts' || !showTopCards
-                              ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-900/5'
-                              : 'text-slate-500 hover:text-slate-700'
+                              ? 'bg-white text-ink shadow-sm ring-1 ring-ink/5'
+                              : 'text-faint hover:text-subtle'
                           }`}>
                           Monthly Performance
                         </button>
@@ -895,18 +938,18 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         <button onClick={() => setInsightsTab('topCards')}
                           className={`px-3 py-1.5 rounded-md transition-all duration-150 cursor-pointer flex items-center gap-1.5 ${
                             insightsTab === 'topCards' || !showCharts
-                              ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-900/5'
-                              : 'text-slate-500 hover:text-slate-700'
+                              ? 'bg-white text-ink shadow-sm ring-1 ring-ink/5'
+                              : 'text-faint hover:text-subtle'
                           }`}>
                           <Award className="w-3.5 h-3.5 text-emerald-500" /> Top Cards
                         </button>
                       )}
                     </div>
                     {(insightsTab === 'charts' || !showTopCards) && showCharts && (
-                      <div className="flex items-center gap-3 text-[11px] text-slate-400 font-medium">
+                      <div className="flex items-center gap-3 text-[11px] text-faint font-medium">
                         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#bfdbfe]" />Clicks</span>
                         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#818cf8]" />Applications</span>
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#6366f1]" />Approvals</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#0a84ff]" />Approvals</span>
                       </div>
                     )}
                   </div>
@@ -914,15 +957,21 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   {showCharts && (insightsTab === 'charts' || !showTopCards) && (
                     <div className="h-48 sm:h-56">
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={monthlyData} margin={{ top:4, right:8, left:0, bottom:0 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                          <XAxis dataKey="month" tick={{ fontSize:11, fill:'#94a3b8' }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fontSize:11, fill:'#94a3b8' }} axisLine={false} tickLine={false} width={32} />
-                          <Tooltip contentStyle={{ fontSize:12, borderRadius:8, border:'1px solid #e2e8f0' }} />
-                          <Line dataKey="clicks"       name="Clicks"       stroke="#bfdbfe" strokeWidth={2} dot={false} />
-                          <Line dataKey="applications" name="Applications" stroke="#818cf8" strokeWidth={2} dot={false} />
-                          <Line dataKey="approvals"    name="Approvals"    stroke="#6366f1" strokeWidth={2.5} dot={{ r:3 }} />
-                        </LineChart>
+                        <ComposedChart data={monthlyData} margin={{ top:4, right:10, left:0, bottom:0 }}>
+                          <defs>
+                            <linearGradient id="dsApprovalsArea" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#0a84ff" stopOpacity={0.16} />
+                              <stop offset="100%" stopColor="#0a84ff" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#ededed" vertical={false} />
+                          <XAxis dataKey="month" tick={{ fontSize:11, fill:'#9499a0' }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fontSize:11, fill:'#9499a0' }} axisLine={false} tickLine={false} width={32} />
+                          <Tooltip contentStyle={{ fontSize:12, borderRadius:10, border:'1px solid #ededed', boxShadow:'0 6px 20px -8px rgba(0,0,0,.18)' }} />
+                          <Line dataKey="clicks"       name="Clicks"       stroke="#cfe4ff" strokeWidth={2} dot={false} animationDuration={900} />
+                          <Line dataKey="applications" name="Applications" stroke="#93c9ff" strokeWidth={2} dot={false} animationDuration={900} />
+                          <Area dataKey="approvals"    name="Approvals"    stroke="#0a84ff" strokeWidth={2.6} strokeLinecap="round" fill="url(#dsApprovalsArea)" dot={false} activeDot={{ r:4, strokeWidth:0 }} animationDuration={1000} />
+                        </ComposedChart>
                       </ResponsiveContainer>
                     </div>
                   )}
@@ -930,30 +979,31 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   {showTopCards && (insightsTab === 'topCards' || !showCharts) && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-1">
                       {mostApprovedCards.map((c, idx) => (
-                        <div key={c.name} className="flex items-center gap-2.5 py-2 px-2 rounded-lg hover:bg-slate-50 transition-colors duration-150 min-w-0">
+                        <div key={c.name} className="flex items-center gap-2.5 py-2 px-2 rounded-lg hover:bg-surface transition-colors duration-150 min-w-0">
                           <span className={`text-xs font-bold flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center ${
-                            idx === 0 ? 'bg-amber-50 text-amber-500' : idx === 1 ? 'bg-slate-100 text-slate-400' : idx === 2 ? 'bg-orange-50 text-orange-500' : 'bg-slate-50 text-slate-300'
+                            idx === 0 ? 'bg-amber-50 text-amber-500' : idx === 1 ? 'bg-hair2 text-faint' : idx === 2 ? 'bg-orange-50 text-orange-500' : 'bg-surface text-faint2'
                           }`}>{idx+1}</span>
-                          <span className="text-sm text-slate-700 truncate flex-1 min-w-0 font-medium">{decodeHtml(c.name)}</span>
-                          <span className="text-xs text-slate-400 flex-shrink-0 font-semibold tabular-nums">{c.approvals}×</span>
+                          <span className="text-sm text-subtle truncate flex-1 min-w-0 font-medium">{decodeHtml(c.name)}</span>
+                          <span className="text-xs text-faint flex-shrink-0 font-semibold tabular-nums">{c.approvals}×</span>
                         </div>
                       ))}
                     </div>
                   )}
+                  </>)}
                 </div>
               )}
 
               {/* ── Visibility toggles for the insights panel ── */}
               <div className="flex items-center gap-1.5 mt-3">
-                <span className="text-[11px] font-semibold text-slate-400 mr-0.5 uppercase tracking-wider">Show:</span>
+                <span className="text-[11px] font-semibold text-faint mr-0.5 uppercase tracking-wider">Show:</span>
                 {(['charts', 'topCards'] as const).map(key => {
                   const labels = { charts: 'Monthly Chart', topCards: 'Top Cards' };
                   return (
                     <button key={key} onClick={() => togglePanel(key)}
                       className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-150 border cursor-pointer ${
                         visiblePanels.has(key)
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                          : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                          ? 'bg-brand text-white border-brand shadow-sm'
+                          : 'bg-white text-faint border-hair hover:border-brand hover:text-brand'
                       }`}>
                       {labels[key]}
                     </button>
@@ -964,25 +1014,34 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           );
         })()}
 
-        {/* Tabs */}
-        <Tabs.Root defaultValue="cards" className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-900/5">
-          <Tabs.List className="flex border-b border-slate-100 overflow-x-auto px-2 pt-1">
-            {['cards', 'activity', 'invoices', 'profile'].map((tab) => (
+        {/* Tabs — sticky under the header; labels collapse to icons on scroll (mock behavior) */}
+        <Tabs.Root defaultValue="cards" className="mt-7">
+          <Tabs.List className="flex gap-1 border-b border-hair overflow-x-auto sticky top-[59px] z-20 bg-canvas/95 backdrop-blur-md">
+            {([
+              { key: 'cards',    label: 'Cards',    Icon: CreditCard },
+              { key: 'activity', label: 'Activity', Icon: Activity },
+              { key: 'invoices', label: 'Invoices', Icon: FileText },
+              { key: 'profile',  label: 'Profile',  Icon: User },
+            ] as const).map(({ key, label, Icon }) => (
               <Tabs.Trigger
-                key={tab}
-                value={tab}
-                className="relative px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-700 data-[state=active]:font-semibold hover:text-slate-800 transition-colors duration-150 whitespace-nowrap capitalize -mb-px cursor-pointer"
+                key={key}
+                value={key}
+                className="group relative flex items-center gap-2 px-3 py-3.5 text-sm font-medium text-faint data-[state=active]:text-ink data-[state=active]:font-bold hover:text-ink transition-colors duration-150 whitespace-nowrap cursor-pointer"
               >
-                {tab === 'invoices'
-                  ? <span className="flex items-center gap-1.5">Invoices{invoices.length > 0 && <span className="bg-indigo-100 text-indigo-700 text-xs font-semibold px-1.5 py-0.5 rounded-full">{invoices.length}</span>}</span>
-                  : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                <Icon className="w-4 h-4 flex-shrink-0 text-faint2 group-data-[state=active]:text-brand transition-colors" />
+                <span className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
+                  <span className="flex items-center gap-1.5">
+                    {label}
+                    {key === 'invoices' && invoices.length > 0 && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{invoices.length}</span>}
+                  </span>
+                </span>
               </Tabs.Trigger>
             ))}
           </Tabs.List>
 
           {/* ── Cards Tab ── */}
           <Tabs.Content value="cards">
-          <div className="p-4 sm:p-6 pb-0">
+          <div className="pt-6">
 
             {/* ── Master affiliate link ── */}
             {masterLink ? (() => {
@@ -991,30 +1050,30 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 : null;
               const displayLink = builtLink ?? masterLink;
               return (
-              <div className="mb-6 p-5 bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-2xl shadow-sm relative overflow-hidden">
+              <div className={`sticky top-[104px] z-10 mb-6 bg-gradient-to-br from-brand to-brand-dark rounded-2xl shadow-sm relative overflow-hidden transition-all duration-300 ${scrolled ? 'px-5 py-3' : 'p-5'}`}>
                 <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
-                <div className="relative flex items-center justify-between mb-3">
-                  <p className="text-xs font-semibold text-indigo-100 uppercase tracking-wider">
+                <div className={`relative flex items-center justify-between overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mb-0' : 'max-h-10 opacity-100 mb-3'}`}>
+                  <p className="text-xs font-semibold text-brand-soft uppercase tracking-wider">
                     {builtLink ? `Your Link · ${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} selected` : 'Your Affiliate Link'}
                   </p>
                   {builtLink && (
-                    <button onClick={() => setLinkBuilderIds([])} className="text-[11px] text-indigo-200 hover:text-white transition-colors">
+                    <button onClick={() => setLinkBuilderIds([])} className="text-[11px] text-white/70 hover:text-white transition-colors">
                       Clear
                     </button>
                   )}
                 </div>
                 <div className="relative flex items-center gap-2">
-                  <code className="flex-1 text-sm text-indigo-900 bg-white px-4 py-3 rounded-xl truncate font-mono shadow-sm">
+                  <code className="flex-1 text-sm text-ink bg-white px-4 py-3 rounded-xl truncate font-mono shadow-sm">
                     {displayLink}
                   </code>
                   <button
                     onClick={() => copyToClipboard(displayLink, -1)}
-                    className="flex-shrink-0 p-3 bg-white/15 ring-1 ring-white/20 rounded-xl hover:bg-white/25 active:scale-95 transition-all duration-150 cursor-pointer"
+                    className={`flex-shrink-0 flex items-center gap-1.5 h-[46px] px-4 rounded-xl font-semibold text-sm active:scale-95 transition-all duration-150 cursor-pointer ${copiedId === -1 ? 'bg-white text-brand' : 'bg-white/15 ring-1 ring-white/20 text-white hover:bg-white/25'}`}
                     title="Copy link"
                   >
                     {copiedId === -1
-                      ? <CheckCircle className="w-5 h-5 text-emerald-300" />
-                      : <Copy className="w-5 h-5 text-white" />}
+                      ? <><CheckCircle className="w-4 h-4" /> Copied!</>
+                      : <><Copy className="w-4 h-4" /> Copy</>}
                   </button>
                   <a href={displayLink} target="_blank" rel="noopener noreferrer"
                     className="flex-shrink-0 p-3 bg-white/15 ring-1 ring-white/20 rounded-xl hover:bg-white/25 active:scale-95 transition-all duration-150 cursor-pointer"
@@ -1022,28 +1081,36 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     <ExternalLink className="w-5 h-5 text-white" />
                   </a>
                 </div>
+                {/* summary line */}
+                <div className={`relative overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mt-0' : 'max-h-6 opacity-100 mt-2.5'}`}>
+                  <p className="text-xs font-medium text-white/80">
+                    {builtLink
+                      ? `${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} on your link · ready to share`
+                      : 'Your default tracking link · add cards from the table to build a custom link'}
+                  </p>
+                </div>
               </div>
               );
             })() : (
-              <div className="mb-6 p-4 bg-slate-50 rounded-2xl ring-1 ring-slate-200/60 text-sm text-slate-500">
+              <div className="mb-6 p-4 bg-surface rounded-2xl ring-1 ring-hair/60 text-sm text-faint">
                 No affiliate link configured yet — contact your manager to set up your link.
               </div>
             )}
           </div>
 
-            {/* ── Sticky filter toolbar ── */}
-            <div className="sticky top-16 z-10 bg-white border-b border-slate-100 px-4 sm:px-6 py-3">
+            {/* ── Filter toolbar ── */}
+            <div className="py-3 mb-1">
             <div className="flex flex-wrap items-center gap-2">
               {/* Search */}
               <div className="relative flex-1 min-w-[180px]">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-faint pointer-events-none" />
                 <input type="text" placeholder="Search cards or issuer…" value={cardsSearch}
                   onChange={e => { setCardsSearch(e.target.value); setCardsVisible(PAGE_SIZE); }}
-                  className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 transition-shadow" />
+                  className="w-full pl-8 pr-3 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle transition-shadow" />
               </div>
               {/* Issuer */}
               <select value={cardsIssuerFilter} onChange={e => { setCardsIssuerFilter(e.target.value); setCardsVisible(PAGE_SIZE); }}
-                className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 bg-white text-slate-700 cursor-pointer">
+                className="px-2.5 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle cursor-pointer">
                 <option value="all">All issuers</option>
                 {cardIssuers.map(issuer => <option key={issuer} value={issuer}>{issuer}</option>)}
               </select>
@@ -1054,8 +1121,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     <button key={type} onClick={() => { setCardsTypeFilter(type); setCardsVisible(PAGE_SIZE); }}
                       className={`px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
                         cardsTypeFilter === type
-                          ? 'bg-violet-600 text-white shadow-sm'
-                          : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
+                          ? 'bg-brand text-white shadow-sm'
+                          : 'text-faint bg-hair2 hover:bg-hair'
                       }`}>
                       {type === 'all' ? 'All types' : type}
                     </button>
@@ -1073,8 +1140,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     <button key={value} onClick={() => { setCardsPayoutFilter(value); setCardsVisible(PAGE_SIZE); }}
                       className={`px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
                         cardsPayoutFilter === value
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
+                          ? 'bg-brand text-white shadow-sm'
+                          : 'text-faint bg-hair2 hover:bg-hair'
                       }`}>{label}</button>
                   ))}
                 </div>
@@ -1083,7 +1150,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               <div className="flex items-center gap-2 sm:ml-auto">
                 <button onClick={() => { setCardsGroupBy(g => !g); setCardsCollapsed(new Set()); }}
                   className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-150 cursor-pointer ${
-                    cardsGroupBy ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'text-slate-600 bg-white border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                    cardsGroupBy ? 'bg-brand text-white border-brand shadow-sm' : 'text-subtle bg-white border-hair hover:border-brand hover:text-brand'
                   }`}>
                   <Layers className="w-3.5 h-3.5" />
                   Group by Issuer
@@ -1093,31 +1160,31 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   const allCollapsed = allIssuers.every(i => cardsCollapsed.has(i));
                   return (
                     <button onClick={() => setCardsCollapsed(allCollapsed ? new Set() : new Set(allIssuers))}
-                      className="text-xs text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer">
+                      className="text-xs text-faint hover:text-brand transition-colors cursor-pointer">
                       {allCollapsed ? 'Expand All' : 'Collapse All'}
                     </button>
                   );
                 })()}
                 {(cardsSearch || cardsIssuerFilter !== 'all' || cardsPayoutFilter !== 'all' || cardsTypeFilter !== 'all') && (
                   <button onClick={() => { setCardsSearch(''); setCardsIssuerFilter('all'); setCardsPayoutFilter('all'); setCardsTypeFilter('all'); setCardsVisible(PAGE_SIZE); }}
-                    className="text-xs text-indigo-600 hover:underline cursor-pointer">Clear</button>
+                    className="text-xs text-brand hover:underline cursor-pointer">Clear</button>
                 )}
               </div>
             </div>
             </div>
 
-          <div className="p-4 sm:p-6 pt-3">
+          <div className="pt-5">
             {displayCards.length === 0 ? (
               <div className="text-center py-16">
-                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-slate-100">
-                  <CreditCard className="w-7 h-7 text-slate-300" />
+                <div className="w-14 h-14 bg-surface rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-hair2">
+                  <CreditCard className="w-7 h-7 text-faint2" />
                 </div>
-                <p className="text-sm text-slate-500 font-medium">{links.length === 0 ? 'No cards loaded yet — try refreshing.' : 'No cards match the filters.'}</p>
+                <p className="text-sm text-faint font-medium">{links.length === 0 ? 'No cards loaded yet — try refreshing.' : 'No cards match the filters.'}</p>
               </div>
             ) : (() => {
               const CardRow = ({ card }: { card: any }) => (
-                <tr key={card.id} className="border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150">
-                  <td className="py-3.5 px-4 font-medium text-sm text-slate-900">
+                <tr key={card.id} className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150">
+                  <td className="py-3.5 px-4 font-medium text-sm text-ink">
                     <div className="flex items-center gap-2.5">
                       {card.imageUrl ? (
                         <img
@@ -1127,26 +1194,26 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                         />
                       ) : (
-                        <div className="w-10 h-6 bg-slate-100 rounded shrink-0" />
+                        <div className="w-10 h-6 bg-hair2 rounded shrink-0" />
                       )}
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className="truncate">{card.name}</span>
                         {card.cardType && (
                           <span className={`inline-flex shrink-0 items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                             /business/i.test(card.cardType)
-                              ? 'bg-violet-100 text-violet-700'
+                              ? 'bg-brand-soft text-brand-dark'
                               : 'bg-sky-100 text-sky-700'
                           }`}>{card.cardType}</span>
                         )}
                       </div>
                     </div>
                   </td>
-                  {!cardsGroupBy && <td className="py-3.5 px-4 text-sm text-slate-500">{card.issuer || '—'}</td>}
-                  <td className="py-3.5 px-4 text-right text-sm font-semibold text-slate-900 tabular-nums">
-                    {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : <span className="text-slate-300 font-normal">—</span>}
+                  {!cardsGroupBy && <td className="py-3.5 px-4 text-sm text-faint">{card.issuer || '—'}</td>}
+                  <td className="py-3.5 px-4 text-right text-sm font-semibold text-ink tabular-nums">
+                    {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : <span className="text-faint2 font-normal">—</span>}
                   </td>
-                  <td className="py-3.5 px-4 text-right text-sm text-slate-600 tabular-nums">{card.clicks}</td>
-                  <td className="py-3.5 px-4 text-right text-sm text-slate-600 tabular-nums">{card.conversions}</td>
+                  <td className="py-3.5 px-4 text-right text-sm text-subtle tabular-nums">{card.clicks}</td>
+                  <td className="py-3.5 px-4 text-right text-sm text-subtle tabular-nums">{card.conversions}</td>
                   <td className="py-3.5 px-4 text-right">
                     {card.cardId ? (() => {
                       const isAdded = linkBuilderIds.includes(card.cardId);
@@ -1157,14 +1224,14 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                           )}
                           className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
                             isAdded
-                              ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                              : 'bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600'
+                              ? 'bg-brand text-white hover:bg-brand-dark'
+                              : 'bg-hair2 text-faint hover:bg-brand-soft hover:text-brand'
                           }`}
                         >
                           {isAdded ? <>✓ Added</> : <>+ Add</>}
                         </button>
                       );
-                    })() : <span className="text-slate-200 text-xs">—</span>}
+                    })() : <span className="text-hair text-xs">—</span>}
                   </td>
                 </tr>
               );
@@ -1172,19 +1239,19 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               const pagedCards = cardsGroupBy ? displayCards : displayCards.slice(0, cardsVisible);
               return (
                 <>
-                  <p className="text-xs text-slate-400 mb-3">
+                  <p className="text-xs text-faint mb-3">
                     Showing {pagedCards.length} of {displayCards.length} cards
                   </p>
-                  <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
+                  <div className="overflow-x-auto rounded-xl ring-1 ring-hair2">
                     <table className="w-full">
-                      <thead className="bg-slate-50/80">
-                        <tr className="border-b border-slate-100">
+                      <thead className="bg-surface/80">
+                        <tr className="border-b border-hair2">
                           <SortTh label="Card"      field="name"        sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />
                           {!cardsGroupBy && <SortTh label="Issuer" field="issuer" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />}
                           <SortTh label="Your CPA"  field="cpa"         sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
                           <SortTh label="Clicks"    field="clicks"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
                           <SortTh label="Approvals" field="conversions" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
-                          <th className="py-3 px-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Link Builder</th>
+                          <th className="py-3 px-4 text-right text-xs font-semibold text-faint uppercase tracking-wider">Link Builder</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1197,12 +1264,12 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                               const toggle = () => setCardsCollapsed(prev => { const next = new Set(prev); next.has(issuer) ? next.delete(issuer) : next.add(issuer); return next; });
                               return (
                                 <React.Fragment key={`g-${issuer}`}>
-                                  <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none">
+                                  <tr onClick={toggle} className="bg-surface border-b border-hair cursor-pointer hover:bg-hair2 transition-colors duration-150 select-none">
                                     <td colSpan={colCount} className="py-2.5 px-4">
                                       <div className="flex items-center gap-2">
-                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                        <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{issuer}</span>
-                                        <span className="text-xs font-normal text-slate-400 ml-0.5">({cards.length})</span>
+                                        <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+                                        <span className="text-xs font-semibold text-subtle uppercase tracking-wider">{issuer}</span>
+                                        <span className="text-xs font-normal text-faint ml-0.5">({cards.length})</span>
                                       </div>
                                     </td>
                                   </tr>
@@ -1221,10 +1288,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     <div className="pt-4 text-center">
                       <button
                         onClick={() => setCardsVisible(n => n + PAGE_SIZE)}
-                        className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                        className="px-4 py-2 text-xs font-medium text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors"
                       >
                         Show {Math.min(PAGE_SIZE, displayCards.length - cardsVisible)} more
-                        <span className="text-slate-400 ml-1">({displayCards.length - cardsVisible} remaining)</span>
+                        <span className="text-faint ml-1">({displayCards.length - cardsVisible} remaining)</span>
                       </button>
                     </div>
                   )}
@@ -1237,15 +1304,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           {/* ── Activity Tab ── */}
           <Tabs.Content value="activity">
             {/* Sticky controls */}
-            <div className="sticky top-16 z-10 bg-white border-b border-slate-100 px-4 sm:px-6 py-3">
-            <div className="flex items-center justify-between mb-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200">
-              <p className="text-sm text-slate-600">
-                <span className="font-semibold text-slate-900 tabular-nums">{displayTracking.length}</span>
-                {trackingFilter !== 'all' ? <span className="text-slate-400"> of {tracking.length}</span> : ''} activity records
+            <div className="sticky top-16 z-10 bg-white border-b border-hair2 px-4 sm:px-6 py-3">
+            <div className="flex items-center justify-between mb-3 p-3.5 bg-surface rounded-xl border border-hair">
+              <p className="text-sm text-subtle">
+                <span className="font-semibold text-ink tabular-nums">{displayTracking.length}</span>
+                {trackingFilter !== 'all' ? <span className="text-faint"> of {tracking.length}</span> : ''} activity records
               </p>
               <button
                 onClick={fetchData}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:text-indigo-600 active:scale-95 transition-all duration-150 cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-subtle bg-white border border-hair rounded-lg hover:border-brand hover:text-brand active:scale-95 transition-all duration-150 cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 Refresh
@@ -1263,7 +1330,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-slate-400 mr-1">Status:</span>
+              <span className="text-xs font-medium text-faint mr-1">Status:</span>
               {[
                 { value: 'all',         label: 'All' },
                 { value: 'click',       label: 'Click' },
@@ -1275,8 +1342,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   onClick={() => { setTrackingStatusFilter(value); setActivityVisible(activityPageSize); }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
                     trackingStatusFilter === value
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : 'text-slate-600 bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                      ? 'bg-brand text-white shadow-sm'
+                      : 'text-subtle bg-white border border-hair hover:border-brand hover:text-brand'
                   }`}
                 >
                   {label}
@@ -1285,13 +1352,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             </div>
             </div>
 
-          <div className="p-4 sm:p-6 pt-3">
+          <div className="pt-5">
             {displayTracking.length === 0 ? (
               <div className="text-center py-16">
-                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-slate-100">
-                  <TrendingUp className="w-7 h-7 text-slate-300" />
+                <div className="w-14 h-14 bg-surface rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-hair2">
+                  <TrendingUp className="w-7 h-7 text-faint2" />
                 </div>
-                <p className="text-slate-500 text-sm font-medium mb-4">
+                <p className="text-faint text-sm font-medium mb-4">
                   {tracking.length === 0
                     ? 'No tracking activity found'
                     : 'No activity matches the selected date range.'}
@@ -1299,7 +1366,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 {tracking.length === 0 && (
                   <button
                     onClick={fetchData}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 active:scale-95 transition-all duration-150 text-sm font-medium shadow-sm cursor-pointer"
+                    className="px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand-dark active:scale-95 transition-all duration-150 text-sm font-medium shadow-sm cursor-pointer"
                   >
                     Refresh Data
                   </button>
@@ -1308,10 +1375,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             ) : (
               <>
                 <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-faint">
                     Showing {Math.min(activityVisible, displayTracking.length)} of {displayTracking.length} records
                   </p>
-                  <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                  <div className="flex items-center gap-1.5 text-xs text-faint">
                     <span>Show</span>
                     {[25, 50, 100].map(n => (
                       <button
@@ -1319,8 +1386,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         onClick={() => { setActivityPageSize(n); setActivityVisible(n); }}
                         className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
                           activityPageSize === n
-                            ? 'border-indigo-200 bg-indigo-50 text-indigo-600 font-medium'
-                            : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                            ? 'border-brand/30 bg-brand-soft text-brand font-medium'
+                            : 'border-hair text-faint hover:bg-surface'
                         }`}
                       >
                         {n}
@@ -1330,17 +1397,17 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       onClick={() => { setActivityPageSize(Infinity); setActivityVisible(Infinity); }}
                       className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
                         activityPageSize === Infinity
-                          ? 'border-indigo-200 bg-indigo-50 text-indigo-600 font-medium'
-                          : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                          ? 'border-brand/30 bg-brand-soft text-brand font-medium'
+                          : 'border-hair text-faint hover:bg-surface'
                       }`}
                     >
                       All
                     </button>
                   </div>
                 </div>
-                <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
+                <div className="overflow-x-auto rounded-xl ring-1 ring-hair2">
                   <table className="w-full">
-                    <thead className="bg-slate-50/80 border-b border-slate-100">
+                    <thead className="bg-surface/80 border-b border-hair2">
                       <tr>
                         <SortTh label="Date / Time"  field="clickDate"     sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
                         <SortTh label="Card"         field="cardName"      sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
@@ -1352,26 +1419,26 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </thead>
                     <tbody>
                       {displayTracking.slice(0, activityVisible).map((item) => (
-                        <tr key={item.id} className="border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150">
+                        <tr key={item.id} className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150">
                           <td className="py-3.5 px-4 text-sm">
-                            <div className="font-medium text-slate-900">{formatDate(item.clickDate)}</div>
-                            <div className="text-xs text-slate-400 mt-0.5">{formatTime(item.clickTime)}</div>
+                            <div className="font-medium text-ink">{formatDate(item.clickDate)}</div>
+                            <div className="text-xs text-faint mt-0.5">{formatTime(item.clickTime)}</div>
                           </td>
-                          <td className="py-3.5 px-4 text-sm text-slate-700">{item.cardName}</td>
+                          <td className="py-3.5 px-4 text-sm text-subtle">{item.cardName}</td>
                           <td className="py-3.5 px-4">
                             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
                               item.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
-                              item.status === 'application' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70' :
-                              'bg-slate-100 text-slate-600'
+                              item.status === 'application' ? 'bg-brand-soft text-brand-dark ring-1 ring-brand/30' :
+                              'bg-hair2 text-subtle'
                             }`}>
                               {item.status}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4 text-sm text-right font-semibold text-slate-900 tabular-nums">
-                            {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
+                          <td className="py-3.5 px-4 text-sm text-right font-semibold text-ink tabular-nums">
+                            {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : <span className="text-faint2 font-normal">—</span>}
                           </td>
-                          <td className="py-3.5 px-4 text-sm text-slate-500">{item.deviceType || '—'}</td>
-                          <td className="py-3.5 px-4 text-sm text-slate-500">{item.state || '—'}</td>
+                          <td className="py-3.5 px-4 text-sm text-faint">{item.deviceType || '—'}</td>
+                          <td className="py-3.5 px-4 text-sm text-faint">{item.state || '—'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1381,10 +1448,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   <div className="pt-4 text-center">
                     <button
                       onClick={() => setActivityVisible(n => n + activityPageSize)}
-                      className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                      className="px-4 py-2 text-xs font-medium text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors"
                     >
                       Show {Math.min(activityPageSize, displayTracking.length - activityVisible)} more
-                      <span className="text-slate-400 ml-1">({displayTracking.length - activityVisible} remaining)</span>
+                      <span className="text-faint ml-1">({displayTracking.length - activityVisible} remaining)</span>
                     </button>
                   </div>
                 )}
@@ -1394,29 +1461,29 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           </Tabs.Content>
 
           {/* ── Invoices Tab ── */}
-          <Tabs.Content value="invoices" className="p-4 sm:p-6">
+          <Tabs.Content value="invoices" className="pt-6">
             {invoices.length === 0 ? (
               <div className="text-center py-16">
-                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-slate-100">
-                  <FileText className="w-7 h-7 text-slate-300" />
+                <div className="w-14 h-14 bg-surface rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-hair2">
+                  <FileText className="w-7 h-7 text-faint2" />
                 </div>
-                <p className="text-slate-500 text-sm font-medium">No invoices found for your account.</p>
+                <p className="text-faint text-sm font-medium">No invoices found for your account.</p>
               </div>
             ) : (
               <>
-              <p className="text-xs text-slate-400 mb-3">
+              <p className="text-xs text-faint mb-3">
                 Showing {Math.min(invoicesVisible, invoices.length)} of {invoices.length} invoices
               </p>
-              <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
+              <div className="overflow-x-auto rounded-xl ring-1 ring-hair2">
                 <table className="w-full">
-                  <thead className="bg-slate-50/80">
-                    <tr className="border-b border-slate-100">
-                      <th className="py-3 px-4 text-left text-slate-500 text-xs font-semibold uppercase tracking-wider"></th>
-                      <th className="py-3 px-4 text-left text-slate-500 text-xs font-semibold uppercase tracking-wider">Month</th>
-                      <th className="py-3 px-4 text-right text-slate-500 text-xs font-semibold uppercase tracking-wider">Amount</th>
-                      <th className="py-3 px-4 text-right text-slate-500 text-xs font-semibold uppercase tracking-wider">Approvals</th>
-                      <th className="py-3 px-4 text-left text-slate-500 text-xs font-semibold uppercase tracking-wider">Status</th>
-                      <th className="py-3 px-4 text-left text-slate-500 text-xs font-semibold uppercase tracking-wider">Paid</th>
+                  <thead className="bg-surface/80">
+                    <tr className="border-b border-hair2">
+                      <th className="py-3 px-4 text-left text-faint text-xs font-semibold uppercase tracking-wider"></th>
+                      <th className="py-3 px-4 text-left text-faint text-xs font-semibold uppercase tracking-wider">Month</th>
+                      <th className="py-3 px-4 text-right text-faint text-xs font-semibold uppercase tracking-wider">Amount</th>
+                      <th className="py-3 px-4 text-right text-faint text-xs font-semibold uppercase tracking-wider">Approvals</th>
+                      <th className="py-3 px-4 text-left text-faint text-xs font-semibold uppercase tracking-wider">Status</th>
+                      <th className="py-3 px-4 text-left text-faint text-xs font-semibold uppercase tracking-wider">Paid</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1429,7 +1496,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       return (
                         <React.Fragment key={inv.id}>
                           <tr
-                            className="border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150 cursor-pointer"
+                            className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150 cursor-pointer"
                             onClick={() => {
                               setExpandedInvoices(prev => {
                                 const next = new Set(prev);
@@ -1439,16 +1506,16 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                             }}
                           >
                             <td className="py-3.5 pl-4 pr-1 w-8">
-                              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isExpanded ? '' : '-rotate-90'}`} />
+                              <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isExpanded ? '' : '-rotate-90'}`} />
                             </td>
                             <td className="py-3.5 px-4">
-                              <div className="font-medium text-sm text-slate-900">{inv.month}</div>
-                              {inv.date && <div className="text-xs text-slate-400 mt-0.5">{formatDate(inv.date)}</div>}
+                              <div className="font-medium text-sm text-ink">{inv.month}</div>
+                              {inv.date && <div className="text-xs text-faint mt-0.5">{formatDate(inv.date)}</div>}
                             </td>
-                            <td className="py-3.5 px-4 text-right font-semibold text-sm text-slate-900 tabular-nums">
-                              {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-slate-300 font-normal">—</span>}
+                            <td className="py-3.5 px-4 text-right font-semibold text-sm text-ink tabular-nums">
+                              {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-faint2 font-normal">—</span>}
                             </td>
-                            <td className="py-3.5 px-4 text-right text-sm text-slate-600 tabular-nums">{approvalsCount}</td>
+                            <td className="py-3.5 px-4 text-right text-sm text-subtle tabular-nums">{approvalsCount}</td>
                             <td className="py-3.5 px-4">
                               {inv.status ? (
                                 <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
@@ -1456,9 +1523,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                                     ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70'
                                     : inv.status.toLowerCase().includes('pending')
                                     ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/70'
-                                    : 'bg-slate-100 text-slate-600'
+                                    : 'bg-hair2 text-subtle'
                                 }`}>{inv.status}</span>
-                              ) : <span className="text-slate-300 text-sm">—</span>}
+                              ) : <span className="text-faint2 text-sm">—</span>}
                             </td>
                             <td className="py-3.5 px-4">
                               {inv.sent || inv.sentZelle ? (
@@ -1467,40 +1534,40 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                                   {inv.sentZelle ? 'Zelle sent' : 'Sent'}
                                 </span>
                               ) : (
-                                <span className="text-slate-400 text-xs">Pending</span>
+                                <span className="text-faint text-xs">Pending</span>
                               )}
                             </td>
                           </tr>
                           {isExpanded && (
-                            <tr className="border-b border-slate-50 bg-slate-50/40">
+                            <tr className="border-b border-surface bg-surface/40">
                               <td colSpan={6} className="px-4 py-3">
                                 {items.length === 0 ? (
-                                  <p className="text-xs text-slate-400 px-3 py-2">No approvals found for this month.</p>
+                                  <p className="text-xs text-faint px-3 py-2">No approvals found for this month.</p>
                                 ) : (
-                                  <div className="rounded-xl bg-white ring-1 ring-slate-100 overflow-hidden">
-                                    <div className="px-4 py-2 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                  <div className="rounded-xl bg-white ring-1 ring-hair2 overflow-hidden">
+                                    <div className="px-4 py-2 border-b border-hair2 text-xs font-semibold text-faint uppercase tracking-wider">
                                       Approvals in {inv.month}{inv.date ? ` ${parseLocalDate(inv.date).getFullYear()}` : ''} ({items.length})
                                     </div>
                                     <table className="w-full">
                                       <tbody>
                                         {items.map(item => (
-                                          <tr key={item.id} className="border-b border-slate-50 last:border-b-0">
+                                          <tr key={item.id} className="border-b border-surface last:border-b-0">
                                             <td className="py-2.5 px-4 text-sm">
-                                              <div className="font-medium text-slate-900">{formatDate(item.clickDate)}</div>
-                                              <div className="text-xs text-slate-400">{formatTime(item.clickTime)}</div>
+                                              <div className="font-medium text-ink">{formatDate(item.clickDate)}</div>
+                                              <div className="text-xs text-faint">{formatTime(item.clickTime)}</div>
                                             </td>
-                                            <td className="py-2.5 px-4 text-sm text-slate-700">{decodeHtml(item.cardName)}</td>
+                                            <td className="py-2.5 px-4 text-sm text-subtle">{decodeHtml(item.cardName)}</td>
                                             <td className="py-2.5 px-4">
                                               <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
                                                 item.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
-                                                item.status === 'application' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70' :
-                                                'bg-slate-100 text-slate-600'
+                                                item.status === 'application' ? 'bg-brand-soft text-brand-dark ring-1 ring-brand/30' :
+                                                'bg-hair2 text-subtle'
                                               }`}>
                                                 {item.status}
                                               </span>
                                             </td>
-                                            <td className="py-2.5 px-4 text-sm text-right font-semibold text-slate-900">
-                                              {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
+                                            <td className="py-2.5 px-4 text-sm text-right font-semibold text-ink">
+                                              {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : <span className="text-faint2 font-normal">—</span>}
                                             </td>
                                           </tr>
                                         ))}
@@ -1521,10 +1588,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <div className="pt-4 text-center">
                   <button
                     onClick={() => setInvoicesVisible(n => n + PAGE_SIZE)}
-                    className="px-4 py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                    className="px-4 py-2 text-xs font-medium text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors"
                   >
                     Show {Math.min(PAGE_SIZE, invoices.length - invoicesVisible)} more
-                    <span className="text-slate-400 ml-1">({invoices.length - invoicesVisible} remaining)</span>
+                    <span className="text-faint ml-1">({invoices.length - invoicesVisible} remaining)</span>
                   </button>
                 </div>
               )}
