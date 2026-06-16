@@ -51,6 +51,10 @@ interface Payout {
   card: string;
   issuer?: string;
   status: string;
+  cardId?: string;
+  cardType?: string;
+  cardUse?: string;
+  imageUrl?: string;
 }
 
 interface Invoice {
@@ -348,6 +352,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [cardsSort,         setCardsSort]         = useState<SortState>({ field: 'name', dir: 'asc' });
   const [cardsIssuerFilter, setCardsIssuerFilter] = useState('all');
   const [cardsPayoutFilter, setCardsPayoutFilter] = useState('all');
+  const [cardsTypeFilter,   setCardsTypeFilter]   = useState('all');
   const [cardsSearch,       setCardsSearch]       = useState('');
   const [cardsGroupBy,      setCardsGroupBy]      = useState(false);
   const [cardsCollapsed,    setCardsCollapsed]    = useState<Set<string>>(new Set());
@@ -430,7 +435,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     return Object.values(byCard).sort((a, b) => b.approvals - a.approvals || b.earnings - a.earnings).slice(0, 5);
   })();
 
-  // Cards tab: join links (URL + stats) with payouts (issuer + CPA amount) by normalised name
+  // Cards tab: join links (URL + stats) with payouts (issuer + CPA amount + CardRatingAPI enrichment) by normalised name
   const _norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
   const allCards = links.map(link => {
     const cpa = payouts.find(p => _norm(p.card) === _norm(link.name));
@@ -443,14 +448,21 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       clicks:       link.clicks,
       conversions:  link.conversions,
       url:      link.url,
+      cardId:   cpa?.cardId   ?? '',
+      cardType: cpa?.cardType ?? '',
+      cardUse:  cpa?.cardUse  ?? '',
+      imageUrl: cpa?.imageUrl ?? '',
     };
   });
   const cardIssuers = Array.from(new Set(allCards.map(c => c.issuer).filter(Boolean))).sort() as string[];
+  // Derive available card types for the filter (only types that actually appear in data)
+  const cardTypes = Array.from(new Set(allCards.map(c => c.cardType).filter(Boolean))).sort() as string[];
   const displayCards = applySort(
     allCards.filter(c => {
       if (cardsSearch && !c.name.toLowerCase().includes(cardsSearch.toLowerCase()) &&
           !(c.issuer || '').toLowerCase().includes(cardsSearch.toLowerCase())) return false;
       if (cardsIssuerFilter !== 'all' && c.issuer !== cardsIssuerFilter) return false;
+      if (cardsTypeFilter !== 'all' && c.cardType !== cardsTypeFilter) return false;
       if (cardsPayoutFilter !== 'all') {
         const amt = c.cpa;
         if (cardsPayoutFilter === 'zero'    && amt !== 0)                 return false;
@@ -1017,6 +1029,21 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <option value="all">All issuers</option>
                 {cardIssuers.map(issuer => <option key={issuer} value={issuer}>{issuer}</option>)}
               </select>
+              {/* Card type (Business / Personal) — only shown when data is available */}
+              {cardTypes.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  {(['all', ...cardTypes]).map(type => (
+                    <button key={type} onClick={() => { setCardsTypeFilter(type); setCardsVisible(PAGE_SIZE); }}
+                      className={`px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
+                        cardsTypeFilter === type
+                          ? 'bg-violet-600 text-white shadow-sm'
+                          : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
+                      }`}>
+                      {type === 'all' ? 'All types' : type}
+                    </button>
+                  ))}
+                </div>
+              )}
               {/* CPA range */}
               <div className="overflow-x-auto">
                 <div className="flex items-center gap-1.5 min-w-max">
@@ -1053,8 +1080,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </button>
                   );
                 })()}
-                {(cardsSearch || cardsIssuerFilter !== 'all' || cardsPayoutFilter !== 'all') && (
-                  <button onClick={() => { setCardsSearch(''); setCardsIssuerFilter('all'); setCardsPayoutFilter('all'); setCardsVisible(PAGE_SIZE); }}
+                {(cardsSearch || cardsIssuerFilter !== 'all' || cardsPayoutFilter !== 'all' || cardsTypeFilter !== 'all') && (
+                  <button onClick={() => { setCardsSearch(''); setCardsIssuerFilter('all'); setCardsPayoutFilter('all'); setCardsTypeFilter('all'); setCardsVisible(PAGE_SIZE); }}
                     className="text-xs text-indigo-600 hover:underline cursor-pointer">Clear</button>
                 )}
               </div>
@@ -1072,16 +1099,51 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             ) : (() => {
               const CardRow = ({ card }: { card: any }) => (
                 <tr key={card.id} className="border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150">
-                  <td className="py-3.5 px-4 font-medium text-sm text-slate-900">{card.name}</td>
+                  <td className="py-3.5 px-4 font-medium text-sm text-slate-900">
+                    <div className="flex items-center gap-2.5">
+                      {card.imageUrl ? (
+                        <img
+                          src={card.imageUrl}
+                          alt={card.name}
+                          className="w-10 h-6 object-contain rounded shrink-0"
+                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div className="w-10 h-6 bg-slate-100 rounded shrink-0" />
+                      )}
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="truncate">{card.name}</span>
+                        {card.cardType && (
+                          <span className={`inline-flex shrink-0 items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                            /business/i.test(card.cardType)
+                              ? 'bg-violet-100 text-violet-700'
+                              : 'bg-sky-100 text-sky-700'
+                          }`}>{card.cardType}</span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
                   {!cardsGroupBy && <td className="py-3.5 px-4 text-sm text-slate-500">{card.issuer || '—'}</td>}
                   <td className="py-3.5 px-4 text-right text-sm font-semibold text-slate-900 tabular-nums">
                     {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : <span className="text-slate-300 font-normal">—</span>}
                   </td>
                   <td className="py-3.5 px-4 text-right text-sm text-slate-600 tabular-nums">{card.clicks}</td>
                   <td className="py-3.5 px-4 text-right text-sm text-slate-600 tabular-nums">{card.conversions}</td>
+                  <td className="py-3.5 px-4 text-right">
+                    {card.cardId ? (
+                      <button
+                        onClick={() => navigator.clipboard.writeText(card.cardId)}
+                        title={`Copy Card ID: ${card.cardId}`}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors cursor-pointer"
+                      >
+                        <Copy className="w-3 h-3" />
+                        {card.cardId}
+                      </button>
+                    ) : <span className="text-slate-200 text-xs">—</span>}
+                  </td>
                 </tr>
               );
-              const colCount = cardsGroupBy ? 4 : 5;
+              const colCount = cardsGroupBy ? 5 : 6;
               const pagedCards = cardsGroupBy ? displayCards : displayCards.slice(0, cardsVisible);
               return (
                 <>
@@ -1097,6 +1159,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                           <SortTh label="Your CPA"  field="cpa"         sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
                           <SortTh label="Clicks"    field="clicks"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
                           <SortTh label="Approvals" field="conversions" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
+                          <th className="py-3 px-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Card ID</th>
                         </tr>
                       </thead>
                       <tbody>
