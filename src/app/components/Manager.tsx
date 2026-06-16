@@ -1514,8 +1514,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
               {/* ── Insights: top affiliates by earnings + top approved cards (design file) ── */}
               {(showAffiliates || showTopCards) && (
-                <div data-anim className="pb-7 mb-2 border-b border-hair">
-                  <div className="flex items-center justify-between gap-3 mb-4">
+                <div data-anim className={`border-b border-hair ${insightsOpen ? 'pb-7 mb-2' : 'pb-3'}`}>
+                  <div className={`flex items-center justify-between gap-3 ${insightsOpen ? 'mb-4' : 'mb-0'}`}>
                     <button onClick={() => setInsightsOpen(o => !o)} title={insightsOpen ? 'Minimize insights' : 'Show insights'}
                       className="flex items-center gap-2 cursor-pointer group">
                       <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${insightsOpen ? 'rotate-90' : ''}`} strokeWidth={2.6} />
@@ -1588,7 +1588,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 <div className="flex items-center gap-2 ml-auto">
                   {/* Group by Commission Rate toggle */}
                   <button
-                    onClick={() => { setAffiliateGroupBy(g => !g); setAffiliateCollapsed(new Set()); setAffiliatesVisible(PAGE_SIZE); }}
+                    onClick={() => { const next = !affiliateGroupBy; setAffiliateGroupBy(next); setAffiliateCollapsed(next ? new Set(displayUsers.map((u: any) => String(u.commissionRate || 50) + '%')) : new Set()); setAffiliatesVisible(PAGE_SIZE); }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all duration-150 cursor-pointer ${
                       affiliateGroupBy
                         ? 'bg-brand text-white border-brand shadow-sm'
@@ -1714,7 +1714,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       ] as { value: 'none'|'month'|'affiliate'; label: string }[]).map(({ value, label }) => (
                         <button
                           key={value}
-                          onClick={() => { setTrackingGroupBy(value); setTrackingCollapsed(new Set()); setTrackingVisible(trackingPageSize); }}
+                          onClick={() => { setTrackingGroupBy(value); setTrackingCollapsed(value === 'none' ? new Set() : new Set(displayTrackingActivity.map((a: any) => value === 'month' ? (() => { const d = parseLocalDate(a.clickDate); return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })() : (a.affiliateId || 'unknown')))); setTrackingVisible(trackingPageSize); }}
                           className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all duration-150 cursor-pointer ${
                             trackingGroupBy === value
                               ? 'bg-brand text-white shadow-sm'
@@ -1995,7 +1995,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   <div className="flex items-center gap-2 ml-auto">
                     {/* Group by issuer toggle */}
                     <button
-                      onClick={() => { setCpaGroupBy(g => !g); setCpaCollapsed(new Set()); }}
+                      onClick={() => { const next = !cpaGroupBy; setCpaGroupBy(next); setCpaCollapsed(next ? new Set(cpaRates.map(r => r.issuer || 'Other')) : new Set()); }}
                       title="Group by issuer"
                       className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all duration-150 cursor-pointer ${
                         cpaGroupBy
@@ -2286,7 +2286,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     ] as { value: 'none'|'month'|'affiliate'; label: string }[]).map(({ value, label }) => (
                       <button
                         key={value}
-                        onClick={() => { setInvoiceGroupBy(value); setInvoiceCollapsed(new Set()); setInvoicesVisible(PAGE_SIZE); }}
+                        onClick={() => { setInvoiceGroupBy(value); setInvoiceCollapsed(value === 'none' ? new Set() : new Set(invoices.map((inv: any) => value === 'month' ? (inv.date?.substring(0, 7) || inv.month || 'unknown') : (inv.email || 'unknown')))); setInvoicesVisible(PAGE_SIZE); }}
                         className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all duration-150 cursor-pointer ${
                           invoiceGroupBy === value
                             ? 'bg-brand text-white shadow-sm'

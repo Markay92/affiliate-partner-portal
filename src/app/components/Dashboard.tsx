@@ -1047,8 +1047,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
               {/* ── Insights: tabbed chart / top cards ── */}
               {(showCharts || showTopCards) && (
-                <div data-anim className="pb-6 mb-1 border-b border-hair">
-                  <div className="flex items-center justify-between gap-3 mb-4">
+                <div data-anim className={`border-b border-hair ${insightsOpen ? 'pb-6 mb-1' : 'pb-3'}`}>
+                  <div className={`flex items-center justify-between gap-3 ${insightsOpen ? 'mb-4' : 'mb-0'}`}>
                     <button onClick={() => setInsightsOpen(o => !o)} title={insightsOpen ? 'Minimize insights' : 'Show insights'}
                       className="flex items-center gap-2 cursor-pointer group">
                       <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${insightsOpen ? 'rotate-90' : ''}`} strokeWidth={2.6} />
@@ -1149,11 +1149,27 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
             {/* Group-by + count + sort tabs */}
             <div className="flex items-center justify-between gap-3.5 flex-wrap pt-[15px] pb-1.5">
-              <button onClick={() => { setCardsGroupBy(g => !g); setCardsCollapsed(new Set()); }}
-                className={`inline-flex items-center gap-1.5 text-[13px] cursor-pointer transition-colors ${cardsGroupBy ? 'text-brand font-bold' : 'text-faint font-medium hover:text-subtle'}`}>
-                <Layers className="w-3.5 h-3.5" />
-                Group by issuer
-              </button>
+              <div className="flex items-center gap-4 flex-wrap">
+                <button onClick={() => {
+                  const next = !cardsGroupBy;
+                  setCardsGroupBy(next);
+                  setCardsCollapsed(next ? new Set(displayCards.map(c => c.issuer || 'Other')) : new Set());
+                }}
+                  className={`inline-flex items-center gap-1.5 text-[13px] cursor-pointer transition-colors ${cardsGroupBy ? 'text-brand font-bold' : 'text-faint font-medium hover:text-subtle'}`}>
+                  <Layers className="w-3.5 h-3.5" />
+                  Group by issuer
+                </button>
+                {cardsGroupBy && (() => {
+                  const allIssuers = Array.from(new Set(displayCards.map(c => c.issuer || 'Other')));
+                  const allCollapsed = allIssuers.every(i => cardsCollapsed.has(i));
+                  return (
+                    <button onClick={() => setCardsCollapsed(allCollapsed ? new Set() : new Set(allIssuers))}
+                      className="text-[12.5px] font-medium text-faint hover:text-brand cursor-pointer transition-colors">
+                      {allCollapsed ? 'Expand all' : 'Collapse all'}
+                    </button>
+                  );
+                })()}
+              </div>
               <div className="flex items-center gap-[18px]">
                 <span className="text-xs font-semibold tracking-[0.04em] uppercase text-faint2">{displayCards.length} cards</span>
                 {([['earned', 'Earned'], ['cpa', 'Payout'], ['conv', 'Conv']] as const).map(([key, label]) => {
