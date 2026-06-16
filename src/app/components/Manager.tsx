@@ -26,6 +26,7 @@ import {
   Award,
   MousePointerClick,
   Copy,
+  MoreHorizontal,
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -329,7 +330,7 @@ function SortTh({
   return (
     <th
       onClick={() => onSort(field)}
-      className={`py-3.5 px-6 text-faint text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-surface transition-colors text-${align}`}
+      className={`py-3.5 px-6 text-faint text-xs font-semibold cursor-pointer select-none hover:bg-surface transition-colors text-${align}`}
     >
       <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''}`}>
         {label}{icon}
@@ -353,7 +354,7 @@ function SortThSm({
   return (
     <th
       onClick={() => onSort(field)}
-      className={`py-3 px-4 text-faint text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-surface transition-colors text-${align}`}
+      className={`py-3 px-4 text-faint text-xs font-semibold cursor-pointer select-none hover:bg-surface transition-colors text-${align}`}
     >
       <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''}`}>
         {label}{icon}
@@ -426,6 +427,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     } catch { return new Set(['stats', 'charts', 'topCards']); }
   });
   const [insightsTab, setInsightsTab] = useState<'charts' | 'topCards'>('charts');
+  const [rowMenu, setRowMenu] = useState<string | null>(null);
   const [insightsOpen, setInsightsOpen] = useState(true);
   const [scrolled, setScrolled] = useState(false);
 
@@ -1166,60 +1168,58 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
   // Renders a single affiliate table row — defined as a closure so it
   // captures all state/callbacks without prop drilling.
-  const renderUserRow = (user: any) => (
-    <tr key={user.id} className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150">
-      <td className="py-4 px-6">
-        <div className="flex items-center gap-3">
-          <span className="w-8 h-8 rounded-full bg-brand-soft text-brand text-xs font-bold flex items-center justify-center flex-shrink-0">
-            {(user.name || user.email || '?').trim().split(/\s+/).map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()}
-          </span>
-          <div className="min-w-0">
-            <div className="font-medium text-ink">{user.name || 'N/A'}</div>
-            <div className="text-xs text-faint mt-0.5">{user.email}</div>
+  const renderUserRow = (user: any, indent?: boolean) => {
+    const initials = (user.name || user.email || '?').trim().split(/\s+/).map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
+    const editing = editingCommission === user.id;
+    const menuOpen = rowMenu === user.id;
+    return (
+      <div key={user.id} className="flex items-center gap-4 py-4 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
+        <span className="w-9 h-9 rounded-full bg-brand-soft text-brand text-xs font-bold flex items-center justify-center flex-shrink-0">{initials}</span>
+        <div className="flex-1 min-w-0">
+          <div className="text-[15px] font-semibold text-ink truncate">{user.name || 'N/A'}</div>
+          <div className="flex items-center gap-2 mt-0.5 text-[12.5px] text-faint">
+            <span className="truncate">{user.email}</span>
+            <span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
+            <span className="font-mono-ds whitespace-nowrap">{user.affiliateId || '—'}</span>
+            <span className="hidden sm:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
+            <span className="hidden sm:inline whitespace-nowrap tabular-nums">{(user.stats?.totalConversions || 0).toLocaleString()} appr.</span>
           </div>
         </div>
-      </td>
-      <td className="py-4 px-6">
-        <div className="text-xs text-faint space-y-0.5">
-          {user.phone && <div>{user.phone}</div>}
-          {(user.city || user.state) && <div>{[user.city, user.state].filter(Boolean).join(', ')}</div>}
-          {!user.phone && !user.city && !user.state && <span className="text-faint2">—</span>}
-        </div>
-      </td>
-      <td className="py-4 px-6">
-        <code className="text-xs bg-hair2 text-subtle px-2 py-1 rounded-lg font-mono">{user.affiliateId || 'N/A'}</code>
-      </td>
-      <td className="py-4 px-6 text-right">
-        {editingCommission === user.id ? (
-          <div className="flex items-center justify-end gap-2">
+        {editing ? (
+          <div className="flex items-center gap-2 flex-shrink-0">
             <input type="number" value={commissionValue} onChange={e => setCommissionValue(e.target.value)}
-              className="w-20 px-2 py-1 border border-hair rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand" min="0" max="100" />
-            <button onClick={() => updateCommission(user.id, parseInt(commissionValue))} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"><Save className="w-4 h-4" /></button>
+              className="w-16 px-2 py-1 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand tabular-nums" min="0" max="100" />
+            <span className="text-sm text-faint">%</span>
+            <button onClick={() => { updateCommission(user.id, parseInt(commissionValue)); }} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"><Save className="w-4 h-4" /></button>
             <button onClick={() => setEditingCommission(null)} className="p-1.5 text-faint hover:bg-hair2 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
           </div>
         ) : (
-          <div className="flex items-center justify-end gap-2">
-            <span className="text-sm font-medium text-subtle">{user.commissionRate || 100}%</span>
-            <button onClick={() => { setEditingCommission(user.id); setCommissionValue((user.commissionRate || 100).toString()); }}
-              className="p-1.5 text-faint hover:bg-hair2 rounded-lg transition-colors"><Edit className="w-4 h-4" /></button>
-          </div>
+          <>
+            <div className="text-right flex-shrink-0">
+              <div className="text-[16px] font-bold text-ink tabular-nums">${Math.round(user.stats?.totalCommissions || 0).toLocaleString()}</div>
+              <div className="text-[12px] text-faint tabular-nums">{user.commissionRate || 100}% split</div>
+            </div>
+            <div className="relative flex-shrink-0">
+              <button onClick={() => setRowMenu(menuOpen ? null : user.id)} title="Actions"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-faint hover:text-ink hover:bg-hair2 transition-colors cursor-pointer"><MoreHorizontal className="w-[18px] h-[18px]" /></button>
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setRowMenu(null)} />
+                  <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-lg ring-1 ring-ink/10 z-20 overflow-hidden py-1">
+                    <button onClick={() => { setRowMenu(null); loginAsUser(user.id, user.email); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-subtle hover:bg-surface transition-colors"><LogIn className="w-4 h-4 text-brand" />Log in as</button>
+                    <button onClick={() => { setRowMenu(null); setEditingCommission(user.id); setCommissionValue((user.commissionRate || 100).toString()); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-subtle hover:bg-surface transition-colors"><DollarSign className="w-4 h-4 text-faint" />Edit commission</button>
+                    <button onClick={() => { setRowMenu(null); setSelectedUser(user); setEditName(user.name||''); setEditEmail(user.email||''); setEditPhone(user.phone||''); setEditAddress(user.address||''); setEditCity(user.city||''); setEditState(user.state||''); setEditZip(user.zip||''); setEditCountry(user.country||''); setEditEzrxRef(user.ezrxRef||''); setShowEditModal(true); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-subtle hover:bg-surface transition-colors"><Edit className="w-4 h-4 text-faint" />Edit details</button>
+                    <button onClick={() => { setRowMenu(null); setSelectedUser(user); setShowResetModal(true); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-subtle hover:bg-surface transition-colors"><Key className="w-4 h-4 text-faint" />Reset password</button>
+                    <button onClick={() => { setRowMenu(null); deleteUser(user.id, user.email); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-neg hover:bg-red-50 transition-colors"><Trash2 className="w-4 h-4" />Delete</button>
+                  </div>
+                </>
+              )}
+            </div>
+          </>
         )}
-      </td>
-      <td className="py-4 px-6 text-right text-sm text-subtle">{(user.stats?.totalClicks || 0).toLocaleString()}</td>
-      <td className="py-4 px-6 text-right text-sm text-subtle">{(user.stats?.totalConversions || 0).toLocaleString()}</td>
-      <td className="py-4 px-6 text-right text-sm font-semibold text-ink">${Math.round(user.stats?.totalCommissions || 0).toLocaleString()}</td>
-      <td className="py-4 px-6 text-right text-xs text-faint">{formatDate(user.joinedDate || user.createdAt)}</td>
-      <td className="py-4 px-6">
-        <div className="flex items-center justify-end gap-1">
-          <button onClick={() => loginAsUser(user.id, user.email)} className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Login as this affiliate"><LogIn className="w-4 h-4" /></button>
-          <button onClick={() => { setSelectedUser(user); setEditName(user.name||''); setEditEmail(user.email||''); setEditPhone(user.phone||''); setEditAddress(user.address||''); setEditCity(user.city||''); setEditState(user.state||''); setEditZip(user.zip||''); setEditCountry(user.country||''); setEditEzrxRef(user.ezrxRef||''); setShowEditModal(true); }}
-            className="p-2 text-brand hover:bg-brand-soft rounded-lg transition-colors" title="Edit affiliate"><Edit className="w-4 h-4" /></button>
-          <button onClick={() => { setSelectedUser(user); setShowResetModal(true); }} className="p-2 text-brand hover:bg-brand-soft rounded-lg transition-colors" title="Reset password"><Key className="w-4 h-4" /></button>
-          <button onClick={() => deleteUser(user.id, user.email)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete affiliate"><Trash2 className="w-4 h-4" /></button>
-        </div>
-      </td>
-    </tr>
-  );
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -1327,7 +1327,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         <div className="fixed inset-0 z-10" onClick={() => setActionsOpen(false)} />
                         <div className="absolute right-0 mt-1 w-52 bg-white rounded-xl shadow-lg ring-1 ring-ink/10 z-20 overflow-hidden">
                           <div className="py-1">
-                            <p className="px-3 py-1.5 text-xs font-semibold text-faint uppercase tracking-wider">Sync</p>
+                            <p className="px-3 py-1.5 text-xs font-semibold text-faint">Sync</p>
                             <button
                               onClick={() => { setActionsOpen(false); syncFromAirtable(); }}
                               disabled={syncing}
@@ -1641,61 +1641,40 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               <p className="text-xs text-faint px-5 pt-4">
                 Showing {Math.min(affiliatesVisible, displayUsers.length)} of {displayUsers.length} affiliates
               </p>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-surface/80 border-b border-hair2">
-                    <tr>
-                      <SortTh label="Affiliate"     field="name"             sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} />
-                      <th className="text-left py-3.5 px-6 text-faint text-xs font-semibold uppercase tracking-wider">Contact Info</th>
-                      <th className="text-left py-3.5 px-6 text-faint text-xs font-semibold uppercase tracking-wider">Affiliate ID</th>
-                      <SortTh label="Commission %"  field="commissionRate"   sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
-                      <SortTh label="Clicks"        field="totalClicks"      sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
-                      <SortTh label="Conversions"   field="totalConversions" sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
-                      <SortTh label="Earned"        field="totalCommissions" sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
-                      <SortTh label="Joined"        field="createdAt"        sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
-                      <th className="text-right py-3.5 px-6 text-faint text-xs font-semibold uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      const pagedUsers = displayUsers.slice(0, affiliatesVisible);
-                      if (affiliateGroupBy) {
-                        // Grouped by commission rate
-                        const groups: Record<string, any[]> = {};
-                        pagedUsers.forEach((u: any) => {
-                          const key = `${u.commissionRate || 50}%`;
-                          if (!groups[key]) groups[key] = [];
-                          groups[key].push(u);
+              <div>
+                {(() => {
+                  const pagedUsers = displayUsers.slice(0, affiliatesVisible);
+                  if (affiliateGroupBy) {
+                    // Grouped by commission rate
+                    const groups: Record<string, any[]> = {};
+                    pagedUsers.forEach((u: any) => {
+                      const key = `${u.commissionRate || 50}%`;
+                      if (!groups[key]) groups[key] = [];
+                      groups[key].push(u);
+                    });
+                    return Object.entries(groups)
+                      .sort(([a], [b]) => Number(b.replace('%','')) - Number(a.replace('%','')))
+                      .map(([rate, members]) => {
+                        const isCollapsed = affiliateCollapsed.has(rate);
+                        const toggle = () => setAffiliateCollapsed(prev => {
+                          const next = new Set(prev);
+                          next.has(rate) ? next.delete(rate) : next.add(rate);
+                          return next;
                         });
-                        return Object.entries(groups)
-                          .sort(([a], [b]) => Number(b.replace('%','')) - Number(a.replace('%','')))
-                          .map(([rate, members]) => {
-                            const isCollapsed = affiliateCollapsed.has(rate);
-                            const toggle = () => setAffiliateCollapsed(prev => {
-                              const next = new Set(prev);
-                              next.has(rate) ? next.delete(rate) : next.add(rate);
-                              return next;
-                            });
-                            return (
-                              <React.Fragment key={`group-${rate}`}>
-                                <tr onClick={toggle} className="bg-surface border-b border-hair cursor-pointer hover:bg-hair2 transition-colors duration-150 select-none">
-                                  <td colSpan={9} className="py-2.5 px-6">
-                                    <div className="flex items-center gap-2">
-                                      <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                      <span className="text-xs font-semibold text-subtle uppercase tracking-wider">{rate} Commission</span>
-                                      <span className="text-xs font-normal text-faint ml-0.5">({members.length} {members.length === 1 ? 'member' : 'members'})</span>
-                                    </div>
-                                  </td>
-                                </tr>
-                                {!isCollapsed && members.map((user: any) => renderUserRow(user))}
-                            </React.Fragment>
-                          );
-                        });
-                      }
-                      return pagedUsers.map((user: any) => renderUserRow(user));
-                    })()}
-                  </tbody>
-                </table>
+                        return (
+                          <React.Fragment key={`group-${rate}`}>
+                            <div onClick={toggle} className="flex items-center gap-[11px] pt-5 pb-3 border-t border-hair2 cursor-pointer hover:opacity-70 transition-opacity select-none">
+                              <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`} strokeWidth={2.6} />
+                              <span className="text-[15px] font-bold text-ink tracking-[-0.01em]">{rate} commission</span>
+                              <span className="text-[13px] font-semibold text-faint2 tabular-nums">{members.length}</span>
+                            </div>
+                            {!isCollapsed && members.map((user: any) => renderUserRow(user, true))}
+                          </React.Fragment>
+                        );
+                      });
+                  }
+                  return pagedUsers.map((user: any) => renderUserRow(user));
+                })()}
               </div>
               {affiliatesVisible < displayUsers.length && (
                 <div className="py-4 text-center">
@@ -1863,46 +1842,27 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         </button>
                       </div>
                     </div>
-                    <div className="overflow-x-auto rounded-xl ring-1 ring-hair2">
-                      <table className="w-full">
-                        <thead className="bg-surface/80 border-b border-hair2">
-                          <tr>
-                            <SortThSm label="Date / Time"  field="clickDate"     sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                            <SortThSm label="Affiliate"    field="memberName"    sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                            <SortThSm label="Card"         field="cardName"      sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                            <SortThSm label="Status"       field="status"        sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                            <SortThSm label="Earnings"     field="totalEarnings" sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} align="right" />
-                            <SortThSm label="Device"       field="deviceType"    sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                            <SortThSm label="Location"     field="state"         sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(() => {
+                    <div>
+                      {(() => {
+                            const dotColor = (s: string) => s === 'approval' ? 'var(--ds-pos)' : s === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
                             // Single row renderer — used in both flat and grouped modes
-                            const TrackRow = ({ a }: { a: any }) => (
-                              <tr key={a.id} className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150">
-                                <td className="py-3.5 px-4 text-sm">
-                                  <div className="font-medium text-ink">{formatDate(a.clickDate)}</div>
-                                  <div className="text-xs text-faint mt-0.5">{formatTime(a.clickTime)}</div>
-                                </td>
-                                <td className="py-3.5 px-4 text-sm">
-                                  <div className="font-medium text-ink">{a.memberName}</div>
-                                  <div className="text-xs text-faint mt-0.5">{a.affiliateId}</div>
-                                </td>
-                                <td className="py-3.5 px-4 text-sm text-subtle">{a.cardName}</td>
-                                <td className="py-3.5 px-4">
-                                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                                    a.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
-                                    a.status === 'application' ? 'bg-brand-soft text-brand-dark ring-1 ring-brand/30' :
-                                    'bg-hair2 text-subtle'
-                                  }`}>{a.status}</span>
-                                </td>
-                                <td className="py-3.5 px-4 text-sm text-right font-semibold text-ink tabular-nums">
-                                  {a.totalEarnings > 0 ? `$${a.totalEarnings.toFixed(2)}` : <span className="text-faint2 font-normal">—</span>}
-                                </td>
-                                <td className="py-3.5 px-4 text-sm text-faint">{a.deviceType || '—'}</td>
-                                <td className="py-3.5 px-4 text-sm text-faint">{a.state || '—'}</td>
-                              </tr>
+                            const TrackRow = ({ a, indent }: { a: any; indent?: boolean }) => (
+                              <div key={a.id} className="flex items-center gap-4 py-3.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-[15px] font-semibold text-ink truncate">{a.cardName || '—'}</div>
+                                  <div className="flex items-center gap-2 mt-0.5 text-[12.5px] text-faint flex-wrap">
+                                    <span className="inline-flex items-center gap-1.5 capitalize"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dotColor(a.status) }} />{a.status}</span>
+                                    <span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
+                                    <span className="truncate">{a.memberName}</span>
+                                    <span className="hidden sm:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
+                                    <span className="hidden sm:inline whitespace-nowrap">{formatDate(a.clickDate)}</span>
+                                    {a.state && <><span className="hidden md:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="hidden md:inline whitespace-nowrap">{a.deviceType || '—'} · {a.state}</span></>}
+                                  </div>
+                                </div>
+                                <div className={`text-[16px] font-bold tabular-nums flex-shrink-0 ${a.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>
+                                  {a.totalEarnings > 0 ? `$${a.totalEarnings.toFixed(2)}` : '—'}
+                                </div>
+                              </div>
                             );
 
                             // Flat mode
@@ -1953,31 +1913,22 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               const sublabel     = trackingGroupBy === 'affiliate' ? key : undefined;
                               return (
                                 <React.Fragment key={key}>
-                                  <tr onClick={toggle} className="bg-surface border-b border-hair cursor-pointer hover:bg-hair2 transition-colors duration-150 select-none">
-                                    <td colSpan={7} className="py-2.5 px-4">
-                                      <div className="flex items-center gap-3 flex-wrap">
-                                        <div className="flex items-center gap-2">
-                                          <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                          <span className="text-xs font-semibold text-subtle uppercase tracking-wider">{label}</span>
-                                          {sublabel && <span className="text-xs text-faint font-mono normal-case">{sublabel}</span>}
-                                          <span className="text-xs font-normal text-faint">({rows.length} records)</span>
-                                        </div>
-                                        <div className="flex items-center gap-3 ml-2 text-xs text-faint">
-                                          {grpClicks    > 0 && <span>{grpClicks.toLocaleString()} clicks</span>}
-                                          {grpApps      > 0 && <span>{grpApps} apps</span>}
-                                          {grpApprovals > 0 && <span>{grpApprovals} approvals</span>}
-                                          {grpEarnings  > 0 && <span className="font-medium text-emerald-600">${grpEarnings.toFixed(2)}</span>}
-                                        </div>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                  {!isCollapsed && rows.map((a: any) => <TrackRow key={a.id} a={a} />)}
+                                  <div onClick={toggle} className="flex items-center gap-3 flex-wrap pt-5 pb-3 border-t border-hair2 cursor-pointer hover:opacity-70 transition-opacity select-none">
+                                    <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 flex-shrink-0 ${isCollapsed ? '' : 'rotate-90'}`} strokeWidth={2.6} />
+                                    <span className="text-[15px] font-bold text-ink tracking-[-0.01em]">{label}</span>
+                                    {sublabel && <span className="text-[12px] text-faint font-mono-ds">{sublabel}</span>}
+                                    <span className="text-[13px] font-semibold text-faint2 tabular-nums">{rows.length}</span>
+                                    <div className="ml-auto flex items-center gap-3 text-[12.5px] text-faint">
+                                      {grpClicks    > 0 && <span className="tabular-nums">{grpClicks.toLocaleString()} clicks</span>}
+                                      {grpApprovals > 0 && <span className="tabular-nums">{grpApprovals} appr.</span>}
+                                      {grpEarnings  > 0 && <span className="font-bold text-ink tabular-nums">${grpEarnings.toFixed(2)}</span>}
+                                    </div>
+                                  </div>
+                                  {!isCollapsed && rows.map((a: any) => <TrackRow key={a.id} a={a} indent />)}
                                 </React.Fragment>
                               );
                             });
                           })()}
-                        </tbody>
-                      </table>
                     </div>
                     {(trackingVisible < displayTrackingActivity.length || trackingHiddenOlderCount > 0 || trackingShowAllYears) && (
                       <div className="pt-4 flex flex-wrap items-center justify-center gap-2">
@@ -2160,57 +2111,25 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   return true;
                 });
 
-                const CpaRow = ({ rate }: { rate: any }) => (
-                  <tr className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150">
-                    <td className="py-3 px-4 font-medium text-sm text-ink">
-                      <div className="flex items-center gap-2.5">
-                        {rate.imageUrl ? (
-                          <img
-                            src={rate.imageUrl}
-                            alt={rate.card}
-                            className="w-10 h-6 object-contain rounded shrink-0"
-                            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                          />
-                        ) : (
-                          <div className="w-10 h-6 bg-hair2 rounded shrink-0" />
-                        )}
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="truncate">{rate.card}</span>
-                          {rate.cardType && (
-                            <span className={`inline-flex shrink-0 items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                              /business/i.test(rate.cardType)
-                                ? 'bg-brand-soft text-brand-dark'
-                                : 'bg-sky-100 text-sky-700'
-                            }`}>{rate.cardType}</span>
-                          )}
-                        </div>
+                const CpaRow = ({ rate, indent }: { rate: any; indent?: boolean }) => (
+                  <div className="flex items-center gap-4 py-3.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[15px] font-semibold text-ink truncate">{rate.card}</div>
+                      <div className="flex items-center gap-2 mt-0.5 text-[12.5px] text-faint flex-wrap">
+                        <span>{rate.issuer || '—'}</span>
+                        {rate.date && <><span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="whitespace-nowrap">{formatDate(rate.date)}</span></>}
+                        {rate.cardId && <><span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><button onClick={() => navigator.clipboard.writeText(rate.cardId)} title={`Copy Card ID: ${rate.cardId}`} className="inline-flex items-center gap-1 font-mono-ds hover:text-brand transition-colors cursor-pointer"><Copy className="w-3 h-3" />{rate.cardId}</button></>}
                       </div>
-                    </td>
-                    {!cpaGroupBy && <td className="py-3 px-4 text-sm text-faint">{rate.issuer || '—'}</td>}
-                    <td className="py-3 px-4 text-right font-semibold text-sm text-ink">
-                      {rate.bankCpa > 0 ? `$${rate.bankCpa.toLocaleString()}` : <span className="text-faint2 font-normal">—</span>}
-                    </td>
-                    {cpaAffiliateFilter !== 'all' && (
-                      <td className="py-3 px-4 text-right font-semibold text-sm text-brand">
-                        {rate.affiliatePayout != null && rate.affiliatePayout > 0
-                          ? `$${rate.affiliatePayout.toLocaleString()}`
-                          : <span className="text-faint2 font-normal">—</span>}
-                      </td>
-                    )}
-                    <td className="py-3 px-4 text-sm text-faint">{formatDate(rate.date)}</td>
-                    <td className="py-3 px-4 text-right">
-                      {rate.cardId ? (
-                        <button
-                          onClick={() => navigator.clipboard.writeText(rate.cardId)}
-                          title={`Copy Card ID: ${rate.cardId}`}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono text-faint hover:text-brand hover:bg-brand-soft rounded transition-colors cursor-pointer"
-                        >
-                          <Copy className="w-3 h-3" />
-                          {rate.cardId}
-                        </button>
-                      ) : <span className="text-hair text-xs">—</span>}
-                    </td>
-                  </tr>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="text-[16px] font-bold text-pos tabular-nums">{rate.bankCpa > 0 ? `$${rate.bankCpa.toLocaleString()}` : <span className="text-faint2 font-normal">—</span>}</div>
+                      {cpaAffiliateFilter !== 'all' && (
+                        <div className="text-[12.5px] font-semibold text-brand tabular-nums">
+                          {rate.affiliatePayout != null && rate.affiliatePayout > 0 ? `$${rate.affiliatePayout.toLocaleString()} payout` : '—'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 );
 
                 if (filtered.length === 0) return (
@@ -2257,20 +2176,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         </button>
                       </div>
                     </div>
-                    <table className="w-full text-sm">
-                      <thead className="bg-surface/80 border-b border-hair2">
-                        <tr>
-                          <SortThSm label="Card"     field="card"    sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} />
-                          {!cpaGroupBy && <SortThSm label="Issuer" field="issuer" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} />}
-                          <SortThSm label="Bank CPA" field="bankCpa" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} align="right" />
-                          {cpaAffiliateFilter !== 'all' && (
-                            <SortThSm label="Affiliate Payout" field="affiliatePayout" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} align="right" />
-                          )}
-                          <SortThSm label="Rate Date" field="date" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} />
-                          <th className="py-3 px-4 text-right text-xs font-semibold text-faint uppercase tracking-wider">Card ID</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                    <div>
                         {cpaGroupBy ? (
                           // Grouped by issuer with collapse/expand
                           (() => {
@@ -2280,7 +2186,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               if (!groups[key]) groups[key] = [];
                               groups[key].push(r);
                             });
-                            const colCount = cpaAffiliateFilter !== 'all' ? 4 : 3;
                             return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([issuer, rates]) => {
                               const isCollapsed = cpaCollapsed.has(issuer);
                               const toggle = () => setCpaCollapsed(prev => {
@@ -2290,19 +2195,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               });
                               return (
                                 <React.Fragment key={`group-${issuer}`}>
-                                  <tr
-                                    onClick={toggle}
-                                    className="bg-surface border-b border-hair cursor-pointer hover:bg-hair2 transition-colors duration-150 select-none"
-                                  >
-                                    <td colSpan={colCount} className="py-2.5 px-4">
-                                      <div className="flex items-center gap-2">
-                                        <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                        <span className="text-xs font-semibold text-subtle uppercase tracking-wider">{issuer}</span>
-                                        <span className="text-xs font-normal text-faint ml-0.5">({rates.length} {rates.length === 1 ? 'card' : 'cards'})</span>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                  {!isCollapsed && rates.map(r => <CpaRow key={r.id} rate={r} />)}
+                                  <div onClick={toggle} className="flex items-center gap-[11px] pt-5 pb-3 border-t border-hair2 cursor-pointer hover:opacity-70 transition-opacity select-none">
+                                    <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`} strokeWidth={2.6} />
+                                    <span className="text-[15px] font-bold text-ink tracking-[-0.01em]">{issuer}</span>
+                                    <span className="text-[13px] font-semibold text-faint2 tabular-nums">{rates.length}</span>
+                                  </div>
+                                  {!isCollapsed && rates.map(r => <CpaRow key={r.id} rate={r} indent />)}
                                 </React.Fragment>
                               );
                             });
@@ -2310,8 +2208,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         ) : (
                           pagedFiltered.map(r => <CpaRow key={r.id} rate={r} />)
                         )}
-                      </tbody>
-                    </table>
+                    </div>
                     {!cpaGroupBy && cpaVisible < filtered.length && (
                       <div className="py-4 flex flex-wrap items-center justify-center gap-2">
                         <button
@@ -2473,25 +2370,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         <CurrentYearBadge active={!invoiceShowAllYears} />
                       </p>
                     </div>
-                    <table className="w-full">
-                      <thead className="bg-surface/80 border-b border-hair2">
-                        <tr>
-                          <SortThSm label="Affiliate"  field="name"      sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} />
-                          <SortThSm label="Month"      field="month"     sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} />
-                          <SortThSm label="Amount"     field="amount"    sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} align="right" />
-                          <SortThSm label="Approvals"  field="approvals" sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} align="right" />
-                          <SortThSm label="Status"     field="status"    sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} />
-                          <th className="py-3 px-4 text-faint text-xs font-semibold uppercase tracking-wider text-center">Sent</th>
-                          <th className="py-3 px-4 text-faint text-xs font-semibold uppercase tracking-wider text-center">Zelle</th>
-                          <th className="py-3 px-4 text-faint text-xs font-semibold uppercase tracking-wider">Contact</th>
-                          <th className="py-3 px-4 text-faint text-xs font-semibold uppercase tracking-wider text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                    <div>
                         {(() => {
-                          const InvRow = ({ inv }: { inv: any }) => {
+                          const InvRow = ({ inv, indent }: { inv: any; indent?: boolean }) => {
                             const busy = updatingInvoice === inv.id;
                             const isOpen = expandedInvoices.has(inv.id);
+                            const menuOpen = rowMenu === inv.id;
                             const toggleOpen = () => setExpandedInvoices(prev => {
                               const next = new Set(prev);
                               next.has(inv.id) ? next.delete(inv.id) : next.add(inv.id);
@@ -2501,90 +2385,65 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             const approvedCards = allCards.filter((c: any) => c.status === 'approval');
                             const cards = isOpen ? approvedCards : [];
                             const approvalsCount = approvedCards.length;
+                            const paid = inv.status && inv.status.toLowerCase().includes('paid');
+                            const pending = inv.status && inv.status.toLowerCase().includes('pending');
+                            const statusDot = paid ? 'var(--ds-pos)' : pending ? 'var(--ds-warn)' : 'var(--ds-faint2)';
                             return (
                               <React.Fragment key={inv.id}>
-                                <tr
-                                  onClick={toggleOpen}
-                                  className={`border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150 cursor-pointer ${isOpen ? 'bg-brand-soft/40' : ''}`}
-                                >
-                                  <td className="py-3.5 px-4">
-                                    <div className="flex items-center gap-2">
-                                      <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 shrink-0 ${isOpen ? '' : '-rotate-90'}`} />
-                                      <div>
-                                        <div className="font-medium text-sm text-ink">{inv.name}</div>
-                                        <div className="text-xs text-faint mt-0.5">{inv.email}</div>
+                                <div className="flex items-center gap-4 py-3.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
+                                  <button onClick={toggleOpen} className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer">
+                                    <ChevronRight className={`w-3.5 h-3.5 text-faint flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} strokeWidth={2.6} />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-[15px] font-semibold text-ink truncate">{inv.name}</div>
+                                      <div className="flex items-center gap-2 mt-0.5 text-[12.5px] text-faint flex-wrap">
+                                        <span>{inv.month}</span>
+                                        <span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
+                                        <span className="tabular-nums">{approvalsCount} appr.</span>
+                                        {inv.status && <><span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="inline-flex items-center gap-1.5"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: statusDot }} />{inv.status}</span></>}
+                                        {(inv.sent || inv.sentZelle) && <><span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="text-pos font-semibold">{inv.sentZelle ? 'Zelle sent' : 'Sent'}</span></>}
                                       </div>
                                     </div>
-                                  </td>
-                                  <td className="py-3.5 px-4 text-sm text-subtle">{inv.month}</td>
-                                  <td className="py-3.5 px-4 text-right font-semibold text-sm text-ink">
-                                    {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}` : <span className="text-faint2 font-normal">—</span>}
-                                  </td>
-                                  <td className="py-3.5 px-4 text-right text-sm text-subtle">{approvalsCount}</td>
-                                  <td className="py-3.5 px-4">
-                                    {inv.status ? (
-                                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                                        inv.status.toLowerCase().includes('paid')
-                                          ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70'
-                                          : inv.status.toLowerCase().includes('pending')
-                                          ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/70'
-                                          : 'bg-hair2 text-subtle'
-                                      }`}>{inv.status}</span>
-                                    ) : <span className="text-faint2 text-xs">—</span>}
-                                  </td>
-                                  <td className="py-3.5 px-4 text-center" onClick={e => e.stopPropagation()}>
-                                    <button disabled={busy} onClick={() => updateInvoice(inv.id, { sent: !inv.sent })}
-                                      title="Mark payout as sent"
-                                      className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sent ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-hair2 text-faint hover:bg-hair'}`}>
-                                      <CheckCircle className="w-4 h-4" />
-                                    </button>
-                                  </td>
-                                  <td className="py-3.5 px-4 text-center" onClick={e => e.stopPropagation()}>
-                                    <button disabled={busy} onClick={() => updateInvoice(inv.id, { sentZelle: !inv.sentZelle })}
-                                      title="Mark Zelle payout as sent"
-                                      className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sentZelle ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-hair2 text-faint hover:bg-hair'}`}>
-                                      <Send className="w-4 h-4" />
-                                    </button>
-                                  </td>
-                                  <td className="py-3.5 px-4 text-xs text-faint">{inv.zelle || '—'}</td>
-                                  <td className="py-3.5 px-4 text-right">
-                                    {busy && <RefreshCw className="w-4 h-4 animate-spin text-brand ml-auto" />}
-                                  </td>
-                                </tr>
-                                {isOpen && (
-                                  <tr className="bg-surface/40 border-b border-hair2">
-                                    <td colSpan={9} className="px-4 pl-12 py-3">
-                                      {!trackingActivity.length ? (
-                                        <p className="text-xs text-faint py-2 flex items-center gap-2">
-                                          <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Loading cards…
-                                        </p>
-                                      ) : cards.length === 0 ? (
-                                        <p className="text-xs text-faint py-2">No approvals found for {inv.name} in {inv.month}.</p>
-                                      ) : (
-                                        <div className="space-y-1.5 py-1">
-                                          <p className="text-xs font-semibold uppercase tracking-wider text-faint mb-1.5">
-                                            Approvals for {inv.name} in {inv.month} ({cards.length})
-                                          </p>
-                                          {cards.map((c: any) => (
-                                            <div key={c.id} className="flex items-center justify-between text-sm py-1.5 px-3 bg-white rounded-lg border border-hair2">
-                                              <div className="flex items-center gap-3 min-w-0">
-                                                <span className="font-medium text-ink truncate">{c.cardName}</span>
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 ${
-                                                  c.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
-                                                  c.status === 'application' ? 'bg-brand-soft text-brand-dark ring-1 ring-brand/30' :
-                                                  'bg-hair2 text-faint'
-                                                }`}>{c.status}</span>
-                                                <span className="text-xs text-faint shrink-0">{formatDate(c.clickDate)}</span>
-                                              </div>
-                                              <span className="font-semibold text-emerald-600 shrink-0 ml-3">
-                                                {c.totalEarnings > 0 ? `$${c.totalEarnings.toFixed(2)}` : <span className="text-faint2 font-normal">—</span>}
-                                              </span>
-                                            </div>
-                                          ))}
-                                        </div>
+                                  </button>
+                                  <div className={`text-[16px] font-bold tabular-nums flex-shrink-0 ${inv.amount > 0 ? 'text-ink' : 'text-faint2'}`}>
+                                    {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}` : '—'}
+                                  </div>
+                                  {busy ? <RefreshCw className="w-4 h-4 animate-spin text-brand flex-shrink-0" /> : (
+                                    <div className="relative flex-shrink-0">
+                                      <button onClick={() => setRowMenu(menuOpen ? null : inv.id)} title="Actions" className="w-8 h-8 rounded-lg flex items-center justify-center text-faint hover:text-ink hover:bg-hair2 transition-colors cursor-pointer"><MoreHorizontal className="w-[18px] h-[18px]" /></button>
+                                      {menuOpen && (
+                                        <>
+                                          <div className="fixed inset-0 z-10" onClick={() => setRowMenu(null)} />
+                                          <div className="absolute right-0 mt-1 w-52 bg-white rounded-xl shadow-lg ring-1 ring-ink/10 z-20 overflow-hidden py-1">
+                                            <button onClick={() => { setRowMenu(null); updateInvoice(inv.id, { sent: !inv.sent }); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-subtle hover:bg-surface transition-colors"><CheckCircle className={`w-4 h-4 ${inv.sent ? 'text-emerald-600' : 'text-faint'}`} />{inv.sent ? 'Unmark sent' : 'Mark payout sent'}</button>
+                                            <button onClick={() => { setRowMenu(null); updateInvoice(inv.id, { sentZelle: !inv.sentZelle }); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-subtle hover:bg-surface transition-colors"><Send className={`w-4 h-4 ${inv.sentZelle ? 'text-emerald-600' : 'text-faint'}`} />{inv.sentZelle ? 'Unmark Zelle' : 'Mark Zelle sent'}</button>
+                                            {inv.zelle && <div className="px-4 py-2 text-xs text-faint border-t border-hair2 mt-1">Zelle: <span className="font-mono-ds text-subtle">{inv.zelle}</span></div>}
+                                          </div>
+                                        </>
                                       )}
-                                    </td>
-                                  </tr>
+                                    </div>
+                                  )}
+                                </div>
+                                {isOpen && (
+                                  <div className="pl-7 pb-2 border-b border-hair2">
+                                    {!trackingActivity.length ? (
+                                      <p className="text-xs text-faint py-3 flex items-center gap-2"><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Loading cards…</p>
+                                    ) : cards.length === 0 ? (
+                                      <p className="text-xs text-faint py-3">No approvals found for {inv.name} in {inv.month}.</p>
+                                    ) : (
+                                      <>
+                                        <div className="text-[11px] font-semibold text-faint2 uppercase tracking-[0.04em] pt-3 pb-1">Approvals ({cards.length})</div>
+                                        {cards.map((c: any) => (
+                                          <div key={c.id} className="flex items-center gap-4 py-2.5 border-b border-hair2 last:border-b-0">
+                                            <div className="flex-1 min-w-0">
+                                              <div className="text-sm font-semibold text-ink truncate">{c.cardName}</div>
+                                              <div className="text-xs text-faint mt-0.5">{formatDate(c.clickDate)}</div>
+                                            </div>
+                                            <div className={`text-sm font-bold tabular-nums flex-shrink-0 ${c.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>{c.totalEarnings > 0 ? `$${c.totalEarnings.toFixed(2)}` : '—'}</div>
+                                          </div>
+                                        ))}
+                                      </>
+                                    )}
+                                  </div>
                                 )}
                               </React.Fragment>
                             );
@@ -2627,30 +2486,23 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             const sublabel     = getSub(key);
                             return (
                               <React.Fragment key={key}>
-                                <tr onClick={toggle} className="bg-surface border-b border-hair cursor-pointer hover:bg-hair2 transition-colors duration-150 select-none">
-                                  <td colSpan={9} className="py-2.5 px-4">
-                                    <div className="flex items-center gap-3 flex-wrap">
-                                      <div className="flex items-center gap-2">
-                                        <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                        <span className="text-xs font-semibold text-subtle uppercase tracking-wider">{getLabel(key, rows)}</span>
-                                        {sublabel && <span className="text-xs text-faint font-mono normal-case">{sublabel}</span>}
-                                        <span className="text-xs font-normal text-faint">({rows.length} invoice{rows.length !== 1 ? 's' : ''})</span>
-                                      </div>
-                                      <div className="flex items-center gap-3 ml-2 text-xs text-faint">
-                                        {grpAmount    > 0 && <span className="font-medium text-emerald-600">${grpAmount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}</span>}
-                                        {grpApprovals > 0 && <span>{grpApprovals} approvals</span>}
-                                        {grpSent      > 0 && <span>{grpSent} paid</span>}
-                                      </div>
-                                    </div>
-                                  </td>
-                                </tr>
-                                {!isCollapsed && rows.map((inv: any) => <InvRow key={inv.id} inv={inv} />)}
+                                <div onClick={toggle} className="flex items-center gap-3 flex-wrap pt-5 pb-3 border-t border-hair2 cursor-pointer hover:opacity-70 transition-opacity select-none">
+                                  <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 flex-shrink-0 ${isCollapsed ? '' : 'rotate-90'}`} strokeWidth={2.6} />
+                                  <span className="text-[15px] font-bold text-ink tracking-[-0.01em]">{getLabel(key, rows)}</span>
+                                  {sublabel && <span className="text-[12px] text-faint font-mono-ds">{sublabel}</span>}
+                                  <span className="text-[13px] font-semibold text-faint2 tabular-nums">{rows.length}</span>
+                                  <div className="ml-auto flex items-center gap-3 text-[12.5px] text-faint">
+                                    {grpApprovals > 0 && <span className="tabular-nums">{grpApprovals} appr.</span>}
+                                    {grpSent      > 0 && <span className="tabular-nums">{grpSent} paid</span>}
+                                    {grpAmount    > 0 && <span className="font-bold text-ink tabular-nums">${grpAmount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}</span>}
+                                  </div>
+                                </div>
+                                {!isCollapsed && rows.map((inv: any) => <InvRow key={inv.id} inv={inv} indent />)}
                               </React.Fragment>
                             );
                           });
                         })()}
-                      </tbody>
-                    </table>
+                    </div>
                     {(invoicesVisible < filtered.length || invoiceHiddenOlderCount > 0 || invoiceShowAllYears) && (
                       <div className="py-4 flex flex-wrap items-center justify-center gap-2">
                         {invoicesVisible < filtered.length && (

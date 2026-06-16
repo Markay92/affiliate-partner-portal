@@ -1427,44 +1427,26 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </button>
                   </div>
                 </div>
-                <div className="overflow-x-auto rounded-xl ring-1 ring-hair2">
-                  <table className="w-full">
-                    <thead className="bg-surface/80 border-b border-hair2">
-                      <tr>
-                        <SortTh label="Date / Time"  field="clickDate"     sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
-                        <SortTh label="Card"         field="cardName"      sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
-                        <SortTh label="Status"       field="status"        sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
-                        <SortTh label="Earnings"     field="totalEarnings" sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} align="right" />
-                        <SortTh label="Device"       field="deviceType"    sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
-                        <SortTh label="Location"     field="state"         sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {displayTracking.slice(0, activityVisible).map((item) => (
-                        <tr key={item.id} className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150">
-                          <td className="py-3.5 px-4 text-sm">
-                            <div className="font-medium text-ink">{formatDate(item.clickDate)}</div>
-                            <div className="text-xs text-faint mt-0.5">{formatTime(item.clickTime)}</div>
-                          </td>
-                          <td className="py-3.5 px-4 text-sm text-subtle">{item.cardName}</td>
-                          <td className="py-3.5 px-4">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                              item.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
-                              item.status === 'application' ? 'bg-brand-soft text-brand-dark ring-1 ring-brand/30' :
-                              'bg-hair2 text-subtle'
-                            }`}>
-                              {item.status}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4 text-sm text-right font-semibold text-ink tabular-nums">
-                            {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : <span className="text-faint2 font-normal">—</span>}
-                          </td>
-                          <td className="py-3.5 px-4 text-sm text-faint">{item.deviceType || '—'}</td>
-                          <td className="py-3.5 px-4 text-sm text-faint">{item.state || '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div>
+                  {displayTracking.slice(0, activityVisible).map((item) => {
+                    const dot = item.status === 'approval' ? 'var(--ds-pos)' : item.status === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
+                    return (
+                      <div key={item.id} className="flex items-center gap-4 py-3.5 border-b border-hair2 hover:bg-surface transition-colors duration-150">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[15px] font-semibold text-ink truncate">{item.cardName || '—'}</div>
+                          <div className="flex items-center gap-2 mt-0.5 text-[12.5px] text-faint flex-wrap">
+                            <span className="inline-flex items-center gap-1.5 capitalize"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dot }} />{item.status}</span>
+                            <span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
+                            <span className="whitespace-nowrap">{formatDate(item.clickDate)}</span>
+                            {item.state && <><span className="hidden sm:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="hidden sm:inline whitespace-nowrap">{item.deviceType || '—'} · {item.state}</span></>}
+                          </div>
+                        </div>
+                        <div className={`text-[16px] font-bold tabular-nums flex-shrink-0 ${item.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>
+                          {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : '—'}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
                 {activityVisible < displayTracking.length && (
                   <div className="pt-4 text-center">
@@ -1496,115 +1478,60 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               <p className="text-xs text-faint mb-3">
                 Showing {Math.min(invoicesVisible, invoices.length)} of {invoices.length} invoices
               </p>
-              <div className="overflow-x-auto rounded-xl ring-1 ring-hair2">
-                <table className="w-full">
-                  <thead className="bg-surface/80">
-                    <tr className="border-b border-hair2">
-                      <th className="py-3 px-4 text-left text-faint text-xs font-semibold uppercase tracking-wider"></th>
-                      <th className="py-3 px-4 text-left text-faint text-xs font-semibold uppercase tracking-wider">Month</th>
-                      <th className="py-3 px-4 text-right text-faint text-xs font-semibold uppercase tracking-wider">Amount</th>
-                      <th className="py-3 px-4 text-right text-faint text-xs font-semibold uppercase tracking-wider">Approvals</th>
-                      <th className="py-3 px-4 text-left text-faint text-xs font-semibold uppercase tracking-wider">Status</th>
-                      <th className="py-3 px-4 text-left text-faint text-xs font-semibold uppercase tracking-wider">Paid</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {invoices.slice(0, invoicesVisible).map(inv => {
-                      const isExpanded = expandedInvoices.has(inv.id);
-                      const allItems = getInvoiceItems(inv);
-                      const approvedItems = allItems.filter(i => i.status === 'approval');
-                      const items = isExpanded ? approvedItems : [];
-                      const approvalsCount = approvedItems.length;
-                      return (
-                        <React.Fragment key={inv.id}>
-                          <tr
-                            className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150 cursor-pointer"
-                            onClick={() => {
-                              setExpandedInvoices(prev => {
-                                const next = new Set(prev);
-                                if (next.has(inv.id)) next.delete(inv.id); else next.add(inv.id);
-                                return next;
-                              });
-                            }}
-                          >
-                            <td className="py-3.5 pl-4 pr-1 w-8">
-                              <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isExpanded ? '' : '-rotate-90'}`} />
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <div className="font-medium text-sm text-ink">{inv.month}</div>
-                              {inv.date && <div className="text-xs text-faint mt-0.5">{formatDate(inv.date)}</div>}
-                            </td>
-                            <td className="py-3.5 px-4 text-right font-semibold text-sm text-ink tabular-nums">
-                              {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-faint2 font-normal">—</span>}
-                            </td>
-                            <td className="py-3.5 px-4 text-right text-sm text-subtle tabular-nums">{approvalsCount}</td>
-                            <td className="py-3.5 px-4">
-                              {inv.status ? (
-                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                                  inv.status.toLowerCase().includes('paid')
-                                    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70'
-                                    : inv.status.toLowerCase().includes('pending')
-                                    ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/70'
-                                    : 'bg-hair2 text-subtle'
-                                }`}>{inv.status}</span>
-                              ) : <span className="text-faint2 text-sm">—</span>}
-                            </td>
-                            <td className="py-3.5 px-4">
-                              {inv.sent || inv.sentZelle ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70">
-                                  <CheckCircle className="w-3 h-3" />
-                                  {inv.sentZelle ? 'Zelle sent' : 'Sent'}
-                                </span>
-                              ) : (
-                                <span className="text-faint text-xs">Pending</span>
-                              )}
-                            </td>
-                          </tr>
-                          {isExpanded && (
-                            <tr className="border-b border-surface bg-surface/40">
-                              <td colSpan={6} className="px-4 py-3">
-                                {items.length === 0 ? (
-                                  <p className="text-xs text-faint px-3 py-2">No approvals found for this month.</p>
-                                ) : (
-                                  <div className="rounded-xl bg-white ring-1 ring-hair2 overflow-hidden">
-                                    <div className="px-4 py-2 border-b border-hair2 text-xs font-semibold text-faint uppercase tracking-wider">
-                                      Approvals in {inv.month}{inv.date ? ` ${parseLocalDate(inv.date).getFullYear()}` : ''} ({items.length})
-                                    </div>
-                                    <table className="w-full">
-                                      <tbody>
-                                        {items.map(item => (
-                                          <tr key={item.id} className="border-b border-surface last:border-b-0">
-                                            <td className="py-2.5 px-4 text-sm">
-                                              <div className="font-medium text-ink">{formatDate(item.clickDate)}</div>
-                                              <div className="text-xs text-faint">{formatTime(item.clickTime)}</div>
-                                            </td>
-                                            <td className="py-2.5 px-4 text-sm text-subtle">{decodeHtml(item.cardName)}</td>
-                                            <td className="py-2.5 px-4">
-                                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                                                item.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
-                                                item.status === 'application' ? 'bg-brand-soft text-brand-dark ring-1 ring-brand/30' :
-                                                'bg-hair2 text-subtle'
-                                              }`}>
-                                                {item.status}
-                                              </span>
-                                            </td>
-                                            <td className="py-2.5 px-4 text-sm text-right font-semibold text-ink">
-                                              {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : <span className="text-faint2 font-normal">—</span>}
-                                            </td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
+              <div>
+                {invoices.slice(0, invoicesVisible).map(inv => {
+                  const isExpanded = expandedInvoices.has(inv.id);
+                  const approvedItems = getInvoiceItems(inv).filter(i => i.status === 'approval');
+                  const items = isExpanded ? approvedItems : [];
+                  const approvalsCount = approvedItems.length;
+                  const paid = inv.status && inv.status.toLowerCase().includes('paid');
+                  const pending = inv.status && inv.status.toLowerCase().includes('pending');
+                  const statusDot = paid ? 'var(--ds-pos)' : pending ? 'var(--ds-warn)' : 'var(--ds-faint2)';
+                  return (
+                    <div key={inv.id}>
+                      <div
+                        className="flex items-center gap-4 py-3.5 border-b border-hair2 hover:bg-surface transition-colors duration-150 cursor-pointer"
+                        onClick={() => setExpandedInvoices(prev => { const next = new Set(prev); next.has(inv.id) ? next.delete(inv.id) : next.add(inv.id); return next; })}
+                      >
+                        <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`} strokeWidth={2.6} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[15px] font-semibold text-ink truncate">{inv.month}</div>
+                          <div className="flex items-center gap-2 mt-0.5 text-[12.5px] text-faint flex-wrap">
+                            {inv.date && <><span className="whitespace-nowrap">{formatDate(inv.date)}</span><span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /></>}
+                            <span className="tabular-nums">{approvalsCount} approvals</span>
+                            {inv.status && <><span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="inline-flex items-center gap-1.5"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: statusDot }} />{inv.status}</span></>}
+                            {(inv.sent || inv.sentZelle) && <><span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="text-pos font-semibold">{inv.sentZelle ? 'Zelle sent' : 'Sent'}</span></>}
+                          </div>
+                        </div>
+                        <div className={`text-[16px] font-bold tabular-nums flex-shrink-0 ${inv.amount > 0 ? 'text-ink' : 'text-faint2'}`}>
+                          {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                        </div>
+                      </div>
+                      {isExpanded && (
+                        <div className="pl-7 pb-2 border-b border-hair2">
+                          {items.length === 0 ? (
+                            <p className="text-xs text-faint py-3">No approvals found for this month.</p>
+                          ) : (
+                            <>
+                              <div className="text-[11px] font-semibold text-faint2 uppercase tracking-[0.04em] pt-3 pb-1">Approvals ({items.length})</div>
+                              {items.map(item => (
+                                <div key={item.id} className="flex items-center gap-4 py-2.5 border-b border-hair2 last:border-b-0">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-semibold text-ink truncate">{decodeHtml(item.cardName)}</div>
+                                    <div className="text-xs text-faint mt-0.5">{formatDate(item.clickDate)} · {formatTime(item.clickTime)}</div>
                                   </div>
-                                )}
-                              </td>
-                            </tr>
+                                  <div className={`text-sm font-bold tabular-nums flex-shrink-0 ${item.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>
+                                    {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : '—'}
+                                  </div>
+                                </div>
+                              ))}
+                            </>
                           )}
-                        </React.Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               {invoicesVisible < invoices.length && (
                 <div className="pt-4 text-center">
