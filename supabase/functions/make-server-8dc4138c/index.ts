@@ -725,23 +725,32 @@ const CPA_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days — refresh via Im
 const CARD_RATING_CACHE_KEY = 'cache:card_rating_api';
 const CARD_RATING_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
+// Field IDs for CardRatingAPI table (tblWMdAiq5KWL6RGK)
+const CR_FIELD = {
+  cardName:  'fldHJmdj3vQMJ7cNl',
+  cardId:    'fldDXGFG5wQvq3hjn',
+  cardType:  'fldbuxCKp2ZgtqmrJ',
+  cardUse:   'fld429l9Oel12NeY6',
+  logoUrl:   'fldG3BXiQNTmAgeqV', // LogoImageUrl — stable cdn.nextinsure.com URL
+  rawLogo:   'fldm35TYYqxyz17EF', // RawLogoImageUrl — same CDN, no ?w= param
+};
+
 function buildCardRatingIndex(records: any[]): Record<string, any> {
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
   const index: Record<string, any> = {};
   for (const rec of records) {
+    // returnFieldsByFieldId=true → rec.fields is keyed by field ID
     const f = rec.fields || {};
-    const name = String(f['CardName'] || '').trim();
+    const name = String(f[CR_FIELD.cardName] || '').trim();
     if (!name) continue;
-    // Prefer LogoImageUrl; fall back to RawLogoImageUrl; finally try first attachment
-    const attachments = Array.isArray(f['Card img Attach']) ? f['Card img Attach'] : [];
+    // Use stable CDN URLs only — Airtable attachment URLs expire within hours
     const imageUrl =
-      String(f['LogoImageUrl'] || '').trim() ||
-      String(f['RawLogoImageUrl'] || '').trim() ||
-      (attachments[0]?.url ?? '');
+      String(f[CR_FIELD.logoUrl] || '').trim() ||
+      String(f[CR_FIELD.rawLogo] || '').trim();
     index[norm(name)] = {
-      cardId:   String(f['CreditCardID'] || '').trim(),
-      cardType: String(f['DefaultCreditCardTypeName'] || '').trim(),
-      cardUse:  String(f['CardUse'] || '').trim(),
+      cardId:   String(f[CR_FIELD.cardId]   || '').trim(),
+      cardType: String(f[CR_FIELD.cardType] || '').trim(),
+      cardUse:  String(f[CR_FIELD.cardUse]  || '').trim(),
       imageUrl,
     };
   }
@@ -756,9 +765,12 @@ async function getCachedCardRatingIndex(airtableToken: string): Promise<Record<s
       return buildCardRatingIndex(cached.records);
     }
   }
-  const fields = ['CardName', 'CreditCardID', 'DefaultCreditCardTypeName', 'CardUse', 'LogoImageUrl', 'RawLogoImageUrl', 'Card img Attach']
-    .map(f => `fields[]=${encodeURIComponent(f)}`).join('&');
-  const records = await fetchAllAirtableRecords(airtableToken, 'appJq70k9nl9MK2zk', 'tblWMdAiq5KWL6RGK', fields);
+  // Request by field ID so the response is keyed by ID regardless of field name changes
+  const fields = Object.values(CR_FIELD).map(id => `fields[]=${id}`).join('&');
+  const records = await fetchAllAirtableRecords(
+    airtableToken, 'appJq70k9nl9MK2zk', 'tblWMdAiq5KWL6RGK',
+    `${fields}&returnFieldsByFieldId=true`,
+  );
   await kv.set(CARD_RATING_CACHE_KEY, { records, fetchedAt: Date.now() });
   console.log(`CardRating cache updated (${records.length} records)`);
   return buildCardRatingIndex(records);
