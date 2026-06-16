@@ -1842,46 +1842,27 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         </button>
                       </div>
                     </div>
-                    <div className="overflow-x-auto rounded-xl ring-1 ring-hair2">
-                      <table className="w-full">
-                        <thead className="border-b border-hair">
-                          <tr>
-                            <SortThSm label="Date / Time"  field="clickDate"     sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                            <SortThSm label="Affiliate"    field="memberName"    sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                            <SortThSm label="Card"         field="cardName"      sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                            <SortThSm label="Status"       field="status"        sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                            <SortThSm label="Earnings"     field="totalEarnings" sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} align="right" />
-                            <SortThSm label="Device"       field="deviceType"    sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                            <SortThSm label="Location"     field="state"         sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(() => {
+                    <div>
+                      {(() => {
+                            const dotColor = (s: string) => s === 'approval' ? 'var(--ds-pos)' : s === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
                             // Single row renderer — used in both flat and grouped modes
-                            const TrackRow = ({ a }: { a: any }) => (
-                              <tr key={a.id} className="border-b border-surface hover:bg-surface transition-colors duration-150">
-                                <td className="py-3.5 px-4 text-sm">
-                                  <div className="font-medium text-ink">{formatDate(a.clickDate)}</div>
-                                  <div className="text-xs text-faint mt-0.5">{formatTime(a.clickTime)}</div>
-                                </td>
-                                <td className="py-3.5 px-4 text-sm">
-                                  <div className="font-medium text-ink">{a.memberName}</div>
-                                  <div className="text-xs text-faint mt-0.5">{a.affiliateId}</div>
-                                </td>
-                                <td className="py-3.5 px-4 text-sm text-subtle">{a.cardName}</td>
-                                <td className="py-3.5 px-4">
-                                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                                    a.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
-                                    a.status === 'application' ? 'bg-brand-soft text-brand-dark ring-1 ring-brand/30' :
-                                    'bg-hair2 text-subtle'
-                                  }`}>{a.status}</span>
-                                </td>
-                                <td className="py-3.5 px-4 text-sm text-right font-semibold text-ink tabular-nums">
-                                  {a.totalEarnings > 0 ? `$${a.totalEarnings.toFixed(2)}` : <span className="text-faint2 font-normal">—</span>}
-                                </td>
-                                <td className="py-3.5 px-4 text-sm text-faint">{a.deviceType || '—'}</td>
-                                <td className="py-3.5 px-4 text-sm text-faint">{a.state || '—'}</td>
-                              </tr>
+                            const TrackRow = ({ a, indent }: { a: any; indent?: boolean }) => (
+                              <div key={a.id} className="flex items-center gap-4 py-3.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-[15px] font-semibold text-ink truncate">{a.cardName || '—'}</div>
+                                  <div className="flex items-center gap-2 mt-0.5 text-[12.5px] text-faint flex-wrap">
+                                    <span className="inline-flex items-center gap-1.5 capitalize"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dotColor(a.status) }} />{a.status}</span>
+                                    <span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
+                                    <span className="truncate">{a.memberName}</span>
+                                    <span className="hidden sm:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
+                                    <span className="hidden sm:inline whitespace-nowrap">{formatDate(a.clickDate)}</span>
+                                    {a.state && <><span className="hidden md:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="hidden md:inline whitespace-nowrap">{a.deviceType || '—'} · {a.state}</span></>}
+                                  </div>
+                                </div>
+                                <div className={`text-[16px] font-bold tabular-nums flex-shrink-0 ${a.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>
+                                  {a.totalEarnings > 0 ? `$${a.totalEarnings.toFixed(2)}` : '—'}
+                                </div>
+                              </div>
                             );
 
                             // Flat mode
@@ -1932,31 +1913,22 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               const sublabel     = trackingGroupBy === 'affiliate' ? key : undefined;
                               return (
                                 <React.Fragment key={key}>
-                                  <tr onClick={toggle} className="bg-surface border-b border-hair cursor-pointer hover:bg-hair2 transition-colors duration-150 select-none">
-                                    <td colSpan={7} className="py-2.5 px-4">
-                                      <div className="flex items-center gap-3 flex-wrap">
-                                        <div className="flex items-center gap-2">
-                                          <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                          <span className="text-xs font-semibold text-subtle">{label}</span>
-                                          {sublabel && <span className="text-xs text-faint font-mono normal-case">{sublabel}</span>}
-                                          <span className="text-xs font-normal text-faint">({rows.length} records)</span>
-                                        </div>
-                                        <div className="flex items-center gap-3 ml-2 text-xs text-faint">
-                                          {grpClicks    > 0 && <span>{grpClicks.toLocaleString()} clicks</span>}
-                                          {grpApps      > 0 && <span>{grpApps} apps</span>}
-                                          {grpApprovals > 0 && <span>{grpApprovals} approvals</span>}
-                                          {grpEarnings  > 0 && <span className="font-medium text-emerald-600">${grpEarnings.toFixed(2)}</span>}
-                                        </div>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                  {!isCollapsed && rows.map((a: any) => <TrackRow key={a.id} a={a} />)}
+                                  <div onClick={toggle} className="flex items-center gap-3 flex-wrap pt-5 pb-3 border-t border-hair2 cursor-pointer hover:opacity-70 transition-opacity select-none">
+                                    <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 flex-shrink-0 ${isCollapsed ? '' : 'rotate-90'}`} strokeWidth={2.6} />
+                                    <span className="text-[15px] font-bold text-ink tracking-[-0.01em]">{label}</span>
+                                    {sublabel && <span className="text-[12px] text-faint font-mono-ds">{sublabel}</span>}
+                                    <span className="text-[13px] font-semibold text-faint2 tabular-nums">{rows.length}</span>
+                                    <div className="ml-auto flex items-center gap-3 text-[12.5px] text-faint">
+                                      {grpClicks    > 0 && <span className="tabular-nums">{grpClicks.toLocaleString()} clicks</span>}
+                                      {grpApprovals > 0 && <span className="tabular-nums">{grpApprovals} appr.</span>}
+                                      {grpEarnings  > 0 && <span className="font-bold text-ink tabular-nums">${grpEarnings.toFixed(2)}</span>}
+                                    </div>
+                                  </div>
+                                  {!isCollapsed && rows.map((a: any) => <TrackRow key={a.id} a={a} indent />)}
                                 </React.Fragment>
                               );
                             });
                           })()}
-                        </tbody>
-                      </table>
                     </div>
                     {(trackingVisible < displayTrackingActivity.length || trackingHiddenOlderCount > 0 || trackingShowAllYears) && (
                       <div className="pt-4 flex flex-wrap items-center justify-center gap-2">
@@ -2139,57 +2111,25 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   return true;
                 });
 
-                const CpaRow = ({ rate }: { rate: any }) => (
-                  <tr className="border-b border-surface hover:bg-surface transition-colors duration-150">
-                    <td className="py-3 px-4 font-medium text-sm text-ink">
-                      <div className="flex items-center gap-2.5">
-                        {rate.imageUrl ? (
-                          <img
-                            src={rate.imageUrl}
-                            alt={rate.card}
-                            className="w-10 h-6 object-contain rounded shrink-0"
-                            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                          />
-                        ) : (
-                          <div className="w-10 h-6 bg-hair2 rounded shrink-0" />
-                        )}
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="truncate">{rate.card}</span>
-                          {rate.cardType && (
-                            <span className={`inline-flex shrink-0 items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                              /business/i.test(rate.cardType)
-                                ? 'bg-brand-soft text-brand-dark'
-                                : 'bg-sky-100 text-sky-700'
-                            }`}>{rate.cardType}</span>
-                          )}
-                        </div>
+                const CpaRow = ({ rate, indent }: { rate: any; indent?: boolean }) => (
+                  <div className="flex items-center gap-4 py-3.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[15px] font-semibold text-ink truncate">{rate.card}</div>
+                      <div className="flex items-center gap-2 mt-0.5 text-[12.5px] text-faint flex-wrap">
+                        <span>{rate.issuer || '—'}</span>
+                        {rate.date && <><span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="whitespace-nowrap">{formatDate(rate.date)}</span></>}
+                        {rate.cardId && <><span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><button onClick={() => navigator.clipboard.writeText(rate.cardId)} title={`Copy Card ID: ${rate.cardId}`} className="inline-flex items-center gap-1 font-mono-ds hover:text-brand transition-colors cursor-pointer"><Copy className="w-3 h-3" />{rate.cardId}</button></>}
                       </div>
-                    </td>
-                    {!cpaGroupBy && <td className="py-3 px-4 text-sm text-faint">{rate.issuer || '—'}</td>}
-                    <td className="py-3 px-4 text-right font-semibold text-sm text-ink">
-                      {rate.bankCpa > 0 ? `$${rate.bankCpa.toLocaleString()}` : <span className="text-faint2 font-normal">—</span>}
-                    </td>
-                    {cpaAffiliateFilter !== 'all' && (
-                      <td className="py-3 px-4 text-right font-semibold text-sm text-brand">
-                        {rate.affiliatePayout != null && rate.affiliatePayout > 0
-                          ? `$${rate.affiliatePayout.toLocaleString()}`
-                          : <span className="text-faint2 font-normal">—</span>}
-                      </td>
-                    )}
-                    <td className="py-3 px-4 text-sm text-faint">{formatDate(rate.date)}</td>
-                    <td className="py-3 px-4 text-right">
-                      {rate.cardId ? (
-                        <button
-                          onClick={() => navigator.clipboard.writeText(rate.cardId)}
-                          title={`Copy Card ID: ${rate.cardId}`}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono text-faint hover:text-brand hover:bg-brand-soft rounded transition-colors cursor-pointer"
-                        >
-                          <Copy className="w-3 h-3" />
-                          {rate.cardId}
-                        </button>
-                      ) : <span className="text-hair text-xs">—</span>}
-                    </td>
-                  </tr>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="text-[16px] font-bold text-pos tabular-nums">{rate.bankCpa > 0 ? `$${rate.bankCpa.toLocaleString()}` : <span className="text-faint2 font-normal">—</span>}</div>
+                      {cpaAffiliateFilter !== 'all' && (
+                        <div className="text-[12.5px] font-semibold text-brand tabular-nums">
+                          {rate.affiliatePayout != null && rate.affiliatePayout > 0 ? `$${rate.affiliatePayout.toLocaleString()} payout` : '—'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 );
 
                 if (filtered.length === 0) return (
@@ -2236,20 +2176,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         </button>
                       </div>
                     </div>
-                    <table className="w-full text-sm">
-                      <thead className="border-b border-hair">
-                        <tr>
-                          <SortThSm label="Card"     field="card"    sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} />
-                          {!cpaGroupBy && <SortThSm label="Issuer" field="issuer" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} />}
-                          <SortThSm label="Bank CPA" field="bankCpa" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} align="right" />
-                          {cpaAffiliateFilter !== 'all' && (
-                            <SortThSm label="Affiliate Payout" field="affiliatePayout" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} align="right" />
-                          )}
-                          <SortThSm label="Rate Date" field="date" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} />
-                          <th className="py-3 px-4 text-right text-xs font-semibold text-faint">Card ID</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                    <div>
                         {cpaGroupBy ? (
                           // Grouped by issuer with collapse/expand
                           (() => {
@@ -2259,7 +2186,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               if (!groups[key]) groups[key] = [];
                               groups[key].push(r);
                             });
-                            const colCount = cpaAffiliateFilter !== 'all' ? 4 : 3;
                             return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([issuer, rates]) => {
                               const isCollapsed = cpaCollapsed.has(issuer);
                               const toggle = () => setCpaCollapsed(prev => {
@@ -2269,19 +2195,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               });
                               return (
                                 <React.Fragment key={`group-${issuer}`}>
-                                  <tr
-                                    onClick={toggle}
-                                    className="bg-surface border-b border-hair cursor-pointer hover:bg-hair2 transition-colors duration-150 select-none"
-                                  >
-                                    <td colSpan={colCount} className="py-2.5 px-4">
-                                      <div className="flex items-center gap-2">
-                                        <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                        <span className="text-xs font-semibold text-subtle">{issuer}</span>
-                                        <span className="text-xs font-normal text-faint ml-0.5">({rates.length} {rates.length === 1 ? 'card' : 'cards'})</span>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                  {!isCollapsed && rates.map(r => <CpaRow key={r.id} rate={r} />)}
+                                  <div onClick={toggle} className="flex items-center gap-[11px] pt-5 pb-3 border-t border-hair2 cursor-pointer hover:opacity-70 transition-opacity select-none">
+                                    <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`} strokeWidth={2.6} />
+                                    <span className="text-[15px] font-bold text-ink tracking-[-0.01em]">{issuer}</span>
+                                    <span className="text-[13px] font-semibold text-faint2 tabular-nums">{rates.length}</span>
+                                  </div>
+                                  {!isCollapsed && rates.map(r => <CpaRow key={r.id} rate={r} indent />)}
                                 </React.Fragment>
                               );
                             });
@@ -2289,8 +2208,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         ) : (
                           pagedFiltered.map(r => <CpaRow key={r.id} rate={r} />)
                         )}
-                      </tbody>
-                    </table>
+                    </div>
                     {!cpaGroupBy && cpaVisible < filtered.length && (
                       <div className="py-4 flex flex-wrap items-center justify-center gap-2">
                         <button
