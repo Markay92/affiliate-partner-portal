@@ -22,6 +22,8 @@ import {
   Activity,
   Award,
   User,
+  Link2,
+  X,
 } from 'lucide-react';
 import React from 'react';
 import { ComposedChart, LineChart, Line, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } from 'recharts';
@@ -782,11 +784,12 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             {/* Tabs live in the header (mock layout); labels collapse to icons on scroll */}
             <Tabs.List className="flex items-center gap-1 mx-2 sm:mx-4 min-w-0 overflow-x-auto">
               {([
-                { key: 'cards',    label: 'Cards',    Icon: CreditCard },
-                { key: 'activity', label: 'Activity', Icon: Activity },
-                { key: 'invoices', label: 'Invoices', Icon: FileText },
-                { key: 'profile',  label: 'Profile',  Icon: User },
-              ] as const).map(({ key, label, Icon }) => (
+                { key: 'cards',    label: 'Cards',       Icon: CreditCard, badge: 0 },
+                { key: 'create',   label: 'Create Link', Icon: Link2,      badge: linkBuilderIds.length },
+                { key: 'activity', label: 'Activity',    Icon: Activity,   badge: 0 },
+                { key: 'invoices', label: 'Invoices',    Icon: FileText,   badge: invoices.length },
+                { key: 'profile',  label: 'Profile',     Icon: User,       badge: 0 },
+              ] as const).map(({ key, label, Icon, badge }) => (
                 <Tabs.Trigger
                   key={key}
                   value={key}
@@ -796,7 +799,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   <span className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
                     <span className="flex items-center gap-1.5">
                       {label}
-                      {key === 'invoices' && invoices.length > 0 && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{invoices.length}</span>}
+                      {badge > 0 && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{badge}</span>}
                     </span>
                   </span>
                 </Tabs.Trigger>
@@ -849,7 +852,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       )}
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-0 pb-14">
         {/* ── Referral link — clean sticky bar at top, always visible (mock design) ── */}
         {masterLink ? (() => {
           const builtLink = linkBuilderIds.length > 0
@@ -859,8 +862,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           return (
           <div
             data-anim
-            className="sticky top-[60px] z-20 mb-6 flex items-center gap-[18px] flex-wrap bg-white/90 backdrop-blur-md border-b border-hair transition-all duration-300"
-            style={{ paddingTop: scrolled ? 9 : 22, paddingBottom: scrolled ? 9 : 22 }}
+            className="sticky top-[60px] z-20 mb-5 flex items-center gap-[18px] flex-wrap bg-white/90 backdrop-blur-md border-b border-hair transition-all duration-300"
+            style={{ paddingTop: scrolled ? 9 : 16, paddingBottom: scrolled ? 9 : 16 }}
           >
             <div className="flex-1 min-w-[240px]">
               <div className={`flex items-center overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mb-0' : 'max-h-5 opacity-100 mb-1.5'}`}>
@@ -952,7 +955,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           ];
 
           return (
-            <div className="mb-6 sm:mb-8">
+            <div className="mb-5">
               {/* ── Period header ── */}
               <div data-anim className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div>
@@ -1015,7 +1018,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               )}
 
               {/* ── KPI band — borderless big numbers, hairline-separated (mock layout) ── */}
-              <div data-anim className="grid [grid-template-columns:repeat(auto-fit,minmax(140px,1fr))] gap-x-3 gap-y-6 pb-7 mb-7 border-b border-hair">
+              <div data-anim className="grid [grid-template-columns:repeat(auto-fit,minmax(140px,1fr))] gap-x-3 gap-y-5 pb-6 mb-6 border-b border-hair">
                 {statRows.map(({ label, raw, fmt, sub, pct }) => (
                   <div key={label} className="min-w-0">
                     <div className="text-[13px] font-medium text-faint mb-2">{label}</div>
@@ -1032,7 +1035,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
               {/* ── Insights: tabbed chart / top cards ── */}
               {(showCharts || showTopCards) && (
-                <div data-anim className="pb-7 mb-2 border-b border-hair">
+                <div data-anim className="pb-6 mb-1 border-b border-hair">
                   <div className="flex items-center justify-between gap-3 mb-4">
                     <button onClick={() => setInsightsOpen(o => !o)} title={insightsOpen ? 'Minimize insights' : 'Show insights'}
                       className="flex items-center gap-2 cursor-pointer group">
@@ -1099,7 +1102,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         })()}
 
         {/* Tab panels — the tab nav lives in the header */}
-        <div className="border-t border-hair mt-7">
+        <div className="mt-5">
 
           {/* ── Cards Tab ── */}
           <Tabs.Content value="cards">
@@ -1299,6 +1302,72 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               );
             })()}
           </div>
+          </div>
+          </Tabs.Content>
+
+          {/* ── Create Link Tab ── */}
+          <Tabs.Content value="create">
+          <div className="pt-6">
+            {(() => {
+              const selected = linkBuilderIds.map(id => allCards.find(c => c.cardId === id)).filter(Boolean) as any[];
+              const maxPayout = selected.reduce((s, c) => s + (c.cpa || 0), 0);
+              const shareLink = linkBuilderIds.length > 0
+                ? `https://www.cardratings.com/bestcards/featured-credit-cards?src=693350&shnq=${linkBuilderIds.join(',')}${ezrxRef ? `&var2=ezrxref-${ezrxRef}` : ''}`
+                : masterLink;
+              return (
+                <div className="max-w-3xl">
+                  <h3 className="text-lg font-bold text-ink tracking-[-0.01em]">Your share page</h3>
+                  <p className="text-[13px] text-faint mt-0.5 mb-5">
+                    These cards appear on the page you share. Add or remove cards from the <span className="font-semibold text-subtle">Cards</span> tab.
+                  </p>
+
+                  {/* Share link */}
+                  <div className="flex items-center gap-3.5 flex-wrap p-4 border border-hair rounded-2xl mb-6">
+                    <div className="flex-1 min-w-[220px]">
+                      <div className="font-mono-ds text-[14.5px] font-medium text-ink break-all">{shareLink}</div>
+                      <div className="text-xs text-faint font-medium mt-1">
+                        {linkBuilderIds.length > 0
+                          ? `${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} · $${maxPayout.toLocaleString()} max payout`
+                          : 'No cards selected — your default link will be shared'}
+                      </div>
+                    </div>
+                    <button onClick={() => copyToClipboard(shareLink, -2)}
+                      className="flex items-center gap-1.5 h-10 px-[18px] rounded-[10px] bg-brand text-white text-sm font-semibold hover:bg-brand-dark active:scale-95 transition-all duration-150 cursor-pointer">
+                      {copiedId === -2 ? <><CheckCircle className="w-4 h-4" /> Copied</> : <><Copy className="w-4 h-4" /> Copy</>}
+                    </button>
+                  </div>
+
+                  {/* Max payout summary */}
+                  <div className="flex items-baseline gap-2 mb-1.5">
+                    <span className="text-[30px] font-bold text-ink tracking-[-0.025em] leading-none tabular-nums">${maxPayout.toLocaleString()}</span>
+                    <span className="text-[12.5px] text-faint font-medium">max payout / approval · {selected.length} card{selected.length !== 1 ? 's' : ''}</span>
+                  </div>
+
+                  {selected.length > 0 ? (
+                    <div className="border-t border-hair mt-3">
+                      {selected.map(c => (
+                        <div key={c.cardId} className="flex items-center gap-3 py-3 border-b border-hair2">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-ink truncate">{c.name}</div>
+                            <div className="text-xs text-faint font-medium">{c.issuer || '—'}</div>
+                          </div>
+                          <span className="text-sm font-bold text-pos tabular-nums flex-shrink-0">{c.cpa > 0 ? `$${c.cpa.toLocaleString()}` : '—'}</span>
+                          <button onClick={() => setLinkBuilderIds(prev => prev.filter(id => id !== c.cardId))}
+                            title="Remove" className="w-7 h-7 rounded-lg flex items-center justify-center text-faint hover:text-neg hover:bg-hair2 transition-colors cursor-pointer flex-shrink-0">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-3 px-5 py-7 text-center border border-dashed border-line rounded-2xl text-[13.5px] text-faint leading-relaxed">
+                      No cards on your page yet.<br />
+                      Go to the <span className="font-semibold text-brand">Cards</span> tab and tap <span className="font-semibold text-subtle">Add to link</span> on the cards you want to feature.
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           </Tabs.Content>
 
