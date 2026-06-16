@@ -719,6 +719,62 @@ async function fetchAllAirtableRecords(token: string, baseId: string, tableId: s
 const CPA_CACHE_KEY = 'cache:cpa_rates_raw';
 const CPA_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days — refresh via Import CPA Rates
 
+// ── CardRatingAPI cache helpers ──────────────────────────────────────────────
+// CardRatingAPI records (tblWMdAiq5KWL6RGK in appJq70k9nl9MK2zk) enrich each
+// CPA card with type (Business/Personal), card ID for link building, and more.
+const CARD_RATING_CACHE_KEY = 'cache:card_rating_api';
+const CARD_RATING_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+function buildCardRatingIndex(records: any[]): Record<string, any> {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const index: Record<string, any> = {};
+  for (const rec of records) {
+    const f = rec.fields || {};
+    const name = String(f['CardName'] || '').trim();
+    if (!name) continue;
+    // Prefer LogoImageUrl; fall back to RawLogoImageUrl; finally try first attachment
+    const attachments = Array.isArray(f['Card img Attach']) ? f['Card img Attach'] : [];
+    const imageUrl =
+      String(f['LogoImageUrl'] || '').trim() ||
+      String(f['RawLogoImageUrl'] || '').trim() ||
+      (attachments[0]?.url ?? '');
+    index[norm(name)] = {
+      cardId:   String(f['CreditCardID'] || '').trim(),
+      cardType: String(f['DefaultCreditCardTypeName'] || '').trim(),
+      cardUse:  String(f['CardUse'] || '').trim(),
+      imageUrl,
+    };
+  }
+  return index;
+}
+
+async function getCachedCardRatingIndex(airtableToken: string): Promise<Record<string, any>> {
+  const cached = await kv.get(CARD_RATING_CACHE_KEY);
+  if (cached && cached.records && cached.fetchedAt) {
+    if (Date.now() - cached.fetchedAt < CARD_RATING_CACHE_TTL_MS) {
+      console.log(`CardRating cache hit (${cached.records.length} records)`);
+      return buildCardRatingIndex(cached.records);
+    }
+  }
+  const fields = ['CardName', 'CreditCardID', 'DefaultCreditCardTypeName', 'CardUse', 'LogoImageUrl', 'RawLogoImageUrl', 'Card img Attach']
+    .map(f => `fields[]=${encodeURIComponent(f)}`).join('&');
+  const records = await fetchAllAirtableRecords(airtableToken, 'appJq70k9nl9MK2zk', 'tblWMdAiq5KWL6RGK', fields);
+  await kv.set(CARD_RATING_CACHE_KEY, { records, fetchedAt: Date.now() });
+  console.log(`CardRating cache updated (${records.length} records)`);
+  return buildCardRatingIndex(records);
+}
+
+function lookupCardRating(index: Record<string, any>, cardName: string): any {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const key = norm(cardName);
+  if (index[key]) return index[key];
+  // Partial match fallback
+  for (const [k, v] of Object.entries(index)) {
+    if (k.includes(key) || key.includes(k)) return v;
+  }
+  return null;
+}
+
 async function getCachedCpaRecords(airtableToken: string): Promise<any[]> {
   // Try cache first
   const cached = await kv.get(CPA_CACHE_KEY);
@@ -772,6 +828,14 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
       return c.json({ payouts: [], error: airtableErr.message });
     }
 
+    // Load CardRatingAPI enrichment index (non-fatal if unavailable)
+    let cardRatingIndex: Record<string, any> = {};
+    try {
+      cardRatingIndex = await getCachedCardRatingIndex(airtableToken);
+    } catch (e: any) {
+      console.log('CardRating enrich skipped (non-fatal):', e.message);
+    }
+
     // Deduplicate — keep the most recent record per card name (data is sorted desc by date)
     const seen = new Set<string>();
     const payouts = [];
@@ -796,6 +860,8 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
         ? Math.round((bankCpa * commissionRate / 100) * 100) / 100
         : 0;
 
+      const enrichment = lookupCardRating(cardRatingIndex, cardName);
+
       payouts.push({
         id: i + 1,
         card: cardName,
@@ -803,6 +869,10 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
         amount: affiliateAmount,
         date: date || rateDate || records[i].createdTime?.split('T')[0] || '',
         status: 'current',
+        cardId:   enrichment?.cardId   ?? '',
+        cardType: enrichment?.cardType ?? '',
+        cardUse:  enrichment?.cardUse  ?? '',
+        imageUrl: enrichment?.imageUrl ?? '',
       });
     }
 
@@ -2020,6 +2090,14 @@ app.get("/make-server-8dc4138c/manager/cpa-rates", async (c) => {
       return c.json({ rates: [], error: airtableErr.message });
     }
 
+    // Load CardRatingAPI enrichment (non-fatal)
+    let cardRatingIndex: Record<string, any> = {};
+    try {
+      cardRatingIndex = await getCachedCardRatingIndex(airtableToken);
+    } catch (e: any) {
+      console.log('Manager CPA CardRating enrich skipped:', e.message);
+    }
+
     // Deduplicate by card name, keep most recent
     const seen = new Set<string>();
     const rates = [];
@@ -2040,6 +2118,8 @@ app.get("/make-server-8dc4138c/manager/cpa-rates", async (c) => {
         ? Math.round(bankCpa * affiliateCommissionRate / 100 * 100) / 100
         : null;
 
+      const enrichment = lookupCardRating(cardRatingIndex, cardName);
+
       rates.push({
         id: i + 1,
         card: cardName,
@@ -2048,6 +2128,10 @@ app.get("/make-server-8dc4138c/manager/cpa-rates", async (c) => {
         affiliatePayout,
         affiliateCommissionRate: affiliateCommissionRate || null,
         date: date || rateDate || records[i].createdTime?.split('T')[0] || '',
+        cardId:   enrichment?.cardId   ?? '',
+        cardType: enrichment?.cardType ?? '',
+        cardUse:  enrichment?.cardUse  ?? '',
+        imageUrl: enrichment?.imageUrl ?? '',
       });
     }
 
@@ -2310,6 +2394,33 @@ app.post("/make-server-8dc4138c/manager/import-cpa-data", async (c) => {
     });
   } catch (error) {
     console.log(`Import CPA data error: ${error.message}`);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Sync CardRatingAPI data into KV cache.
+// Fetches CreditCardID, card type (Business/Personal), and CardUse from the
+// CardRatingAPI Airtable table and stores them for use in payouts enrichment.
+app.post("/make-server-8dc4138c/manager/sync-card-rating-api", async (c) => {
+  try {
+    const sessionToken = c.req.header('X-Manager-Session');
+    const session = await kv.get(`manager_session:${sessionToken}`);
+    if (!session) return c.json({ error: 'Unauthorized' }, 401);
+
+    const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
+    if (!airtableToken) return c.json({ error: 'AIRTABLE_API_KEY not configured' }, 500);
+
+    // Bust the cache so getCachedCardRatingIndex fetches fresh data
+    await kv.del(CARD_RATING_CACHE_KEY);
+    const index = await getCachedCardRatingIndex(airtableToken);
+    const total = Object.keys(index).length;
+
+    const businessCount = Object.values(index).filter((v: any) => /business/i.test(v.cardType)).length;
+    const personalCount = Object.values(index).filter((v: any) => /personal/i.test(v.cardType)).length;
+
+    return c.json({ success: true, stats: { total, businessCount, personalCount } });
+  } catch (error: any) {
+    console.log(`Sync CardRatingAPI error: ${error.message}`);
     return c.json({ error: error.message }, 500);
   }
 });

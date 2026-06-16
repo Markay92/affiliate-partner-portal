@@ -24,6 +24,7 @@ import {
   Activity,
   Award,
   MousePointerClick,
+  Copy,
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -354,6 +355,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [syncing, setSyncing]               = useState(false);
   const [syncingTracking, setSyncingTracking] = useState(false);
   const [importingCPA, setImportingCPA]     = useState(false);
+  const [syncingCardRating, setSyncingCardRating] = useState(false);
   const [actionsOpen, setActionsOpen]       = useState(false);
   const [messageTimeout, setMessageTimeout] = useState<NodeJS.Timeout | null>(null);
   const [trackingActivity, setTrackingActivity] = useState([]);
@@ -976,6 +978,38 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     }
   };
 
+  const syncCardRatingData = async () => {
+    setMessage(''); setSyncingCardRating(true);
+    try {
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/sync-card-rating-api`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'X-Manager-Session': sessionToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({}),
+        },
+      );
+      const data = await res.json();
+      if (data.success) {
+        const { total, businessCount, personalCount } = data.stats;
+        setMessageWithTimeout(
+          `Card Rating API synced: ${total} cards (${businessCount} Business, ${personalCount} Personal)`,
+          10000,
+        );
+      } else {
+        setMessageWithTimeout(data.error || 'Sync failed', 8000);
+      }
+    } catch (error: any) {
+      setMessageWithTimeout(`Sync failed: ${error.message}`, 8000);
+    } finally {
+      setSyncingCardRating(false);
+    }
+  };
+
   const fetchCpaRates = async (userId = 'all') => {
     setCpaRatesLoading(true);
     try {
@@ -1201,6 +1235,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             >
                               <RefreshCw className={`w-4 h-4 text-orange-500 ${importingCPA ? 'animate-spin' : ''}`} />
                               {importingCPA ? 'Importing…' : 'Import CPA Rates'}
+                            </button>
+                            <button
+                              onClick={() => { setActionsOpen(false); syncCardRatingData(); }}
+                              disabled={syncingCardRating}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                            >
+                              <RefreshCw className={`w-4 h-4 text-violet-600 ${syncingCardRating ? 'animate-spin' : ''}`} />
+                              {syncingCardRating ? 'Syncing…' : 'Sync Card Rating API'}
                             </button>
                           </div>
                         </div>
@@ -2084,7 +2126,30 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
                 const CpaRow = ({ rate }: { rate: any }) => (
                   <tr className="border-b border-slate-50 hover:bg-indigo-50/40 transition-colors duration-150">
-                    <td className="py-3 px-4 font-medium text-sm text-slate-900">{rate.card}</td>
+                    <td className="py-3 px-4 font-medium text-sm text-slate-900">
+                      <div className="flex items-center gap-2.5">
+                        {rate.imageUrl ? (
+                          <img
+                            src={rate.imageUrl}
+                            alt={rate.card}
+                            className="w-10 h-6 object-contain rounded shrink-0"
+                            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        ) : (
+                          <div className="w-10 h-6 bg-slate-100 rounded shrink-0" />
+                        )}
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="truncate">{rate.card}</span>
+                          {rate.cardType && (
+                            <span className={`inline-flex shrink-0 items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                              /business/i.test(rate.cardType)
+                                ? 'bg-violet-100 text-violet-700'
+                                : 'bg-sky-100 text-sky-700'
+                            }`}>{rate.cardType}</span>
+                          )}
+                        </div>
+                      </div>
+                    </td>
                     {!cpaGroupBy && <td className="py-3 px-4 text-sm text-slate-500">{rate.issuer || '—'}</td>}
                     <td className="py-3 px-4 text-right font-semibold text-sm text-slate-900">
                       {rate.bankCpa > 0 ? `$${rate.bankCpa.toLocaleString()}` : <span className="text-slate-300 font-normal">—</span>}
@@ -2097,6 +2162,18 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       </td>
                     )}
                     <td className="py-3 px-4 text-sm text-slate-500">{formatDate(rate.date)}</td>
+                    <td className="py-3 px-4 text-right">
+                      {rate.cardId ? (
+                        <button
+                          onClick={() => navigator.clipboard.writeText(rate.cardId)}
+                          title={`Copy Card ID: ${rate.cardId}`}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors cursor-pointer"
+                        >
+                          <Copy className="w-3 h-3" />
+                          {rate.cardId}
+                        </button>
+                      ) : <span className="text-slate-200 text-xs">—</span>}
+                    </td>
                   </tr>
                 );
 
@@ -2154,6 +2231,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             <SortThSm label="Affiliate Payout" field="affiliatePayout" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} align="right" />
                           )}
                           <SortThSm label="Rate Date" field="date" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} />
+                          <th className="py-3 px-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Card ID</th>
                         </tr>
                       </thead>
                       <tbody>
