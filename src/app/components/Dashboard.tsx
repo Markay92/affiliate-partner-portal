@@ -903,6 +903,18 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           });
           const monthlyData = Object.entries(monthMap).sort(([a],[b]) => a.localeCompare(b)).map(([,v]) => v);
 
+          // Persistent end-dot + glow on the approvals line (mock design)
+          const renderEndDot = (props: any) => {
+            const { cx, cy, index } = props;
+            if (cx == null || cy == null || index !== monthlyData.length - 1) return <g key={`ed-${index}`} />;
+            return (
+              <g key="ds-enddot">
+                <circle cx={cx} cy={cy} r={9} fill="#0a84ff" opacity={0.16} />
+                <circle cx={cx} cy={cy} r={4.5} fill="#0a84ff" />
+              </g>
+            );
+          };
+
           const isEmptyPeriod = tracking.length > 0 && totalClicks === 0 && totalCommissions === 0;
           const showCharts   = visiblePanels.has('charts')   && monthlyData.length >= 2;
           const showTopCards = visiblePanels.has('topCards') && mostApprovedCards.length > 0;
@@ -1028,8 +1040,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </div>
                     {(insightsTab === 'charts' || !showTopCards) && showCharts && (
                       <div className="flex items-center gap-3 text-[11px] text-faint font-medium">
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#bfdbfe]" />Clicks</span>
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#818cf8]" />Applications</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#cfe4ff]" />Clicks</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#93c9ff]" />Applications</span>
                         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#0a84ff]" />Approvals</span>
                       </div>
                     )}
@@ -1051,7 +1063,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                           <Tooltip contentStyle={{ fontSize:12, borderRadius:10, border:'1px solid #ededed', boxShadow:'0 6px 20px -8px rgba(0,0,0,.18)' }} />
                           <Line dataKey="clicks"       name="Clicks"       stroke="#cfe4ff" strokeWidth={2} dot={false} animationDuration={900} />
                           <Line dataKey="applications" name="Applications" stroke="#93c9ff" strokeWidth={2} dot={false} animationDuration={900} />
-                          <Area dataKey="approvals"    name="Approvals"    stroke="#0a84ff" strokeWidth={2.6} strokeLinecap="round" fill="url(#dsApprovalsArea)" dot={false} activeDot={{ r:4, strokeWidth:0 }} animationDuration={1000} />
+                          <Area dataKey="approvals"    name="Approvals"    stroke="#0a84ff" strokeWidth={2.6} strokeLinecap="round" fill="url(#dsApprovalsArea)" dot={renderEndDot} activeDot={{ r:4, strokeWidth:0 }} animationDuration={1000} animationEasing="ease-out" />
                         </ComposedChart>
                       </ResponsiveContainer>
                     </div>
