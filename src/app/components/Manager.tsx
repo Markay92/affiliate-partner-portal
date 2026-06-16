@@ -1257,7 +1257,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-md sticky top-0 z-10 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-[60px]">
+          <div className="flex items-center h-[60px]">
             <div className="flex items-center gap-2.5">
               <div className="flex items-center">
                 <svg width="24" height="22" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1306,7 +1306,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 </Tabs.Trigger>
               ))}
             </Tabs.List>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-auto">
               {/* Actions dropdown */}
               {(() => {
                 const anyBusy = syncing || syncingTracking || importingCPA;
