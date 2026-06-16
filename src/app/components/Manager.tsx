@@ -1141,8 +1141,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const renderUserRow = (user: any) => (
     <tr key={user.id} className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150">
       <td className="py-4 px-6">
-        <div className="font-medium text-ink">{user.name || 'N/A'}</div>
-        <div className="text-xs text-faint mt-0.5">{user.email}</div>
+        <div className="flex items-center gap-3">
+          <span className="w-8 h-8 rounded-full bg-brand-soft text-brand text-xs font-bold flex items-center justify-center flex-shrink-0">
+            {(user.name || user.email || '?').trim().split(/\s+/).map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()}
+          </span>
+          <div className="min-w-0">
+            <div className="font-medium text-ink">{user.name || 'N/A'}</div>
+            <div className="text-xs text-faint mt-0.5">{user.email}</div>
+          </div>
+        </div>
       </td>
       <td className="py-4 px-6">
         <div className="text-xs text-faint space-y-0.5">
@@ -1188,12 +1195,30 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-surface flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 bg-brand-soft rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <RefreshCw className="w-5 h-5 animate-spin text-brand" />
+      <div className="fixed inset-0 z-[70] bg-canvas">
+        <div className="h-[60px] border-b border-hair flex items-center gap-2.5 px-6">
+          <span className="font-bold text-[16px] text-ink">Affiliate Portal</span>
+          <span className="text-[10.5px] font-bold text-brand bg-brand-soft px-2 py-[3px] rounded-full tracking-[0.04em] leading-none">MANAGER</span>
+          <div className="flex-1" />
+          <div className="ds-skel w-[88px] h-4" />
+        </div>
+        <div className="max-w-7xl mx-auto px-6 py-[34px]">
+          <div className="ds-skel w-[160px] h-5 mb-2.5" />
+          <div className="ds-skel w-[230px] h-3 mb-8" />
+          <div className="grid [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))] gap-x-3 gap-y-6 mb-9">
+            {[0,1,2,3].map(i => (
+              <div key={i}>
+                <div className="ds-skel w-[62%] h-3 mb-3" />
+                <div className="ds-skel w-[82%] h-[30px] mb-3" />
+                <div className="ds-skel w-[48%] h-3" />
+              </div>
+            ))}
           </div>
-          <p className="text-faint text-sm">Loading manager dashboard…</p>
+          <div className="ds-skel w-full h-[220px] rounded-2xl" />
+        </div>
+        <div className="fixed bottom-10 left-0 right-0 flex flex-col items-center gap-3">
+          <div className="w-7 h-7 rounded-full border-[2.5px] border-hair border-t-brand animate-spin" />
+          <span className="text-[13px] text-faint font-medium">Loading your dashboard…</span>
         </div>
       </div>
     );
@@ -1224,9 +1249,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   </defs>
                 </svg>
               </div>
-              <div className="flex items-baseline gap-2.5">
-                <h1 className="text-ink font-bold text-[16px] tracking-tight leading-none">Manager Portal</h1>
-                <p className="text-faint text-xs hidden sm:block">Welcome, {managerName}</p>
+              <div className="flex items-center gap-2.5 flex-shrink-0">
+                <h1 className="text-ink font-bold text-[16px] tracking-tight leading-none whitespace-nowrap">Affiliate Portal</h1>
+                <span className="text-[10.5px] font-bold text-brand bg-brand-soft px-2 py-[3px] rounded-full tracking-[0.04em] leading-none whitespace-nowrap">MANAGER</span>
+                <p className="text-faint text-xs hidden xl:block ml-1 whitespace-nowrap">Welcome, {managerName}</p>
               </div>
             </div>
             {/* Tabs live in the header (mock layout); labels collapse to icons on scroll */}
@@ -1368,7 +1394,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               <div data-anim className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div>
                   <h2 className="text-base sm:text-lg font-bold text-ink tracking-tight">
-                    Performance Overview
+                    Network performance
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-soft text-brand-dark ring-1 ring-brand/30 ml-2 align-middle tracking-normal">
                       {STAT_PERIOD_SHORT[statPeriod]}
                     </span>

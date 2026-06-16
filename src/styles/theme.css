@@ -234,6 +234,18 @@
   }
 }
 
+/* Skeleton shimmer for loading states (from the design file) */
+@keyframes ds-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.ds-skel {
+  background: linear-gradient(90deg, #f1f1f3 25%, #e8e8ea 37%, #f1f1f3 63%);
+  background-size: 200% 100%;
+  animation: ds-shimmer 1.4s ease-in-out infinite;
+  border-radius: 8px;
+}
+
 /* Entrance animation — subtle rise+fade, staggered via inline animation-delay */
 @keyframes ds-rise {
   from { opacity: 0; transform: translateY(10px); }
