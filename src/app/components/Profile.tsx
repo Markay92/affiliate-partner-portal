@@ -148,14 +148,25 @@ export function Profile({ accessToken }: ProfileProps) {
     );
   }
 
+  const fullName = `${formData.firstName} ${formData.lastName}`.trim() || userData?.name || 'Affiliate';
+  const initials = (fullName || userData?.email || '?').trim().split(/\s+/).map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
+  const partnerSince = userData?.createdAt ? new Date(userData.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '';
+
   return (
     <div className="pt-6">
       <div className="max-w-3xl">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="p-2 bg-brand-soft rounded-xl">
-            <User className="w-5 h-5 text-brand" />
+        {/* Profile header (design file) */}
+        <div className="flex items-center gap-[15px] pb-[22px] mb-6 border-b border-hair">
+          <span className="w-[54px] h-[54px] rounded-full bg-brand text-white text-xl font-bold flex items-center justify-center flex-shrink-0">{initials}</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-[18px] font-bold text-ink tracking-[-0.01em] truncate">{fullName}</div>
+            <div className="text-[13.5px] text-faint font-medium truncate">
+              {userData?.email}{partnerSince ? ` · Partner since ${partnerSince}` : ''}
+            </div>
           </div>
-          <h2 className="text-lg font-semibold text-ink">Affiliate Profile</h2>
+          <span className="inline-flex items-center gap-[7px] text-[13px] font-semibold text-brand flex-shrink-0">
+            <span className="w-[7px] h-[7px] rounded-full bg-brand" />Active
+          </span>
         </div>
 
         {successMessage && (
@@ -165,8 +176,8 @@ export function Profile({ accessToken }: ProfileProps) {
         )}
 
         {/* Affiliate ID */}
-        <div className="bg-gradient-to-r from-brand-soft to-brand-soft rounded-2xl p-6 mb-5 ring-1 ring-brand/30">
-          <label className="block text-xs font-semibold text-faint uppercase tracking-wider mb-2">Your Affiliate ID</label>
+        <div className="bg-brand-soft rounded-2xl p-5 mb-6">
+          <label className="block text-[12.5px] font-medium text-faint mb-2">Your affiliate ID</label>
           <div className="flex items-center gap-3">
             <code className="flex-1 text-2xl font-bold text-ink tracking-tight">
               {userData?.affiliateId || 'N/A'}
@@ -185,8 +196,8 @@ export function Profile({ accessToken }: ProfileProps) {
         </div>
 
         {/* Contact Form */}
-        <div className="bg-white rounded-2xl ring-1 ring-ink/5 shadow-sm p-6">
-          <h3 className="text-base font-semibold text-ink mb-5">Contact Information</h3>
+        <div>
+          <h3 className="text-[15px] font-bold text-ink mb-4">Contact information</h3>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
