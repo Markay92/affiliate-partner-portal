@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import {
   Users,
@@ -52,6 +52,24 @@ function yearOf(dateStr: string | undefined): number | null {
   if (!dateStr) return null;
   const d = parseLocalDate(dateStr);
   return isNaN(d.getTime()) ? null : d.getFullYear();
+}
+
+// Smoothly counts a number up to its target on mount / when it changes (GSAP)
+function CountUp({ value, format }: { value: number; format: (n: number) => string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const prev = useRef(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obj = { v: prev.current };
+    const tween = gsap.to(obj, {
+      v: value, duration: 0.9, ease: 'power2.out',
+      onUpdate: () => { el.textContent = format(obj.v); },
+    });
+    prev.current = value;
+    return () => tween.kill();
+  }, [value]);
+  return <span ref={ref}>{format(value)}</span>;
 }
 
 /** Bottom pagination-style button to reveal/hide records from prior years. */
@@ -704,8 +722,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     if (pct === 0) return <span className="text-faint text-[13px] font-medium">No change</span>;
     const up = pct > 0;
     return (
-      <span className={`inline-flex items-center gap-1 ${up ? 'text-emerald-600' : 'text-neg'}`}>
-        <TrendingUp className={`w-3 h-3 ${!up ? 'rotate-180' : ''}`} strokeWidth={3} />
+      <span className={`inline-flex items-center gap-0.5 ${up ? 'text-brand' : 'text-neg'}`}>
+        <ChevronUp className={`w-3.5 h-3.5 -ml-0.5 ${!up ? 'rotate-180' : ''}`} strokeWidth={2.5} />
         <span className="text-[13.5px] font-semibold tabular-nums">{up ? '+' : ''}{pct}%</span>
       </span>
     );
@@ -1141,8 +1159,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const renderUserRow = (user: any) => (
     <tr key={user.id} className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150">
       <td className="py-4 px-6">
-        <div className="font-medium text-ink">{user.name || 'N/A'}</div>
-        <div className="text-xs text-faint mt-0.5">{user.email}</div>
+        <div className="flex items-center gap-3">
+          <span className="w-8 h-8 rounded-full bg-brand-soft text-brand text-xs font-bold flex items-center justify-center flex-shrink-0">
+            {(user.name || user.email || '?').trim().split(/\s+/).map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()}
+          </span>
+          <div className="min-w-0">
+            <div className="font-medium text-ink">{user.name || 'N/A'}</div>
+            <div className="text-xs text-faint mt-0.5">{user.email}</div>
+          </div>
+        </div>
       </td>
       <td className="py-4 px-6">
         <div className="text-xs text-faint space-y-0.5">
@@ -1188,19 +1213,37 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-surface flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 bg-brand-soft rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <RefreshCw className="w-5 h-5 animate-spin text-brand" />
+      <div className="fixed inset-0 z-[70] bg-canvas">
+        <div className="h-[60px] border-b border-hair flex items-center gap-2.5 px-6">
+          <span className="font-bold text-[16px] text-ink">Affiliate Portal</span>
+          <span className="text-[10.5px] font-bold text-brand bg-brand-soft px-2 py-[3px] rounded-full tracking-[0.04em] leading-none">MANAGER</span>
+          <div className="flex-1" />
+          <div className="ds-skel w-[88px] h-4" />
+        </div>
+        <div className="max-w-7xl mx-auto px-6 py-[34px]">
+          <div className="ds-skel w-[160px] h-5 mb-2.5" />
+          <div className="ds-skel w-[230px] h-3 mb-8" />
+          <div className="grid [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))] gap-x-3 gap-y-6 mb-9">
+            {[0,1,2,3].map(i => (
+              <div key={i}>
+                <div className="ds-skel w-[62%] h-3 mb-3" />
+                <div className="ds-skel w-[82%] h-[30px] mb-3" />
+                <div className="ds-skel w-[48%] h-3" />
+              </div>
+            ))}
           </div>
-          <p className="text-faint text-sm">Loading manager dashboard…</p>
+          <div className="ds-skel w-full h-[220px] rounded-2xl" />
+        </div>
+        <div className="fixed bottom-10 left-0 right-0 flex flex-col items-center gap-3">
+          <div className="w-7 h-7 rounded-full border-[2.5px] border-hair border-t-brand animate-spin" />
+          <span className="text-[13px] text-faint font-medium">Loading your dashboard…</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-canvas">
+    <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="min-h-screen bg-canvas">
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-md sticky top-0 z-10 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1224,11 +1267,35 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   </defs>
                 </svg>
               </div>
-              <div className="flex items-baseline gap-2.5">
-                <h1 className="text-ink font-bold text-[16px] tracking-tight leading-none">Manager Portal</h1>
-                <p className="text-faint text-xs hidden sm:block">Welcome, {managerName}</p>
+              <div className="flex items-center gap-2.5 flex-shrink-0">
+                <h1 className="text-ink font-bold text-[16px] tracking-tight leading-none whitespace-nowrap">Affiliate Portal</h1>
+                <span className="text-[10.5px] font-bold text-brand bg-brand-soft px-2 py-[3px] rounded-full tracking-[0.04em] leading-none whitespace-nowrap">MANAGER</span>
+                <p className="text-faint text-xs hidden xl:block ml-1 whitespace-nowrap">Welcome, {managerName}</p>
               </div>
             </div>
+            {/* Tabs live in the header (mock layout); labels collapse to icons on scroll */}
+            <Tabs.List className="flex items-center gap-1 mx-2 sm:mx-4 min-w-0 overflow-x-auto">
+              {([
+                { key: 'affiliates', label: 'Affiliates', Icon: Users,      badge: undefined as number | undefined },
+                { key: 'tracking',   label: 'Activity',   Icon: Activity,   badge: undefined },
+                { key: 'cpa-rates',  label: 'CPA Rates',  Icon: Layers,     badge: undefined },
+                { key: 'invoices',   label: 'Invoices',   Icon: FileText,   badge: invoices.length || undefined },
+              ] as const).map(({ key, label, Icon, badge }) => (
+                <Tabs.Trigger
+                  key={key}
+                  value={key}
+                  className="group relative flex items-center gap-2 px-2.5 h-9 rounded-lg text-sm font-medium text-faint data-[state=active]:text-ink data-[state=active]:font-bold hover:text-ink transition-colors whitespace-nowrap cursor-pointer"
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0 text-faint2 group-data-[state=active]:text-brand transition-colors" />
+                  <span className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
+                    <span className="flex items-center gap-1.5">
+                      {label}
+                      {badge && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{badge}</span>}
+                    </span>
+                  </span>
+                </Tabs.Trigger>
+              ))}
+            </Tabs.List>
             <div className="flex items-center gap-2">
               {/* Actions dropdown */}
               {(() => {
@@ -1332,11 +1399,13 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           const showCharts   = visiblePanels.has('charts')   && chartData.length > 0;
           const showTopCards = visiblePanels.has('topCards') && mostApprovedCards.length > 0;
 
+          const fmtInt = (n: number) => Math.round(n).toLocaleString();
+          const fmtUsd = (n: number) => `$${Math.round(n).toLocaleString()}`;
           const statRows = [
-            { label: 'Clicks',       value: totalStats.clicks.toLocaleString(),                       iconColor: 'text-brand',    bgColor: 'bg-brand-soft',    Icon: MousePointerClick, sub: null,                                                                                                          pct: clicksPct },
-            { label: 'Approvals',    value: totalStats.conversions.toLocaleString(),                  iconColor: 'text-emerald-600', bgColor: 'bg-emerald-50', Icon: CheckCircle,       sub: totalStats.clicks > 0 && totalStats.conversions > 0 ? `${((totalStats.conversions/totalStats.clicks)*100).toFixed(1)}% conv.` : null,    pct: approvalsPct },
-            { label: 'Commissions',  value: `$${Math.round(totalStats.commissions).toLocaleString()}`, iconColor: 'text-brand', bgColor: 'bg-brand-soft', Icon: DollarSign,        sub: avgEPC > 0 ? `EPC $${avgEPC.toFixed(2)}` : null,                                                                                  pct: commissionsPct },
-            { label: 'Applications', value: totalStats.applications.toLocaleString(),                 iconColor: 'text-orange-500',  bgColor: 'bg-orange-50', Icon: Activity,          sub: totalStats.clicks > 0 && totalStats.applications > 0 ? `${((totalStats.applications/totalStats.clicks)*100).toFixed(1)}% c→a` : null,    pct: applicationsPct },
+            { label: 'Clicks',       raw: totalStats.clicks,      fmt: fmtInt, sub: null,                                                                                                          pct: clicksPct },
+            { label: 'Approvals',    raw: totalStats.conversions, fmt: fmtInt, sub: totalStats.clicks > 0 && totalStats.conversions > 0 ? `${((totalStats.conversions/totalStats.clicks)*100).toFixed(1)}% conv.` : null,    pct: approvalsPct },
+            { label: 'Commissions',  raw: totalStats.commissions, fmt: fmtUsd, sub: avgEPC > 0 ? `EPC $${avgEPC.toFixed(2)}` : null,                                                                                  pct: commissionsPct },
+            { label: 'Applications', raw: totalStats.applications,fmt: fmtInt, sub: totalStats.clicks > 0 && totalStats.applications > 0 ? `${((totalStats.applications/totalStats.clicks)*100).toFixed(1)}% c→a` : null,    pct: applicationsPct },
           ];
 
           return (
@@ -1345,7 +1414,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               <div data-anim className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div>
                   <h2 className="text-base sm:text-lg font-bold text-ink tracking-tight">
-                    Performance Overview
+                    Network performance
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-soft text-brand-dark ring-1 ring-brand/30 ml-2 align-middle tracking-normal">
                       {STAT_PERIOD_SHORT[statPeriod]}
                     </span>
@@ -1374,8 +1443,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <option key={value} value={value}>{label}</option>
                     ))}
                   </select>
-                  {/* Desktop: pill row */}
-                  <div className="hidden sm:flex items-center gap-0.5 bg-white border border-hair rounded-xl p-1 text-xs font-medium shadow-sm">
+                  {/* Desktop: plain text toggles (mock style) */}
+                  <div className="hidden sm:flex items-center gap-5 overflow-x-auto">
                     {([
                       { value: 'today',  label: 'Today' },
                       { value: 'week',   label: 'This Week' },
@@ -1385,8 +1454,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       { value: 'custom', label: 'Custom' },
                     ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
                       <button key={value} onClick={() => setStatPeriod(value)}
-                        className={`px-2.5 py-1.5 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer ${
-                          statPeriod === value ? 'bg-brand text-white shadow-sm' : 'text-faint hover:text-subtle hover:bg-surface'
+                        className={`text-[13.5px] whitespace-nowrap cursor-pointer transition-colors ${
+                          statPeriod === value ? 'text-brand font-bold' : 'text-faint font-medium hover:text-subtle'
                         }`}>
                         {label}
                       </button>
@@ -1413,10 +1482,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
               {/* ── KPI band — borderless big numbers, hairline-separated (mock layout) ── */}
               <div data-anim className="grid [grid-template-columns:repeat(auto-fit,minmax(140px,1fr))] gap-x-3 gap-y-6 pb-7 mb-7 border-b border-hair">
-                {statRows.map(({ label, value, sub, pct }) => (
+                {statRows.map(({ label, raw, fmt, sub, pct }) => (
                   <div key={label} className="min-w-0">
                     <div className="text-[13px] font-medium text-faint mb-2">{label}</div>
-                    <div className="text-[27px] sm:text-[31px] font-bold text-ink leading-none tracking-[-0.025em] tabular-nums">{value}</div>
+                    <div className="text-[27px] sm:text-[31px] font-bold text-ink leading-none tracking-[-0.025em] tabular-nums">
+                      <CountUp value={raw} format={fmt} />
+                    </div>
                     <div className="flex items-center gap-2.5 mt-2.5 flex-wrap">
                       {pct !== undefined && <DeltaInline pct={pct} />}
                       {sub ? <span className="text-[12.5px] text-faint font-medium whitespace-nowrap">{sub}</span> : null}
@@ -1542,36 +1613,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           );
         })()}
 
-        {/* Tabs */}
-        <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <Tabs.List className="flex gap-1 border-b border-hair mb-6 overflow-x-auto sticky top-[59px] z-20 bg-canvas/95 backdrop-blur-md">
-            {([
-              { key: 'affiliates', label: 'Affiliates', Icon: Users,      badge: undefined as number | undefined },
-              { key: 'tracking',   label: 'Activity',   Icon: Activity,   badge: undefined },
-              { key: 'cpa-rates',  label: 'CPA Rates',  Icon: Layers,     badge: undefined },
-              { key: 'invoices',   label: 'Invoices',   Icon: FileText,   badge: invoices.length || undefined },
-            ] as const).map(({ key, label, Icon, badge }) => (
-              <Tabs.Trigger
-                key={key}
-                value={key}
-                className="group relative flex items-center gap-2 px-3 py-3.5 text-sm font-medium text-faint data-[state=active]:text-ink data-[state=active]:font-bold hover:text-ink transition-colors whitespace-nowrap cursor-pointer"
-              >
-                <Icon className="w-4 h-4 flex-shrink-0 text-faint2 group-data-[state=active]:text-brand transition-colors" />
-                <span className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
-                  <span className="flex items-center gap-1.5">
-                    {label}
-                    {badge && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{badge}</span>}
-                  </span>
-                </span>
-              </Tabs.Trigger>
-            ))}
-          </Tabs.List>
+        {/* Tab panels — the tab nav lives in the header */}
+        <div className="border-t border-hair pt-2">
 
           {/* ── Affiliates Tab ── */}
           <Tabs.Content value="affiliates">
 
             {/* Toolbar: Search + Date filter + Group + Create */}
-            <div className="sticky top-[106px] z-10 bg-canvas/95 backdrop-blur-md py-4 mb-4 space-y-3 border-b border-hair">
+            <div className="sticky top-[59px] z-10 bg-canvas/95 backdrop-blur-md py-4 mb-4 space-y-3 border-b border-hair">
               <div className="flex flex-wrap items-center gap-3">
                 {/* Search */}
                 <div className="relative flex-1 min-w-[200px]">
@@ -2671,7 +2720,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
             </div>
           </Tabs.Content>
 
-        </Tabs.Root>
+        </div>
 
         {/* ── Modals ── */}
 
@@ -2799,6 +2848,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           </Dialog.Portal>
         </Dialog.Root>
       </div>
-    </div>
+    </Tabs.Root>
   );
 }

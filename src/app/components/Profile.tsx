@@ -149,9 +149,9 @@ export function Profile({ accessToken }: ProfileProps) {
   }
 
   return (
-    <div className="p-6">
-      <div className="max-w-3xl mx-auto">
-        <div className="flex items-center gap-3 mb-6">
+    <div className="pt-6">
+      <div className="max-w-3xl">
+        <div className="flex items-center gap-3 mb-5">
           <div className="p-2 bg-brand-soft rounded-xl">
             <User className="w-5 h-5 text-brand" />
           </div>

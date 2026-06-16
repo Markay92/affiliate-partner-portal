@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import {
@@ -22,6 +22,8 @@ import {
   Activity,
   Award,
   User,
+  Link2,
+  X,
 } from 'lucide-react';
 import React from 'react';
 import { ComposedChart, LineChart, Line, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } from 'recharts';
@@ -307,13 +309,31 @@ function SortTh({
     <th
       onClick={() => onSort(field)}
       aria-sort={sort.field === field ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-      className={`py-3 px-4 text-faint text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-hair2/70 hover:text-subtle transition-colors duration-150 text-${align}`}
+      className={`py-3 px-4 text-faint text-xs font-semibold cursor-pointer select-none hover:text-subtle transition-colors duration-150 text-${align}`}
     >
       <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''} ${sort.field === field ? 'text-brand' : ''}`}>
         {label}{icon}
       </span>
     </th>
   );
+}
+
+// Smoothly counts a number up to its target on mount / when it changes (GSAP)
+function CountUp({ value, format }: { value: number; format: (n: number) => string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const prev = useRef(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obj = { v: prev.current };
+    const tween = gsap.to(obj, {
+      v: value, duration: 0.9, ease: 'power2.out',
+      onUpdate: () => { el.textContent = format(obj.v); },
+    });
+    prev.current = value;
+    return () => tween.kill();
+  }, [value]);
+  return <span ref={ref}>{format(value)}</span>;
 }
 
 const PAGE_SIZE = 25;
@@ -354,7 +374,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [trackingStatusFilter, setTrackingStatusFilter] = useState('all');
 
   // Cards tab — sort + filters + search + group
-  const [cardsSort,         setCardsSort]         = useState<SortState>({ field: 'name', dir: 'asc' });
+  const [cardsSort,         setCardsSort]         = useState<SortState>({ field: 'earned', dir: 'desc' });
   const [cardsIssuerFilter, setCardsIssuerFilter] = useState('all');
   const [cardsPayoutFilter, setCardsPayoutFilter] = useState('all');
   const [cardsTypeFilter,   setCardsTypeFilter]   = useState('all');
@@ -383,6 +403,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   });
   const [insightsTab, setInsightsTab] = useState<'charts' | 'topCards'>('charts');
   const [insightsOpen, setInsightsOpen] = useState(true);
+  const [chartMetric, setChartMetric] = useState<'approvals' | 'clicks' | 'earnings'>('approvals');
   const [scrolled, setScrolled] = useState(false);
 
   // Sticky chrome shrinks once the page is scrolled (mock behavior)
@@ -475,6 +496,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       rateDate: cpa?.date   ?? '',
       clicks:       link.clicks,
       conversions:  link.conversions,
+      conv:     link.clicks > 0 ? (link.conversions / link.clicks) * 100 : 0,
+      earned:   (cpa?.amount ?? 0) * link.conversions,
       url:      link.url,
       cardId:   cpa?.cardId   ?? '',
       cardType: cpa?.cardType ?? '',
@@ -691,10 +714,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     if (pct === null) return <span className="text-faint2 text-[13px] font-medium">—</span>;
     if (pct === 0) return <span className="text-faint text-[13px] font-medium">No change</span>;
     const up = pct > 0;
-    const color = up ? 'text-emerald-600' : 'text-neg';
+    const color = up ? 'text-brand' : 'text-neg';
     return (
-      <span className={`inline-flex items-center gap-1 ${color}`}>
-        <TrendingUp className={`w-3 h-3 ${!up ? 'rotate-180' : ''}`} strokeWidth={3} />
+      <span className={`inline-flex items-center gap-0.5 ${color}`}>
+        <ChevronUp className={`w-3.5 h-3.5 -ml-0.5 ${!up ? 'rotate-180' : ''}`} strokeWidth={2.5} />
         <span className="text-[13.5px] font-semibold tabular-nums">{up ? '+' : ''}{pct}%</span>
       </span>
     );
@@ -732,7 +755,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   }
 
   return (
-    <div className="min-h-screen bg-canvas">
+    <Tabs.Root defaultValue="cards" className="min-h-screen bg-canvas">
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-md sticky top-0 z-10 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -758,6 +781,30 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
               <h1 className="hidden sm:block text-ink font-bold text-[16px] tracking-tight">Affiliate Portal</h1>
             </div>
+            {/* Tabs live in the header (mock layout); labels collapse to icons on scroll */}
+            <Tabs.List className="flex items-center gap-1 mx-2 sm:mx-4 min-w-0 overflow-x-auto">
+              {([
+                { key: 'cards',    label: 'Cards',       Icon: CreditCard, badge: 0 },
+                { key: 'create',   label: 'Create Link', Icon: Link2,      badge: linkBuilderIds.length },
+                { key: 'activity', label: 'Activity',    Icon: Activity,   badge: 0 },
+                { key: 'invoices', label: 'Invoices',    Icon: FileText,   badge: invoices.length },
+                { key: 'profile',  label: 'Profile',     Icon: User,       badge: 0 },
+              ] as const).map(({ key, label, Icon, badge }) => (
+                <Tabs.Trigger
+                  key={key}
+                  value={key}
+                  className="group relative flex items-center gap-2 px-2.5 h-9 rounded-lg text-sm font-medium text-faint data-[state=active]:text-ink data-[state=active]:font-bold hover:text-ink transition-colors whitespace-nowrap cursor-pointer"
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0 text-faint2 group-data-[state=active]:text-brand transition-colors" />
+                  <span className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
+                    <span className="flex items-center gap-1.5">
+                      {label}
+                      {badge > 0 && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{badge}</span>}
+                    </span>
+                  </span>
+                </Tabs.Trigger>
+              ))}
+            </Tabs.List>
             <div className="flex items-center gap-2">
               <button
                 onClick={fetchData}
@@ -805,41 +852,115 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       )}
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-0 pb-14">
+        {/* ── Referral link — clean sticky bar at top, always visible (mock design) ── */}
+        {masterLink ? (() => {
+          const builtLink = linkBuilderIds.length > 0
+            ? `https://www.cardratings.com/bestcards/featured-credit-cards?src=693350&shnq=${linkBuilderIds.join(',')}${ezrxRef ? `&var2=ezrxref-${ezrxRef}` : ''}`
+            : null;
+          const displayLink = builtLink ?? masterLink;
+          return (
+          <div
+            data-anim
+            className="sticky top-[60px] z-20 mb-5 flex items-center gap-[18px] flex-wrap bg-white/90 backdrop-blur-md border-b border-hair transition-all duration-300"
+            style={{ paddingTop: scrolled ? 9 : 16, paddingBottom: scrolled ? 9 : 16 }}
+          >
+            <div className="flex-1 min-w-[240px]">
+              <div className={`flex items-center overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mb-0' : 'max-h-5 opacity-100 mb-1.5'}`}>
+                <span className="text-[12.5px] font-medium text-faint">
+                  {builtLink ? `Your link · ${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} selected` : 'Your affiliate link'}
+                </span>
+                {builtLink && (
+                  <button onClick={() => setLinkBuilderIds([])} className="ml-3 text-[11px] font-medium text-faint hover:text-brand transition-colors cursor-pointer">
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className={`font-mono-ds font-medium text-ink break-all transition-all duration-300 ${scrolled ? 'text-[13.5px]' : 'text-[15.5px]'}`}>
+                {displayLink}
+              </div>
+              <div className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mt-0' : 'max-h-5 opacity-100 mt-1'}`}>
+                <span className="text-xs font-medium text-faint">
+                  {builtLink
+                    ? `${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} on your link · ready to share`
+                    : 'Add cards from the table to build a custom link'}
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-2.5 flex-shrink-0">
+              <button
+                onClick={() => copyToClipboard(displayLink, -1)}
+                className="flex items-center gap-1.5 h-10 px-[18px] rounded-[10px] bg-brand text-white text-sm font-semibold hover:bg-brand-dark active:scale-95 transition-all duration-150 cursor-pointer"
+                title="Copy link"
+              >
+                {copiedId === -1
+                  ? <><CheckCircle className="w-4 h-4" /> Copied</>
+                  : <><Copy className="w-4 h-4" /> Copy</>}
+              </button>
+              <a href={displayLink} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 h-10 px-4 rounded-[10px] border border-line bg-white text-ink text-sm font-semibold hover:bg-surface transition-colors cursor-pointer"
+                title="Preview link">
+                <ExternalLink className="w-[15px] h-[15px]" />
+                Preview
+              </a>
+            </div>
+          </div>
+          );
+        })() : (
+          <div className="mb-6 py-4 border-b border-hair text-sm text-faint">
+            No affiliate link configured yet — contact your manager to set up your link.
+          </div>
+        )}
+
         {/* ── Compact summary bar — all panels in one card, max 30vh ── */}
         {(() => {
           // Build monthly data for charts (all-time, not period-filtered)
-          const monthMap: Record<string, { month: string; clicks: number; approvals: number; applications: number }> = {};
+          const monthMap: Record<string, { month: string; clicks: number; approvals: number; applications: number; earnings: number }> = {};
           tracking.forEach(t => {
             if (!t.clickDate) return;
             const d = parseLocalDate(t.clickDate);
             if (isNaN(d.getTime())) return;
             const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-            if (!monthMap[key]) monthMap[key] = { month: d.toLocaleDateString('en-US', { month:'short', year:'2-digit' }), clicks: 0, approvals: 0, applications: 0 };
+            if (!monthMap[key]) monthMap[key] = { month: d.toLocaleDateString('en-US', { month:'short', year:'2-digit' }), clicks: 0, approvals: 0, applications: 0, earnings: 0 };
             monthMap[key].clicks      += t.clicks       || 0;
             monthMap[key].approvals   += t.approvals    || 0;
             monthMap[key].applications+= t.applications || 0;
+            monthMap[key].earnings    += t.totalEarnings|| 0;
           });
           const monthlyData = Object.entries(monthMap).sort(([a],[b]) => a.localeCompare(b)).map(([,v]) => v);
 
-          const isEmptyPeriod = tracking.length > 0 && totalClicks === 0 && totalCommissions === 0;
-          const showCharts   = visiblePanels.has('charts')   && monthlyData.length >= 2;
-          const showTopCards = visiblePanels.has('topCards') && mostApprovedCards.length > 0;
+          // Persistent end-dot + glow on the approvals line (mock design)
+          const renderEndDot = (props: any) => {
+            const { cx, cy, index } = props;
+            if (cx == null || cy == null || index !== monthlyData.length - 1) return <g key={`ed-${index}`} />;
+            return (
+              <g key="ds-enddot">
+                <circle cx={cx} cy={cy} r={9} fill="#0a84ff" opacity={0.16} />
+                <circle cx={cx} cy={cy} r={4.5} fill="#0a84ff" />
+              </g>
+            );
+          };
 
+          const isEmptyPeriod = tracking.length > 0 && totalClicks === 0 && totalCommissions === 0;
+          const showCharts   = monthlyData.length >= 2;
+          const showTopCards = mostApprovedCards.length > 0;
+
+          const fmtInt = (n: number) => Math.round(n).toLocaleString();
+          const fmtUsd = (n: number) => `$${Math.round(n).toLocaleString()}`;
           const statRows = [
-            { label: 'Clicks',       value: totalClicks.toLocaleString(),                  iconColor: 'text-brand',    bgColor: 'bg-brand-soft',    Icon: MousePointerClick, sub: null,                                                                                              pct: clicksPct },
-            { label: 'Approvals',    value: totalConversions.toLocaleString(),              iconColor: 'text-emerald-600', bgColor: 'bg-emerald-50', Icon: CheckCircle,       sub: totalClicks > 0 && totalConversions > 0 ? `${((totalConversions/totalClicks)*100).toFixed(1)}% conv.` : null,    pct: approvalsPct },
-            { label: 'Commissions',  value: `$${Math.round(totalCommissions).toLocaleString()}`, iconColor: 'text-brand', bgColor: 'bg-brand-soft', Icon: DollarSign,   sub: avgEPC > 0 ? `EPC $${avgEPC.toFixed(2)}` : null,                                                  pct: commissionsPct },
-            { label: 'Applications', value: totalApplications.toLocaleString(),             iconColor: 'text-orange-500',  bgColor: 'bg-orange-50',  Icon: Activity,          sub: totalClicks > 0 && totalApplications > 0 ? `${((totalApplications/totalClicks)*100).toFixed(1)}% c→a` : null,    pct: applicationsPct },
+            { label: 'Clicks',       raw: totalClicks,      fmt: fmtInt, sub: null,                                                                                              pct: clicksPct },
+            { label: 'Approvals',    raw: totalConversions, fmt: fmtInt, sub: totalClicks > 0 && totalConversions > 0 ? `${((totalConversions/totalClicks)*100).toFixed(1)}% conv.` : null,    pct: approvalsPct },
+            { label: 'Commissions',  raw: totalCommissions, fmt: fmtUsd, sub: avgEPC > 0 ? `EPC $${avgEPC.toFixed(2)}` : null,                                                  pct: commissionsPct },
+            { label: 'Applications', raw: totalApplications,fmt: fmtInt, sub: totalClicks > 0 && totalApplications > 0 ? `${((totalApplications/totalClicks)*100).toFixed(1)}% c→a` : null,    pct: applicationsPct },
           ];
 
           return (
-            <div className="mb-6 sm:mb-8">
+            <div className="mb-5">
               {/* ── Period header ── */}
               <div data-anim className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div>
-                  <h2 className="text-base sm:text-lg font-bold text-ink tracking-tight">Performance Overview</h2>
-                  <p className="text-xs sm:text-sm text-faint">{STAT_PERIOD_LABELS[statPeriod]}</p>
+                  <h2 className="text-lg font-bold text-ink tracking-[-0.02em]">Performance</h2>
+                  <p className="text-[13px] text-faint">Showing {STAT_PERIOD_LABELS[statPeriod].toLowerCase()}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Mobile: dropdown */}
@@ -859,19 +980,19 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       <option key={value} value={value}>{label}</option>
                     ))}
                   </select>
-                  {/* Desktop: pill row */}
-                  <div className="hidden sm:flex items-center gap-0.5 bg-white border border-hair rounded-xl p-1 text-xs font-medium shadow-sm">
+                  {/* Desktop: plain text toggles (mock style) */}
+                  <div className="hidden sm:flex items-center gap-5 overflow-x-auto">
                     {([
                       { value: 'today',  label: 'Today' },
-                      { value: 'week',   label: 'This Week' },
-                      { value: 'month',  label: 'This Month' },
-                      { value: 'lm',     label: 'Last Month' },
-                      { value: 'year',   label: 'This Year' },
+                      { value: 'week',   label: 'Week' },
+                      { value: 'month',  label: 'Month' },
+                      { value: 'lm',     label: 'Last month' },
+                      { value: 'year',   label: 'Year' },
                       { value: 'custom', label: 'Custom' },
                     ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
                       <button key={value} onClick={() => setStatPeriod(value)}
-                        className={`px-2.5 py-1.5 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer ${
-                          statPeriod === value ? 'bg-brand text-white shadow-sm' : 'text-faint hover:text-subtle hover:bg-surface'
+                        className={`text-[13.5px] whitespace-nowrap cursor-pointer transition-colors ${
+                          statPeriod === value ? 'text-brand font-bold' : 'text-faint font-medium hover:text-subtle'
                         }`}>
                         {label}
                       </button>
@@ -897,11 +1018,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               )}
 
               {/* ── KPI band — borderless big numbers, hairline-separated (mock layout) ── */}
-              <div data-anim className="grid [grid-template-columns:repeat(auto-fit,minmax(140px,1fr))] gap-x-3 gap-y-6 pb-7 mb-7 border-b border-hair">
-                {statRows.map(({ label, value, sub, pct }) => (
+              <div data-anim className="grid [grid-template-columns:repeat(auto-fit,minmax(140px,1fr))] gap-x-3 gap-y-5 pb-6 mb-6 border-b border-hair">
+                {statRows.map(({ label, raw, fmt, sub, pct }) => (
                   <div key={label} className="min-w-0">
                     <div className="text-[13px] font-medium text-faint mb-2">{label}</div>
-                    <div className="text-[27px] sm:text-[31px] font-bold text-ink leading-none tracking-[-0.025em] tabular-nums">{value}</div>
+                    <div className="text-[27px] sm:text-[31px] font-bold text-ink leading-none tracking-[-0.025em] tabular-nums">
+                      <CountUp value={raw} format={fmt} />
+                    </div>
                     <div className="flex items-center gap-2.5 mt-2.5 flex-wrap">
                       {pct !== undefined && <DeltaInline pct={pct} />}
                       {sub ? <span className="text-[12.5px] text-faint font-medium whitespace-nowrap">{sub}</span> : null}
@@ -912,7 +1035,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
               {/* ── Insights: tabbed chart / top cards ── */}
               {(showCharts || showTopCards) && (
-                <div data-anim className="pb-7 mb-2 border-b border-hair">
+                <div data-anim className="pb-6 mb-1 border-b border-hair">
                   <div className="flex items-center justify-between gap-3 mb-4">
                     <button onClick={() => setInsightsOpen(o => !o)} title={insightsOpen ? 'Minimize insights' : 'Show insights'}
                       className="flex items-center gap-2 cursor-pointer group">
@@ -921,182 +1044,69 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </button>
                     {!insightsOpen && <span className="text-[12.5px] text-faint font-medium">Trends &amp; top cards hidden</span>}
                   </div>
-                  {insightsOpen && (<>
-                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                    <div className="flex items-center gap-1 bg-surface rounded-lg p-1 text-xs font-medium">
-                      {showCharts && (
-                        <button onClick={() => setInsightsTab('charts')}
-                          className={`px-3 py-1.5 rounded-md transition-all duration-150 cursor-pointer ${
-                            insightsTab === 'charts' || !showTopCards
-                              ? 'bg-white text-ink shadow-sm ring-1 ring-ink/5'
-                              : 'text-faint hover:text-subtle'
-                          }`}>
-                          Monthly Performance
-                        </button>
-                      )}
-                      {showTopCards && (
-                        <button onClick={() => setInsightsTab('topCards')}
-                          className={`px-3 py-1.5 rounded-md transition-all duration-150 cursor-pointer flex items-center gap-1.5 ${
-                            insightsTab === 'topCards' || !showCharts
-                              ? 'bg-white text-ink shadow-sm ring-1 ring-ink/5'
-                              : 'text-faint hover:text-subtle'
-                          }`}>
-                          <Award className="w-3.5 h-3.5 text-emerald-500" /> Top Cards
-                        </button>
-                      )}
-                    </div>
-                    {(insightsTab === 'charts' || !showTopCards) && showCharts && (
-                      <div className="flex items-center gap-3 text-[11px] text-faint font-medium">
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#bfdbfe]" />Clicks</span>
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#818cf8]" />Applications</span>
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#0a84ff]" />Approvals</span>
+                  {insightsOpen && (
+                  <div className={`mt-1 grid gap-0 ${showCharts && showTopCards ? 'lg:grid-cols-[1.7fr_1fr]' : 'grid-cols-1'}`}>
+                    {/* Chart */}
+                    {showCharts && (
+                    <div className={showTopCards ? 'lg:pr-9' : ''}>
+                      <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+                        <h3 className="text-[15px] font-bold text-ink capitalize">Monthly {chartMetric}</h3>
+                        <div className="flex items-center gap-4">
+                          {([['approvals','Approvals'],['clicks','Clicks'],['earnings','Earnings']] as const).map(([key,label]) => (
+                            <button key={key} onClick={() => setChartMetric(key)}
+                              className={`text-[13px] cursor-pointer transition-colors ${chartMetric===key ? 'text-brand font-bold' : 'text-faint font-medium hover:text-subtle'}`}>
+                              {label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    )}
-                  </div>
-
-                  {showCharts && (insightsTab === 'charts' || !showTopCards) && (
-                    <div className="h-48 sm:h-56">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={monthlyData} margin={{ top:4, right:10, left:0, bottom:0 }}>
-                          <defs>
-                            <linearGradient id="dsApprovalsArea" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#0a84ff" stopOpacity={0.16} />
-                              <stop offset="100%" stopColor="#0a84ff" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#ededed" vertical={false} />
-                          <XAxis dataKey="month" tick={{ fontSize:11, fill:'#9499a0' }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fontSize:11, fill:'#9499a0' }} axisLine={false} tickLine={false} width={32} />
-                          <Tooltip contentStyle={{ fontSize:12, borderRadius:10, border:'1px solid #ededed', boxShadow:'0 6px 20px -8px rgba(0,0,0,.18)' }} />
-                          <Line dataKey="clicks"       name="Clicks"       stroke="#cfe4ff" strokeWidth={2} dot={false} animationDuration={900} />
-                          <Line dataKey="applications" name="Applications" stroke="#93c9ff" strokeWidth={2} dot={false} animationDuration={900} />
-                          <Area dataKey="approvals"    name="Approvals"    stroke="#0a84ff" strokeWidth={2.6} strokeLinecap="round" fill="url(#dsApprovalsArea)" dot={false} activeDot={{ r:4, strokeWidth:0 }} animationDuration={1000} />
-                        </ComposedChart>
-                      </ResponsiveContainer>
+                      <div className="h-48 sm:h-56">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={monthlyData} margin={{ top:4, right:10, left:0, bottom:0 }}>
+                            <defs>
+                              <linearGradient id="dsApprovalsArea" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#0a84ff" stopOpacity={0.16} />
+                                <stop offset="100%" stopColor="#0a84ff" stopOpacity={0} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#ededed" vertical={false} />
+                            <XAxis dataKey="month" tick={{ fontSize:11, fill:'#9499a0' }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fontSize:11, fill:'#9499a0' }} axisLine={false} tickLine={false} width={32} />
+                            <Tooltip contentStyle={{ fontSize:12, borderRadius:10, border:'1px solid #ededed', boxShadow:'0 6px 20px -8px rgba(0,0,0,.18)' }} />
+                            <Area dataKey={chartMetric} stroke="#0a84ff" strokeWidth={2.6} strokeLinecap="round" fill="url(#dsApprovalsArea)" dot={renderEndDot} activeDot={{ r:4, strokeWidth:0 }} animationDuration={900} animationEasing="ease-out" />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      </div>
                     </div>
-                  )}
-
-                  {showTopCards && (insightsTab === 'topCards' || !showCharts) && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-1">
+                    )}
+                    {/* Top approved cards */}
+                    {showTopCards && (
+                    <div className={showCharts ? 'lg:pl-9 lg:border-l lg:border-hair mt-7 lg:mt-0' : ''}>
+                      <h3 className="text-[15px] font-bold text-ink mb-0.5">Top approved cards</h3>
+                      <p className="text-[12.5px] text-faint mb-3.5">Ranked by approvals</p>
                       {mostApprovedCards.map((c, idx) => (
-                        <div key={c.name} className="flex items-center gap-2.5 py-2 px-2 rounded-lg hover:bg-surface transition-colors duration-150 min-w-0">
-                          <span className={`text-xs font-bold flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center ${
-                            idx === 0 ? 'bg-amber-50 text-amber-500' : idx === 1 ? 'bg-hair2 text-faint' : idx === 2 ? 'bg-orange-50 text-orange-500' : 'bg-surface text-faint2'
-                          }`}>{idx+1}</span>
-                          <span className="text-sm text-subtle truncate flex-1 min-w-0 font-medium">{decodeHtml(c.name)}</span>
-                          <span className="text-xs text-faint flex-shrink-0 font-semibold tabular-nums">{c.approvals}×</span>
+                        <div key={c.name} className="flex items-center gap-3.5 py-2.5 border-b border-hair2">
+                          <span className="text-[13px] font-bold text-faint2 w-3.5 flex-shrink-0 tabular-nums">{idx+1}</span>
+                          <span className="text-[13.5px] font-semibold text-ink truncate flex-1 min-w-0">{decodeHtml(c.name)}</span>
+                          <span className="text-sm font-bold text-ink flex-shrink-0 tabular-nums">{c.approvals}</span>
                         </div>
                       ))}
                     </div>
+                    )}
+                  </div>
                   )}
-                  </>)}
                 </div>
               )}
-
-              {/* ── Visibility toggles for the insights panel ── */}
-              <div className="flex items-center gap-1.5 mt-3">
-                <span className="text-[11px] font-semibold text-faint mr-0.5 uppercase tracking-wider">Show:</span>
-                {(['charts', 'topCards'] as const).map(key => {
-                  const labels = { charts: 'Monthly Chart', topCards: 'Top Cards' };
-                  return (
-                    <button key={key} onClick={() => togglePanel(key)}
-                      className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-150 border cursor-pointer ${
-                        visiblePanels.has(key)
-                          ? 'bg-brand text-white border-brand shadow-sm'
-                          : 'bg-white text-faint border-hair hover:border-brand hover:text-brand'
-                      }`}>
-                      {labels[key]}
-                    </button>
-                  );
-                })}
-              </div>
             </div>
           );
         })()}
 
-        {/* Tabs — sticky under the header; labels collapse to icons on scroll (mock behavior) */}
-        <Tabs.Root defaultValue="cards" className="mt-7">
-          <Tabs.List className="flex gap-1 border-b border-hair overflow-x-auto sticky top-[59px] z-20 bg-canvas/95 backdrop-blur-md">
-            {([
-              { key: 'cards',    label: 'Cards',    Icon: CreditCard },
-              { key: 'activity', label: 'Activity', Icon: Activity },
-              { key: 'invoices', label: 'Invoices', Icon: FileText },
-              { key: 'profile',  label: 'Profile',  Icon: User },
-            ] as const).map(({ key, label, Icon }) => (
-              <Tabs.Trigger
-                key={key}
-                value={key}
-                className="group relative flex items-center gap-2 px-3 py-3.5 text-sm font-medium text-faint data-[state=active]:text-ink data-[state=active]:font-bold hover:text-ink transition-colors duration-150 whitespace-nowrap cursor-pointer"
-              >
-                <Icon className="w-4 h-4 flex-shrink-0 text-faint2 group-data-[state=active]:text-brand transition-colors" />
-                <span className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
-                  <span className="flex items-center gap-1.5">
-                    {label}
-                    {key === 'invoices' && invoices.length > 0 && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{invoices.length}</span>}
-                  </span>
-                </span>
-              </Tabs.Trigger>
-            ))}
-          </Tabs.List>
+        {/* Tab panels — the tab nav lives in the header */}
+        <div className="mt-5">
 
           {/* ── Cards Tab ── */}
           <Tabs.Content value="cards">
           <div className="pt-6">
-
-            {/* ── Master affiliate link ── */}
-            {masterLink ? (() => {
-              const builtLink = linkBuilderIds.length > 0
-                ? `https://www.cardratings.com/bestcards/featured-credit-cards?src=693350&shnq=${linkBuilderIds.join(',')}${ezrxRef ? `&var2=ezrxref-${ezrxRef}` : ''}`
-                : null;
-              const displayLink = builtLink ?? masterLink;
-              return (
-              <div className={`sticky top-[104px] z-10 mb-6 bg-gradient-to-br from-brand to-brand-dark rounded-2xl shadow-sm relative overflow-hidden transition-all duration-300 ${scrolled ? 'px-5 py-3' : 'p-5'}`}>
-                <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
-                <div className={`relative flex items-center justify-between overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mb-0' : 'max-h-10 opacity-100 mb-3'}`}>
-                  <p className="text-xs font-semibold text-brand-soft uppercase tracking-wider">
-                    {builtLink ? `Your Link · ${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} selected` : 'Your Affiliate Link'}
-                  </p>
-                  {builtLink && (
-                    <button onClick={() => setLinkBuilderIds([])} className="text-[11px] text-white/70 hover:text-white transition-colors">
-                      Clear
-                    </button>
-                  )}
-                </div>
-                <div className="relative flex items-center gap-2">
-                  <code className="flex-1 text-sm text-ink bg-white px-4 py-3 rounded-xl truncate font-mono shadow-sm">
-                    {displayLink}
-                  </code>
-                  <button
-                    onClick={() => copyToClipboard(displayLink, -1)}
-                    className={`flex-shrink-0 flex items-center gap-1.5 h-[46px] px-4 rounded-xl font-semibold text-sm active:scale-95 transition-all duration-150 cursor-pointer ${copiedId === -1 ? 'bg-white text-brand' : 'bg-white/15 ring-1 ring-white/20 text-white hover:bg-white/25'}`}
-                    title="Copy link"
-                  >
-                    {copiedId === -1
-                      ? <><CheckCircle className="w-4 h-4" /> Copied!</>
-                      : <><Copy className="w-4 h-4" /> Copy</>}
-                  </button>
-                  <a href={displayLink} target="_blank" rel="noopener noreferrer"
-                    className="flex-shrink-0 p-3 bg-white/15 ring-1 ring-white/20 rounded-xl hover:bg-white/25 active:scale-95 transition-all duration-150 cursor-pointer"
-                    title="Open link">
-                    <ExternalLink className="w-5 h-5 text-white" />
-                  </a>
-                </div>
-                {/* summary line */}
-                <div className={`relative overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mt-0' : 'max-h-6 opacity-100 mt-2.5'}`}>
-                  <p className="text-xs font-medium text-white/80">
-                    {builtLink
-                      ? `${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} on your link · ready to share`
-                      : 'Your default tracking link · add cards from the table to build a custom link'}
-                  </p>
-                </div>
-              </div>
-              );
-            })() : (
-              <div className="mb-6 p-4 bg-surface rounded-2xl ring-1 ring-hair/60 text-sm text-faint">
-                No affiliate link configured yet — contact your manager to set up your link.
-              </div>
-            )}
-          </div>
 
             {/* ── Filter toolbar ── */}
             <div className="py-3 mb-1">
@@ -1182,76 +1192,69 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <p className="text-sm text-faint font-medium">{links.length === 0 ? 'No cards loaded yet — try refreshing.' : 'No cards match the filters.'}</p>
               </div>
             ) : (() => {
-              const CardRow = ({ card }: { card: any }) => (
-                <tr key={card.id} className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150">
-                  <td className="py-3.5 px-4 font-medium text-sm text-ink">
-                    <div className="flex items-center gap-2.5">
-                      {card.imageUrl ? (
-                        <img
-                          src={card.imageUrl}
-                          alt={card.name}
-                          className="w-10 h-6 object-contain rounded shrink-0"
-                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                        />
-                      ) : (
-                        <div className="w-10 h-6 bg-hair2 rounded shrink-0" />
-                      )}
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="truncate">{card.name}</span>
-                        {card.cardType && (
-                          <span className={`inline-flex shrink-0 items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                            /business/i.test(card.cardType)
-                              ? 'bg-brand-soft text-brand-dark'
-                              : 'bg-sky-100 text-sky-700'
-                          }`}>{card.cardType}</span>
-                        )}
-                      </div>
-                    </div>
+              const CardRow = ({ card }: { card: any }) => {
+                const goodConv = card.conv >= 3;
+                const isAdded = card.cardId && linkBuilderIds.includes(card.cardId);
+                const isCopied = copiedId === card.id;
+                return (
+                <tr key={card.id} className="border-b border-hair2 hover:bg-surface transition-colors duration-150">
+                  <td className="py-[14px] px-4">
+                    <div className="text-sm font-semibold text-ink truncate max-w-[280px]">{card.name}</div>
+                    <div className="text-xs text-faint font-medium mt-0.5">{card.issuer || '—'}</div>
                   </td>
-                  {!cardsGroupBy && <td className="py-3.5 px-4 text-sm text-faint">{card.issuer || '—'}</td>}
-                  <td className="py-3.5 px-4 text-right text-sm font-semibold text-ink tabular-nums">
+                  <td className="py-[14px] px-4 text-right text-sm font-semibold text-ink tabular-nums">
                     {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : <span className="text-faint2 font-normal">—</span>}
                   </td>
-                  <td className="py-3.5 px-4 text-right text-sm text-subtle tabular-nums">{card.clicks}</td>
-                  <td className="py-3.5 px-4 text-right text-sm text-subtle tabular-nums">{card.conversions}</td>
-                  <td className="py-3.5 px-4 text-right">
-                    {card.cardId ? (() => {
-                      const isAdded = linkBuilderIds.includes(card.cardId);
-                      return (
+                  <td className="py-[14px] px-4 text-right text-sm text-subtle tabular-nums">{card.clicks.toLocaleString()}</td>
+                  <td className="py-[14px] px-4 text-right text-sm font-semibold text-ink tabular-nums">{card.conversions}</td>
+                  <td className={`py-[14px] px-4 text-right text-sm font-semibold tabular-nums ${goodConv ? 'text-brand' : 'text-faint'}`}>{card.conv.toFixed(1)}%</td>
+                  <td className="py-[14px] px-4 text-right text-sm font-bold text-ink tabular-nums">${Math.round(card.earned).toLocaleString()}</td>
+                  <td className="py-[14px] px-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      {card.cardId ? (
                         <button
                           onClick={() => setLinkBuilderIds(prev =>
                             isAdded ? prev.filter(id => id !== card.cardId) : [...prev, card.cardId]
                           )}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                          className={`h-[30px] px-3 rounded-lg text-[12.5px] font-semibold whitespace-nowrap transition-colors cursor-pointer ${
                             isAdded
                               ? 'bg-brand text-white hover:bg-brand-dark'
-                              : 'bg-hair2 text-faint hover:bg-brand-soft hover:text-brand'
+                              : 'border border-brand/35 text-brand hover:bg-brand-soft'
                           }`}
                         >
-                          {isAdded ? <>✓ Added</> : <>+ Add</>}
+                          {isAdded ? 'Added' : 'Add to link'}
                         </button>
-                      );
-                    })() : <span className="text-hair text-xs">—</span>}
+                      ) : <span className="text-faint2 text-xs">—</span>}
+                      <button
+                        onClick={() => copyToClipboard(card.url || masterLink || '', card.id)}
+                        title="Copy link"
+                        className={`w-[30px] h-[30px] rounded-lg flex items-center justify-center transition-colors cursor-pointer ${isCopied ? 'text-brand' : 'text-faint hover:text-brand hover:bg-brand-soft'}`}
+                      >
+                        {isCopied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </td>
                 </tr>
-              );
-              const colCount = cardsGroupBy ? 5 : 6;
+                );
+              };
+              const colCount = 7;
               const pagedCards = cardsGroupBy ? displayCards : displayCards.slice(0, cardsVisible);
               return (
                 <>
                   <p className="text-xs text-faint mb-3">
                     Showing {pagedCards.length} of {displayCards.length} cards
                   </p>
-                  <div className="overflow-x-auto rounded-xl ring-1 ring-hair2">
-                    <table className="w-full">
-                      <thead className="bg-surface/80">
-                        <tr className="border-b border-hair2">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[680px]">
+                      <thead>
+                        <tr className="border-b border-hair">
                           <SortTh label="Card"      field="name"        sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />
-                          {!cardsGroupBy && <SortTh label="Issuer" field="issuer" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />}
-                          <SortTh label="Your CPA"  field="cpa"         sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
+                          <SortTh label="Payout"    field="cpa"         sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
                           <SortTh label="Clicks"    field="clicks"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
                           <SortTh label="Approvals" field="conversions" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
-                          <th className="py-3 px-4 text-right text-xs font-semibold text-faint uppercase tracking-wider">Link Builder</th>
+                          <SortTh label="Conv."     field="conv"        sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
+                          <SortTh label="Earned"    field="earned"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
+                          <th className="py-3 px-4" />
                         </tr>
                       </thead>
                       <tbody>
@@ -1296,6 +1299,73 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </div>
                   )}
                 </>
+              );
+            })()}
+          </div>
+          </div>
+          </Tabs.Content>
+
+          {/* ── Create Link Tab ── */}
+          <Tabs.Content value="create">
+          <div className="pt-6">
+            {(() => {
+              const selected = linkBuilderIds.map(id => allCards.find(c => c.cardId === id)).filter(Boolean) as any[];
+              const maxPayout = selected.reduce((s, c) => s + (c.cpa || 0), 0);
+              const shareLink = linkBuilderIds.length > 0
+                ? `https://www.cardratings.com/bestcards/featured-credit-cards?src=693350&shnq=${linkBuilderIds.join(',')}${ezrxRef ? `&var2=ezrxref-${ezrxRef}` : ''}`
+                : masterLink;
+              return (
+                <div className="max-w-3xl">
+                  <h3 className="text-lg font-bold text-ink tracking-[-0.01em]">Your share page</h3>
+                  <p className="text-[13px] text-faint mt-0.5 mb-5">
+                    These cards appear on the page you share. Add or remove cards from the <span className="font-semibold text-subtle">Cards</span> tab.
+                  </p>
+
+                  {/* Share link */}
+                  <div className="flex items-center gap-3.5 flex-wrap p-4 border border-hair rounded-2xl mb-6">
+                    <div className="flex-1 min-w-[220px]">
+                      <div className="font-mono-ds text-[14.5px] font-medium text-ink break-all">{shareLink}</div>
+                      <div className="text-xs text-faint font-medium mt-1">
+                        {linkBuilderIds.length > 0
+                          ? `${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} · $${maxPayout.toLocaleString()} max payout`
+                          : 'No cards selected — your default link will be shared'}
+                      </div>
+                    </div>
+                    <button onClick={() => copyToClipboard(shareLink, -2)}
+                      className="flex items-center gap-1.5 h-10 px-[18px] rounded-[10px] bg-brand text-white text-sm font-semibold hover:bg-brand-dark active:scale-95 transition-all duration-150 cursor-pointer">
+                      {copiedId === -2 ? <><CheckCircle className="w-4 h-4" /> Copied</> : <><Copy className="w-4 h-4" /> Copy</>}
+                    </button>
+                  </div>
+
+                  {/* Max payout summary */}
+                  <div className="flex items-baseline gap-2 mb-1.5">
+                    <span className="text-[30px] font-bold text-ink tracking-[-0.025em] leading-none tabular-nums">${maxPayout.toLocaleString()}</span>
+                    <span className="text-[12.5px] text-faint font-medium">max payout / approval · {selected.length} card{selected.length !== 1 ? 's' : ''}</span>
+                  </div>
+
+                  {selected.length > 0 ? (
+                    <div className="border-t border-hair mt-3">
+                      {selected.map(c => (
+                        <div key={c.cardId} className="flex items-center gap-3 py-3 border-b border-hair2">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-ink truncate">{c.name}</div>
+                            <div className="text-xs text-faint font-medium">{c.issuer || '—'}</div>
+                          </div>
+                          <span className="text-sm font-bold text-pos tabular-nums flex-shrink-0">{c.cpa > 0 ? `$${c.cpa.toLocaleString()}` : '—'}</span>
+                          <button onClick={() => setLinkBuilderIds(prev => prev.filter(id => id !== c.cardId))}
+                            title="Remove" className="w-7 h-7 rounded-lg flex items-center justify-center text-faint hover:text-neg hover:bg-hair2 transition-colors cursor-pointer flex-shrink-0">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-3 px-5 py-7 text-center border border-dashed border-line rounded-2xl text-[13.5px] text-faint leading-relaxed">
+                      No cards on your page yet.<br />
+                      Go to the <span className="font-semibold text-brand">Cards</span> tab and tap <span className="font-semibold text-subtle">Add to link</span> on the cards you want to feature.
+                    </div>
+                  )}
+                </div>
               );
             })()}
           </div>
@@ -1603,8 +1673,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           <Tabs.Content value="profile">
             <Profile accessToken={accessToken} />
           </Tabs.Content>
-        </Tabs.Root>
+        </div>
       </main>
-    </div>
+    </Tabs.Root>
   );
 }
