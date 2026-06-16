@@ -1200,7 +1200,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   }
 
   return (
-    <div className="min-h-screen bg-canvas">
+    <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="min-h-screen bg-canvas">
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-md sticky top-0 z-10 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1229,6 +1229,29 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 <p className="text-faint text-xs hidden sm:block">Welcome, {managerName}</p>
               </div>
             </div>
+            {/* Tabs live in the header (mock layout); labels collapse to icons on scroll */}
+            <Tabs.List className="flex items-center gap-1 mx-2 sm:mx-4 min-w-0 overflow-x-auto">
+              {([
+                { key: 'affiliates', label: 'Affiliates', Icon: Users,      badge: undefined as number | undefined },
+                { key: 'tracking',   label: 'Activity',   Icon: Activity,   badge: undefined },
+                { key: 'cpa-rates',  label: 'CPA Rates',  Icon: Layers,     badge: undefined },
+                { key: 'invoices',   label: 'Invoices',   Icon: FileText,   badge: invoices.length || undefined },
+              ] as const).map(({ key, label, Icon, badge }) => (
+                <Tabs.Trigger
+                  key={key}
+                  value={key}
+                  className="group relative flex items-center gap-2 px-2.5 h-9 rounded-lg text-sm font-medium text-faint data-[state=active]:text-ink data-[state=active]:font-bold hover:text-ink transition-colors whitespace-nowrap cursor-pointer"
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0 text-faint2 group-data-[state=active]:text-brand transition-colors" />
+                  <span className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
+                    <span className="flex items-center gap-1.5">
+                      {label}
+                      {badge && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{badge}</span>}
+                    </span>
+                  </span>
+                </Tabs.Trigger>
+              ))}
+            </Tabs.List>
             <div className="flex items-center gap-2">
               {/* Actions dropdown */}
               {(() => {
@@ -1374,8 +1397,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <option key={value} value={value}>{label}</option>
                     ))}
                   </select>
-                  {/* Desktop: pill row */}
-                  <div className="hidden sm:flex items-center gap-0.5 bg-white border border-hair rounded-xl p-1 text-xs font-medium shadow-sm">
+                  {/* Desktop: plain text toggles (mock style) */}
+                  <div className="hidden sm:flex items-center gap-5 overflow-x-auto">
                     {([
                       { value: 'today',  label: 'Today' },
                       { value: 'week',   label: 'This Week' },
@@ -1385,8 +1408,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       { value: 'custom', label: 'Custom' },
                     ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
                       <button key={value} onClick={() => setStatPeriod(value)}
-                        className={`px-2.5 py-1.5 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer ${
-                          statPeriod === value ? 'bg-brand text-white shadow-sm' : 'text-faint hover:text-subtle hover:bg-surface'
+                        className={`text-[13.5px] whitespace-nowrap cursor-pointer transition-colors ${
+                          statPeriod === value ? 'text-brand font-bold' : 'text-faint font-medium hover:text-subtle'
                         }`}>
                         {label}
                       </button>
@@ -1542,36 +1565,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           );
         })()}
 
-        {/* Tabs */}
-        <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <Tabs.List className="flex gap-1 border-b border-hair mb-6 overflow-x-auto sticky top-[59px] z-20 bg-canvas/95 backdrop-blur-md">
-            {([
-              { key: 'affiliates', label: 'Affiliates', Icon: Users,      badge: undefined as number | undefined },
-              { key: 'tracking',   label: 'Activity',   Icon: Activity,   badge: undefined },
-              { key: 'cpa-rates',  label: 'CPA Rates',  Icon: Layers,     badge: undefined },
-              { key: 'invoices',   label: 'Invoices',   Icon: FileText,   badge: invoices.length || undefined },
-            ] as const).map(({ key, label, Icon, badge }) => (
-              <Tabs.Trigger
-                key={key}
-                value={key}
-                className="group relative flex items-center gap-2 px-3 py-3.5 text-sm font-medium text-faint data-[state=active]:text-ink data-[state=active]:font-bold hover:text-ink transition-colors whitespace-nowrap cursor-pointer"
-              >
-                <Icon className="w-4 h-4 flex-shrink-0 text-faint2 group-data-[state=active]:text-brand transition-colors" />
-                <span className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
-                  <span className="flex items-center gap-1.5">
-                    {label}
-                    {badge && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{badge}</span>}
-                  </span>
-                </span>
-              </Tabs.Trigger>
-            ))}
-          </Tabs.List>
+        {/* Tab panels — the tab nav lives in the header */}
+        <div className="border-t border-hair pt-2">
 
           {/* ── Affiliates Tab ── */}
           <Tabs.Content value="affiliates">
 
             {/* Toolbar: Search + Date filter + Group + Create */}
-            <div className="sticky top-[106px] z-10 bg-canvas/95 backdrop-blur-md py-4 mb-4 space-y-3 border-b border-hair">
+            <div className="sticky top-[59px] z-10 bg-canvas/95 backdrop-blur-md py-4 mb-4 space-y-3 border-b border-hair">
               <div className="flex flex-wrap items-center gap-3">
                 {/* Search */}
                 <div className="relative flex-1 min-w-[200px]">
@@ -2671,7 +2672,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
             </div>
           </Tabs.Content>
 
-        </Tabs.Root>
+        </div>
 
         {/* ── Modals ── */}
 
@@ -2799,6 +2800,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           </Dialog.Portal>
         </Dialog.Root>
       </div>
-    </div>
+    </Tabs.Root>
   );
 }
