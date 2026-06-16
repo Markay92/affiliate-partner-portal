@@ -993,15 +993,16 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           body: JSON.stringify({}),
         },
       );
-      const data = await res.json();
-      if (data.success) {
-        const { total, businessCount, personalCount } = data.stats;
+      const text = await res.text();
+      let data: any = {};
+      try { data = JSON.parse(text); } catch { /* non-JSON body — treat as error */ }
+      if (res.ok && data.success) {
         setMessageWithTimeout(
-          `Card Rating API synced: ${total} cards (${businessCount} Business, ${personalCount} Personal)`,
+          data.message || 'Card Rating API cache cleared — data will refresh on next load.',
           10000,
         );
       } else {
-        setMessageWithTimeout(data.error || 'Sync failed', 8000);
+        setMessageWithTimeout(data.error || `Sync failed (HTTP ${res.status})`, 8000);
       }
     } catch (error: any) {
       setMessageWithTimeout(`Sync failed: ${error.message}`, 8000);

@@ -2422,15 +2422,21 @@ app.post("/make-server-8dc4138c/manager/sync-card-rating-api", async (c) => {
     const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
     if (!airtableToken) return c.json({ error: 'AIRTABLE_API_KEY not configured' }, 500);
 
-    // Bust the cache so getCachedCardRatingIndex fetches fresh data
+    // Bust the stale cache so the next payouts/cpa-rates call fetches fresh data.
     await kv.del(CARD_RATING_CACHE_KEY);
-    const index = await getCachedCardRatingIndex(airtableToken);
-    const total = Object.keys(index).length;
 
-    const businessCount = Object.values(index).filter((v: any) => /business/i.test(v.cardType)).length;
-    const personalCount = Object.values(index).filter((v: any) => /personal/i.test(v.cardType)).length;
+    // Do a lightweight 1-record probe to verify Airtable connectivity and get
+    // the total record count, without pulling all 209 records in this request
+    // (full fetch happens lazily on next /payouts or /manager/cpa-rates call).
+    const probeFields = `fields[]=${CR_FIELD.cardName}&pageSize=1`;
+    const probeUrl = `https://api.airtable.com/v0/appJq70k9nl9MK2zk/tblWMdAiq5KWL6RGK?${probeFields}&returnFieldsByFieldId=true`;
+    const probeRes = await fetch(probeUrl, { headers: { 'Authorization': `Bearer ${airtableToken}` } });
+    if (!probeRes.ok) {
+      const errText = await probeRes.text();
+      return c.json({ error: `Airtable unreachable: ${probeRes.status} ${errText.substring(0, 100)}` }, 502);
+    }
 
-    return c.json({ success: true, stats: { total, businessCount, personalCount } });
+    return c.json({ success: true, message: 'Card Rating API cache cleared — data will refresh on next load.' });
   } catch (error: any) {
     console.log(`Sync CardRatingAPI error: ${error.message}`);
     return c.json({ error: error.message }, 500);
