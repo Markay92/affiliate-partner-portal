@@ -725,23 +725,40 @@ const CPA_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days — refresh via Im
 const CARD_RATING_CACHE_KEY = 'cache:card_rating_api';
 const CARD_RATING_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
+// Field IDs for CardRatingAPI table (tblWMdAiq5KWL6RGK)
+const CR_FIELD = {
+  cardName:  'fldHJmdj3vQMJ7cNl',
+  cardId:    'fldDXGFG5wQvq3hjn',
+  cardType:  'fldbuxCKp2ZgtqmrJ',
+  cardUse:   'fld429l9Oel12NeY6',
+  logoUrl:   'fldG3BXiQNTmAgeqV', // LogoImageUrl — stable cdn.nextinsure.com URL
+  rawLogo:   'fldm35TYYqxyz17EF', // RawLogoImageUrl — same CDN, no ?w= param
+};
+
+// Strip trademark markers BEFORE removing non-alphanumerics so "(R)" and "®"
+// don't become a stray "r" that breaks fuzzy name matching.
+function normCardName(s: string): string {
+  return s.toLowerCase()
+    .replace(/\(r\)|\(tm\)|®|™/gi, ' ')
+    .replace(/[^a-z0-9]/g, '');
+}
+
 function buildCardRatingIndex(records: any[]): Record<string, any> {
-  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const norm = normCardName;
   const index: Record<string, any> = {};
   for (const rec of records) {
+    // returnFieldsByFieldId=true → rec.fields is keyed by field ID
     const f = rec.fields || {};
-    const name = String(f['CardName'] || '').trim();
+    const name = String(f[CR_FIELD.cardName] || '').trim();
     if (!name) continue;
-    // Prefer LogoImageUrl; fall back to RawLogoImageUrl; finally try first attachment
-    const attachments = Array.isArray(f['Card img Attach']) ? f['Card img Attach'] : [];
+    // Use stable CDN URLs only — Airtable attachment URLs expire within hours
     const imageUrl =
-      String(f['LogoImageUrl'] || '').trim() ||
-      String(f['RawLogoImageUrl'] || '').trim() ||
-      (attachments[0]?.url ?? '');
+      String(f[CR_FIELD.logoUrl] || '').trim() ||
+      String(f[CR_FIELD.rawLogo] || '').trim();
     index[norm(name)] = {
-      cardId:   String(f['CreditCardID'] || '').trim(),
-      cardType: String(f['DefaultCreditCardTypeName'] || '').trim(),
-      cardUse:  String(f['CardUse'] || '').trim(),
+      cardId:   String(f[CR_FIELD.cardId]   || '').trim(),
+      cardType: String(f[CR_FIELD.cardType] || '').trim(),
+      cardUse:  String(f[CR_FIELD.cardUse]  || '').trim(),
       imageUrl,
     };
   }
@@ -756,17 +773,19 @@ async function getCachedCardRatingIndex(airtableToken: string): Promise<Record<s
       return buildCardRatingIndex(cached.records);
     }
   }
-  const fields = ['CardName', 'CreditCardID', 'DefaultCreditCardTypeName', 'CardUse', 'LogoImageUrl', 'RawLogoImageUrl', 'Card img Attach']
-    .map(f => `fields[]=${encodeURIComponent(f)}`).join('&');
-  const records = await fetchAllAirtableRecords(airtableToken, 'appJq70k9nl9MK2zk', 'tblWMdAiq5KWL6RGK', fields);
+  // Request by field ID so the response is keyed by ID regardless of field name changes
+  const fields = Object.values(CR_FIELD).map(id => `fields[]=${id}`).join('&');
+  const records = await fetchAllAirtableRecords(
+    airtableToken, 'appJq70k9nl9MK2zk', 'tblWMdAiq5KWL6RGK',
+    `${fields}&returnFieldsByFieldId=true`,
+  );
   await kv.set(CARD_RATING_CACHE_KEY, { records, fetchedAt: Date.now() });
   console.log(`CardRating cache updated (${records.length} records)`);
   return buildCardRatingIndex(records);
 }
 
 function lookupCardRating(index: Record<string, any>, cardName: string): any {
-  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const key = norm(cardName);
+  const key = normCardName(cardName);
   if (index[key]) return index[key];
   // Partial match fallback
   for (const [k, v] of Object.entries(index)) {
@@ -2410,15 +2429,21 @@ app.post("/make-server-8dc4138c/manager/sync-card-rating-api", async (c) => {
     const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
     if (!airtableToken) return c.json({ error: 'AIRTABLE_API_KEY not configured' }, 500);
 
-    // Bust the cache so getCachedCardRatingIndex fetches fresh data
+    // Bust the stale cache so the next payouts/cpa-rates call fetches fresh data.
     await kv.del(CARD_RATING_CACHE_KEY);
-    const index = await getCachedCardRatingIndex(airtableToken);
-    const total = Object.keys(index).length;
 
-    const businessCount = Object.values(index).filter((v: any) => /business/i.test(v.cardType)).length;
-    const personalCount = Object.values(index).filter((v: any) => /personal/i.test(v.cardType)).length;
+    // Do a lightweight 1-record probe to verify Airtable connectivity and get
+    // the total record count, without pulling all 209 records in this request
+    // (full fetch happens lazily on next /payouts or /manager/cpa-rates call).
+    const probeFields = `fields[]=${CR_FIELD.cardName}&pageSize=1`;
+    const probeUrl = `https://api.airtable.com/v0/appJq70k9nl9MK2zk/tblWMdAiq5KWL6RGK?${probeFields}&returnFieldsByFieldId=true`;
+    const probeRes = await fetch(probeUrl, { headers: { 'Authorization': `Bearer ${airtableToken}` } });
+    if (!probeRes.ok) {
+      const errText = await probeRes.text();
+      return c.json({ error: `Airtable unreachable: ${probeRes.status} ${errText.substring(0, 100)}` }, 502);
+    }
 
-    return c.json({ success: true, stats: { total, businessCount, personalCount } });
+    return c.json({ success: true, message: 'Card Rating API cache cleared — data will refresh on next load.' });
   } catch (error: any) {
     console.log(`Sync CardRatingAPI error: ${error.message}`);
     return c.json({ error: error.message }, 500);
