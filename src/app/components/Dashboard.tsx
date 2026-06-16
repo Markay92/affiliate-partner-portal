@@ -1429,7 +1429,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 </div>
                 <div className="overflow-x-auto rounded-xl ring-1 ring-hair2">
                   <table className="w-full">
-                    <thead className="bg-surface/80 border-b border-hair2">
+                    <thead className="border-b border-hair">
                       <tr>
                         <SortTh label="Date / Time"  field="clickDate"     sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
                         <SortTh label="Card"         field="cardName"      sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
@@ -1441,7 +1441,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </thead>
                     <tbody>
                       {displayTracking.slice(0, activityVisible).map((item) => (
-                        <tr key={item.id} className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150">
+                        <tr key={item.id} className="border-b border-surface hover:bg-surface transition-colors duration-150">
                           <td className="py-3.5 px-4 text-sm">
                             <div className="font-medium text-ink">{formatDate(item.clickDate)}</div>
                             <div className="text-xs text-faint mt-0.5">{formatTime(item.clickTime)}</div>
@@ -1498,14 +1498,14 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </p>
               <div className="overflow-x-auto rounded-xl ring-1 ring-hair2">
                 <table className="w-full">
-                  <thead className="bg-surface/80">
+                  <thead className="border-b border-hair">
                     <tr className="border-b border-hair2">
-                      <th className="py-3 px-4 text-left text-faint text-xs font-semibold uppercase tracking-wider"></th>
-                      <th className="py-3 px-4 text-left text-faint text-xs font-semibold uppercase tracking-wider">Month</th>
-                      <th className="py-3 px-4 text-right text-faint text-xs font-semibold uppercase tracking-wider">Amount</th>
-                      <th className="py-3 px-4 text-right text-faint text-xs font-semibold uppercase tracking-wider">Approvals</th>
-                      <th className="py-3 px-4 text-left text-faint text-xs font-semibold uppercase tracking-wider">Status</th>
-                      <th className="py-3 px-4 text-left text-faint text-xs font-semibold uppercase tracking-wider">Paid</th>
+                      <th className="py-3 px-4 text-left text-faint text-xs font-semibold"></th>
+                      <th className="py-3 px-4 text-left text-faint text-xs font-semibold">Month</th>
+                      <th className="py-3 px-4 text-right text-faint text-xs font-semibold">Amount</th>
+                      <th className="py-3 px-4 text-right text-faint text-xs font-semibold">Approvals</th>
+                      <th className="py-3 px-4 text-left text-faint text-xs font-semibold">Status</th>
+                      <th className="py-3 px-4 text-left text-faint text-xs font-semibold">Paid</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1518,7 +1518,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       return (
                         <React.Fragment key={inv.id}>
                           <tr
-                            className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150 cursor-pointer"
+                            className="border-b border-surface hover:bg-surface transition-colors duration-150 cursor-pointer"
                             onClick={() => {
                               setExpandedInvoices(prev => {
                                 const next = new Set(prev);
@@ -1567,7 +1567,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                                   <p className="text-xs text-faint px-3 py-2">No approvals found for this month.</p>
                                 ) : (
                                   <div className="rounded-xl bg-white ring-1 ring-hair2 overflow-hidden">
-                                    <div className="px-4 py-2 border-b border-hair2 text-xs font-semibold text-faint uppercase tracking-wider">
+                                    <div className="px-4 py-2 border-b border-hair2 text-xs font-semibold text-faint">
                                       Approvals in {inv.month}{inv.date ? ` ${parseLocalDate(inv.date).getFullYear()}` : ''} ({items.length})
                                     </div>
                                     <table className="w-full">

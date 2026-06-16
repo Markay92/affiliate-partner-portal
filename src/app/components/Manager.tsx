@@ -329,7 +329,7 @@ function SortTh({
   return (
     <th
       onClick={() => onSort(field)}
-      className={`py-3.5 px-6 text-faint text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-surface transition-colors text-${align}`}
+      className={`py-3.5 px-6 text-faint text-xs font-semibold cursor-pointer select-none hover:bg-surface transition-colors text-${align}`}
     >
       <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''}`}>
         {label}{icon}
@@ -353,7 +353,7 @@ function SortThSm({
   return (
     <th
       onClick={() => onSort(field)}
-      className={`py-3 px-4 text-faint text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-surface transition-colors text-${align}`}
+      className={`py-3 px-4 text-faint text-xs font-semibold cursor-pointer select-none hover:bg-surface transition-colors text-${align}`}
     >
       <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''}`}>
         {label}{icon}
@@ -1167,7 +1167,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   // Renders a single affiliate table row — defined as a closure so it
   // captures all state/callbacks without prop drilling.
   const renderUserRow = (user: any) => (
-    <tr key={user.id} className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150">
+    <tr key={user.id} className="border-b border-surface hover:bg-surface transition-colors duration-150">
       <td className="py-4 px-6">
         <div className="flex items-center gap-3">
           <span className="w-8 h-8 rounded-full bg-brand-soft text-brand text-xs font-bold flex items-center justify-center flex-shrink-0">
@@ -1327,7 +1327,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         <div className="fixed inset-0 z-10" onClick={() => setActionsOpen(false)} />
                         <div className="absolute right-0 mt-1 w-52 bg-white rounded-xl shadow-lg ring-1 ring-ink/10 z-20 overflow-hidden">
                           <div className="py-1">
-                            <p className="px-3 py-1.5 text-xs font-semibold text-faint uppercase tracking-wider">Sync</p>
+                            <p className="px-3 py-1.5 text-xs font-semibold text-faint">Sync</p>
                             <button
                               onClick={() => { setActionsOpen(false); syncFromAirtable(); }}
                               disabled={syncing}
@@ -1643,17 +1643,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-surface/80 border-b border-hair2">
+                  <thead className="border-b border-hair">
                     <tr>
                       <SortTh label="Affiliate"     field="name"             sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} />
-                      <th className="text-left py-3.5 px-6 text-faint text-xs font-semibold uppercase tracking-wider">Contact Info</th>
-                      <th className="text-left py-3.5 px-6 text-faint text-xs font-semibold uppercase tracking-wider">Affiliate ID</th>
+                      <th className="text-left py-3.5 px-6 text-faint text-xs font-semibold">Contact Info</th>
+                      <th className="text-left py-3.5 px-6 text-faint text-xs font-semibold">Affiliate ID</th>
                       <SortTh label="Commission %"  field="commissionRate"   sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
                       <SortTh label="Clicks"        field="totalClicks"      sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
                       <SortTh label="Conversions"   field="totalConversions" sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
                       <SortTh label="Earned"        field="totalCommissions" sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
                       <SortTh label="Joined"        field="createdAt"        sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
-                      <th className="text-right py-3.5 px-6 text-faint text-xs font-semibold uppercase tracking-wider">Actions</th>
+                      <th className="text-right py-3.5 px-6 text-faint text-xs font-semibold">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1682,7 +1682,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                   <td colSpan={9} className="py-2.5 px-6">
                                     <div className="flex items-center gap-2">
                                       <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                      <span className="text-xs font-semibold text-subtle uppercase tracking-wider">{rate} Commission</span>
+                                      <span className="text-xs font-semibold text-subtle">{rate} Commission</span>
                                       <span className="text-xs font-normal text-faint ml-0.5">({members.length} {members.length === 1 ? 'member' : 'members'})</span>
                                     </div>
                                   </td>
@@ -1865,7 +1865,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </div>
                     <div className="overflow-x-auto rounded-xl ring-1 ring-hair2">
                       <table className="w-full">
-                        <thead className="bg-surface/80 border-b border-hair2">
+                        <thead className="border-b border-hair">
                           <tr>
                             <SortThSm label="Date / Time"  field="clickDate"     sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
                             <SortThSm label="Affiliate"    field="memberName"    sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
@@ -1880,7 +1880,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                           {(() => {
                             // Single row renderer — used in both flat and grouped modes
                             const TrackRow = ({ a }: { a: any }) => (
-                              <tr key={a.id} className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150">
+                              <tr key={a.id} className="border-b border-surface hover:bg-surface transition-colors duration-150">
                                 <td className="py-3.5 px-4 text-sm">
                                   <div className="font-medium text-ink">{formatDate(a.clickDate)}</div>
                                   <div className="text-xs text-faint mt-0.5">{formatTime(a.clickTime)}</div>
@@ -1958,7 +1958,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                       <div className="flex items-center gap-3 flex-wrap">
                                         <div className="flex items-center gap-2">
                                           <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                          <span className="text-xs font-semibold text-subtle uppercase tracking-wider">{label}</span>
+                                          <span className="text-xs font-semibold text-subtle">{label}</span>
                                           {sublabel && <span className="text-xs text-faint font-mono normal-case">{sublabel}</span>}
                                           <span className="text-xs font-normal text-faint">({rows.length} records)</span>
                                         </div>
@@ -2161,7 +2161,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 });
 
                 const CpaRow = ({ rate }: { rate: any }) => (
-                  <tr className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150">
+                  <tr className="border-b border-surface hover:bg-surface transition-colors duration-150">
                     <td className="py-3 px-4 font-medium text-sm text-ink">
                       <div className="flex items-center gap-2.5">
                         {rate.imageUrl ? (
@@ -2258,7 +2258,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       </div>
                     </div>
                     <table className="w-full text-sm">
-                      <thead className="bg-surface/80 border-b border-hair2">
+                      <thead className="border-b border-hair">
                         <tr>
                           <SortThSm label="Card"     field="card"    sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} />
                           {!cpaGroupBy && <SortThSm label="Issuer" field="issuer" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} />}
@@ -2267,7 +2267,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             <SortThSm label="Affiliate Payout" field="affiliatePayout" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} align="right" />
                           )}
                           <SortThSm label="Rate Date" field="date" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} />
-                          <th className="py-3 px-4 text-right text-xs font-semibold text-faint uppercase tracking-wider">Card ID</th>
+                          <th className="py-3 px-4 text-right text-xs font-semibold text-faint">Card ID</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2297,7 +2297,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                     <td colSpan={colCount} className="py-2.5 px-4">
                                       <div className="flex items-center gap-2">
                                         <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                        <span className="text-xs font-semibold text-subtle uppercase tracking-wider">{issuer}</span>
+                                        <span className="text-xs font-semibold text-subtle">{issuer}</span>
                                         <span className="text-xs font-normal text-faint ml-0.5">({rates.length} {rates.length === 1 ? 'card' : 'cards'})</span>
                                       </div>
                                     </td>
@@ -2474,17 +2474,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       </p>
                     </div>
                     <table className="w-full">
-                      <thead className="bg-surface/80 border-b border-hair2">
+                      <thead className="border-b border-hair">
                         <tr>
                           <SortThSm label="Affiliate"  field="name"      sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} />
                           <SortThSm label="Month"      field="month"     sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} />
                           <SortThSm label="Amount"     field="amount"    sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} align="right" />
                           <SortThSm label="Approvals"  field="approvals" sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} align="right" />
                           <SortThSm label="Status"     field="status"    sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} />
-                          <th className="py-3 px-4 text-faint text-xs font-semibold uppercase tracking-wider text-center">Sent</th>
-                          <th className="py-3 px-4 text-faint text-xs font-semibold uppercase tracking-wider text-center">Zelle</th>
-                          <th className="py-3 px-4 text-faint text-xs font-semibold uppercase tracking-wider">Contact</th>
-                          <th className="py-3 px-4 text-faint text-xs font-semibold uppercase tracking-wider text-right">Actions</th>
+                          <th className="py-3 px-4 text-faint text-xs font-semibold text-center">Sent</th>
+                          <th className="py-3 px-4 text-faint text-xs font-semibold text-center">Zelle</th>
+                          <th className="py-3 px-4 text-faint text-xs font-semibold">Contact</th>
+                          <th className="py-3 px-4 text-faint text-xs font-semibold text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2505,7 +2505,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               <React.Fragment key={inv.id}>
                                 <tr
                                   onClick={toggleOpen}
-                                  className={`border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150 cursor-pointer ${isOpen ? 'bg-brand-soft/40' : ''}`}
+                                  className={`border-b border-surface hover:bg-surface transition-colors duration-150 cursor-pointer ${isOpen ? 'bg-brand-soft/40' : ''}`}
                                 >
                                   <td className="py-3.5 px-4">
                                     <div className="flex items-center gap-2">
@@ -2562,7 +2562,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                         <p className="text-xs text-faint py-2">No approvals found for {inv.name} in {inv.month}.</p>
                                       ) : (
                                         <div className="space-y-1.5 py-1">
-                                          <p className="text-xs font-semibold uppercase tracking-wider text-faint mb-1.5">
+                                          <p className="text-xs font-semibold text-faint mb-1.5">
                                             Approvals for {inv.name} in {inv.month} ({cards.length})
                                           </p>
                                           {cards.map((c: any) => (
@@ -2632,7 +2632,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                     <div className="flex items-center gap-3 flex-wrap">
                                       <div className="flex items-center gap-2">
                                         <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                        <span className="text-xs font-semibold text-subtle uppercase tracking-wider">{getLabel(key, rows)}</span>
+                                        <span className="text-xs font-semibold text-subtle">{getLabel(key, rows)}</span>
                                         {sublabel && <span className="text-xs text-faint font-mono normal-case">{sublabel}</span>}
                                         <span className="text-xs font-normal text-faint">({rows.length} invoice{rows.length !== 1 ? 's' : ''})</span>
                                       </div>
