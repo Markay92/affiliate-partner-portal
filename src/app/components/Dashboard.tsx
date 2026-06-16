@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import {
@@ -314,6 +314,24 @@ function SortTh({
       </span>
     </th>
   );
+}
+
+// Smoothly counts a number up to its target on mount / when it changes (GSAP)
+function CountUp({ value, format }: { value: number; format: (n: number) => string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const prev = useRef(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obj = { v: prev.current };
+    const tween = gsap.to(obj, {
+      v: value, duration: 0.9, ease: 'power2.out',
+      onUpdate: () => { el.textContent = format(obj.v); },
+    });
+    prev.current = value;
+    return () => tween.kill();
+  }, [value]);
+  return <span ref={ref}>{format(value)}</span>;
 }
 
 const PAGE_SIZE = 25;
@@ -840,6 +858,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           const displayLink = builtLink ?? masterLink;
           return (
           <div
+            data-anim
             className="sticky top-[60px] z-20 mb-6 flex items-center gap-[18px] flex-wrap bg-white/90 backdrop-blur-md border-b border-hair transition-all duration-300"
             style={{ paddingTop: scrolled ? 9 : 22, paddingBottom: scrolled ? 9 : 22 }}
           >
@@ -923,11 +942,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           const showCharts   = monthlyData.length >= 2;
           const showTopCards = mostApprovedCards.length > 0;
 
+          const fmtInt = (n: number) => Math.round(n).toLocaleString();
+          const fmtUsd = (n: number) => `$${Math.round(n).toLocaleString()}`;
           const statRows = [
-            { label: 'Clicks',       value: totalClicks.toLocaleString(),                  iconColor: 'text-brand',    bgColor: 'bg-brand-soft',    Icon: MousePointerClick, sub: null,                                                                                              pct: clicksPct },
-            { label: 'Approvals',    value: totalConversions.toLocaleString(),              iconColor: 'text-emerald-600', bgColor: 'bg-emerald-50', Icon: CheckCircle,       sub: totalClicks > 0 && totalConversions > 0 ? `${((totalConversions/totalClicks)*100).toFixed(1)}% conv.` : null,    pct: approvalsPct },
-            { label: 'Commissions',  value: `$${Math.round(totalCommissions).toLocaleString()}`, iconColor: 'text-brand', bgColor: 'bg-brand-soft', Icon: DollarSign,   sub: avgEPC > 0 ? `EPC $${avgEPC.toFixed(2)}` : null,                                                  pct: commissionsPct },
-            { label: 'Applications', value: totalApplications.toLocaleString(),             iconColor: 'text-orange-500',  bgColor: 'bg-orange-50',  Icon: Activity,          sub: totalClicks > 0 && totalApplications > 0 ? `${((totalApplications/totalClicks)*100).toFixed(1)}% c→a` : null,    pct: applicationsPct },
+            { label: 'Clicks',       raw: totalClicks,      fmt: fmtInt, sub: null,                                                                                              pct: clicksPct },
+            { label: 'Approvals',    raw: totalConversions, fmt: fmtInt, sub: totalClicks > 0 && totalConversions > 0 ? `${((totalConversions/totalClicks)*100).toFixed(1)}% conv.` : null,    pct: approvalsPct },
+            { label: 'Commissions',  raw: totalCommissions, fmt: fmtUsd, sub: avgEPC > 0 ? `EPC $${avgEPC.toFixed(2)}` : null,                                                  pct: commissionsPct },
+            { label: 'Applications', raw: totalApplications,fmt: fmtInt, sub: totalClicks > 0 && totalApplications > 0 ? `${((totalApplications/totalClicks)*100).toFixed(1)}% c→a` : null,    pct: applicationsPct },
           ];
 
           return (
@@ -995,10 +1016,12 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
               {/* ── KPI band — borderless big numbers, hairline-separated (mock layout) ── */}
               <div data-anim className="grid [grid-template-columns:repeat(auto-fit,minmax(140px,1fr))] gap-x-3 gap-y-6 pb-7 mb-7 border-b border-hair">
-                {statRows.map(({ label, value, sub, pct }) => (
+                {statRows.map(({ label, raw, fmt, sub, pct }) => (
                   <div key={label} className="min-w-0">
                     <div className="text-[13px] font-medium text-faint mb-2">{label}</div>
-                    <div className="text-[27px] sm:text-[31px] font-bold text-ink leading-none tracking-[-0.025em] tabular-nums">{value}</div>
+                    <div className="text-[27px] sm:text-[31px] font-bold text-ink leading-none tracking-[-0.025em] tabular-nums">
+                      <CountUp value={raw} format={fmt} />
+                    </div>
                     <div className="flex items-center gap-2.5 mt-2.5 flex-wrap">
                       {pct !== undefined && <DeltaInline pct={pct} />}
                       {sub ? <span className="text-[12.5px] text-faint font-medium whitespace-nowrap">{sub}</span> : null}

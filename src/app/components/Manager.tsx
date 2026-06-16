@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import {
   Users,
@@ -52,6 +52,24 @@ function yearOf(dateStr: string | undefined): number | null {
   if (!dateStr) return null;
   const d = parseLocalDate(dateStr);
   return isNaN(d.getTime()) ? null : d.getFullYear();
+}
+
+// Smoothly counts a number up to its target on mount / when it changes (GSAP)
+function CountUp({ value, format }: { value: number; format: (n: number) => string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const prev = useRef(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obj = { v: prev.current };
+    const tween = gsap.to(obj, {
+      v: value, duration: 0.9, ease: 'power2.out',
+      onUpdate: () => { el.textContent = format(obj.v); },
+    });
+    prev.current = value;
+    return () => tween.kill();
+  }, [value]);
+  return <span ref={ref}>{format(value)}</span>;
 }
 
 /** Bottom pagination-style button to reveal/hide records from prior years. */
@@ -1381,11 +1399,13 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           const showCharts   = visiblePanels.has('charts')   && chartData.length > 0;
           const showTopCards = visiblePanels.has('topCards') && mostApprovedCards.length > 0;
 
+          const fmtInt = (n: number) => Math.round(n).toLocaleString();
+          const fmtUsd = (n: number) => `$${Math.round(n).toLocaleString()}`;
           const statRows = [
-            { label: 'Clicks',       value: totalStats.clicks.toLocaleString(),                       iconColor: 'text-brand',    bgColor: 'bg-brand-soft',    Icon: MousePointerClick, sub: null,                                                                                                          pct: clicksPct },
-            { label: 'Approvals',    value: totalStats.conversions.toLocaleString(),                  iconColor: 'text-emerald-600', bgColor: 'bg-emerald-50', Icon: CheckCircle,       sub: totalStats.clicks > 0 && totalStats.conversions > 0 ? `${((totalStats.conversions/totalStats.clicks)*100).toFixed(1)}% conv.` : null,    pct: approvalsPct },
-            { label: 'Commissions',  value: `$${Math.round(totalStats.commissions).toLocaleString()}`, iconColor: 'text-brand', bgColor: 'bg-brand-soft', Icon: DollarSign,        sub: avgEPC > 0 ? `EPC $${avgEPC.toFixed(2)}` : null,                                                                                  pct: commissionsPct },
-            { label: 'Applications', value: totalStats.applications.toLocaleString(),                 iconColor: 'text-orange-500',  bgColor: 'bg-orange-50', Icon: Activity,          sub: totalStats.clicks > 0 && totalStats.applications > 0 ? `${((totalStats.applications/totalStats.clicks)*100).toFixed(1)}% c→a` : null,    pct: applicationsPct },
+            { label: 'Clicks',       raw: totalStats.clicks,      fmt: fmtInt, sub: null,                                                                                                          pct: clicksPct },
+            { label: 'Approvals',    raw: totalStats.conversions, fmt: fmtInt, sub: totalStats.clicks > 0 && totalStats.conversions > 0 ? `${((totalStats.conversions/totalStats.clicks)*100).toFixed(1)}% conv.` : null,    pct: approvalsPct },
+            { label: 'Commissions',  raw: totalStats.commissions, fmt: fmtUsd, sub: avgEPC > 0 ? `EPC $${avgEPC.toFixed(2)}` : null,                                                                                  pct: commissionsPct },
+            { label: 'Applications', raw: totalStats.applications,fmt: fmtInt, sub: totalStats.clicks > 0 && totalStats.applications > 0 ? `${((totalStats.applications/totalStats.clicks)*100).toFixed(1)}% c→a` : null,    pct: applicationsPct },
           ];
 
           return (
@@ -1462,10 +1482,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
               {/* ── KPI band — borderless big numbers, hairline-separated (mock layout) ── */}
               <div data-anim className="grid [grid-template-columns:repeat(auto-fit,minmax(140px,1fr))] gap-x-3 gap-y-6 pb-7 mb-7 border-b border-hair">
-                {statRows.map(({ label, value, sub, pct }) => (
+                {statRows.map(({ label, raw, fmt, sub, pct }) => (
                   <div key={label} className="min-w-0">
                     <div className="text-[13px] font-medium text-faint mb-2">{label}</div>
-                    <div className="text-[27px] sm:text-[31px] font-bold text-ink leading-none tracking-[-0.025em] tabular-nums">{value}</div>
+                    <div className="text-[27px] sm:text-[31px] font-bold text-ink leading-none tracking-[-0.025em] tabular-nums">
+                      <CountUp value={raw} format={fmt} />
+                    </div>
                     <div className="flex items-center gap-2.5 mt-2.5 flex-wrap">
                       {pct !== undefined && <DeltaInline pct={pct} />}
                       {sub ? <span className="text-[12.5px] text-faint font-medium whitespace-nowrap">{sub}</span> : null}

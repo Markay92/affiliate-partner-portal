@@ -252,8 +252,15 @@
   to   { opacity: 1; transform: none; }
 }
 .ds-rise { animation: ds-rise 0.5s cubic-bezier(0.2, 0.6, 0.2, 1) both; }
+
+/* Tab panels ease in when their tab becomes active */
+[role="tabpanel"][data-state="active"] {
+  animation: ds-rise 0.4s cubic-bezier(0.2, 0.6, 0.2, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .ds-rise { animation: none; }
+  .ds-rise,
+  [role="tabpanel"][data-state="active"] { animation: none; }
 }
 
 /* Native <select> — clean custom chevron, hairline, design-system look.
