@@ -918,8 +918,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           };
 
           const isEmptyPeriod = tracking.length > 0 && totalClicks === 0 && totalCommissions === 0;
-          const showCharts   = visiblePanels.has('charts')   && monthlyData.length >= 2;
-          const showTopCards = visiblePanels.has('topCards') && mostApprovedCards.length > 0;
+          const showCharts   = monthlyData.length >= 2;
+          const showTopCards = mostApprovedCards.length > 0;
 
           const statRows = [
             { label: 'Clicks',       value: totalClicks.toLocaleString(),                  iconColor: 'text-brand',    bgColor: 'bg-brand-soft',    Icon: MousePointerClick, sub: null,                                                                                              pct: clicksPct },
@@ -1069,24 +1069,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   )}
                 </div>
               )}
-
-              {/* ── Visibility toggles for the insights panel ── */}
-              <div className="flex items-center gap-1.5 mt-3">
-                <span className="text-[11px] font-semibold text-faint mr-0.5 uppercase tracking-wider">Show:</span>
-                {(['charts', 'topCards'] as const).map(key => {
-                  const labels = { charts: 'Monthly Chart', topCards: 'Top Cards' };
-                  return (
-                    <button key={key} onClick={() => togglePanel(key)}
-                      className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-150 border cursor-pointer ${
-                        visiblePanels.has(key)
-                          ? 'bg-brand text-white border-brand shadow-sm'
-                          : 'bg-white text-faint border-hair hover:border-brand hover:text-brand'
-                      }`}>
-                      {labels[key]}
-                    </button>
-                  );
-                })}
-              </div>
             </div>
           );
         })()}
