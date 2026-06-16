@@ -829,6 +829,60 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* ── Referral link — pinned at top, always visible across tabs (mock layout) ── */}
+        {masterLink ? (() => {
+          const builtLink = linkBuilderIds.length > 0
+            ? `https://www.cardratings.com/bestcards/featured-credit-cards?src=693350&shnq=${linkBuilderIds.join(',')}${ezrxRef ? `&var2=ezrxref-${ezrxRef}` : ''}`
+            : null;
+          const displayLink = builtLink ?? masterLink;
+          return (
+          <div className={`sticky top-[60px] z-20 mb-6 bg-gradient-to-br from-brand to-brand-dark rounded-2xl shadow-sm relative overflow-hidden transition-all duration-300 ${scrolled ? 'px-5 py-3' : 'p-5'}`}>
+            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
+            <div className={`relative flex items-center justify-between overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mb-0' : 'max-h-10 opacity-100 mb-3'}`}>
+              <p className="text-xs font-semibold text-brand-soft uppercase tracking-wider">
+                {builtLink ? `Your Link · ${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} selected` : 'Your Affiliate Link'}
+              </p>
+              {builtLink && (
+                <button onClick={() => setLinkBuilderIds([])} className="text-[11px] text-white/70 hover:text-white transition-colors">
+                  Clear
+                </button>
+              )}
+            </div>
+            <div className="relative flex items-center gap-2">
+              <code className="flex-1 text-sm text-ink bg-white px-4 py-3 rounded-xl truncate font-mono shadow-sm">
+                {displayLink}
+              </code>
+              <button
+                onClick={() => copyToClipboard(displayLink, -1)}
+                className={`flex-shrink-0 flex items-center gap-1.5 h-[46px] px-4 rounded-xl font-semibold text-sm active:scale-95 transition-all duration-150 cursor-pointer ${copiedId === -1 ? 'bg-white text-brand' : 'bg-white/15 ring-1 ring-white/20 text-white hover:bg-white/25'}`}
+                title="Copy link"
+              >
+                {copiedId === -1
+                  ? <><CheckCircle className="w-4 h-4" /> Copied!</>
+                  : <><Copy className="w-4 h-4" /> Copy</>}
+              </button>
+              <a href={displayLink} target="_blank" rel="noopener noreferrer"
+                className="flex-shrink-0 p-3 bg-white/15 ring-1 ring-white/20 rounded-xl hover:bg-white/25 active:scale-95 transition-all duration-150 cursor-pointer"
+                title="Open link">
+                <ExternalLink className="w-5 h-5 text-white" />
+              </a>
+            </div>
+            {/* summary line */}
+            <div className={`relative overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mt-0' : 'max-h-6 opacity-100 mt-2.5'}`}>
+              <p className="text-xs font-medium text-white/80">
+                {builtLink
+                  ? `${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} on your link · ready to share`
+                  : 'Your default tracking link · add cards from the table to build a custom link'}
+              </p>
+            </div>
+          </div>
+          );
+        })() : (
+          <div className="mb-6 p-4 bg-surface rounded-2xl ring-1 ring-hair/60 text-sm text-faint">
+            No affiliate link configured yet — contact your manager to set up your link.
+          </div>
+        )}
+
         {/* ── Compact summary bar — all panels in one card, max 30vh ── */}
         {(() => {
           // Build monthly data for charts (all-time, not period-filtered)
@@ -1044,61 +1098,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           <Tabs.Content value="cards">
           <div className="pt-6">
 
-            {/* ── Master affiliate link ── */}
-            {masterLink ? (() => {
-              const builtLink = linkBuilderIds.length > 0
-                ? `https://www.cardratings.com/bestcards/featured-credit-cards?src=693350&shnq=${linkBuilderIds.join(',')}${ezrxRef ? `&var2=ezrxref-${ezrxRef}` : ''}`
-                : null;
-              const displayLink = builtLink ?? masterLink;
-              return (
-              <div className={`sticky top-[104px] z-10 mb-6 bg-gradient-to-br from-brand to-brand-dark rounded-2xl shadow-sm relative overflow-hidden transition-all duration-300 ${scrolled ? 'px-5 py-3' : 'p-5'}`}>
-                <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
-                <div className={`relative flex items-center justify-between overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mb-0' : 'max-h-10 opacity-100 mb-3'}`}>
-                  <p className="text-xs font-semibold text-brand-soft uppercase tracking-wider">
-                    {builtLink ? `Your Link · ${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} selected` : 'Your Affiliate Link'}
-                  </p>
-                  {builtLink && (
-                    <button onClick={() => setLinkBuilderIds([])} className="text-[11px] text-white/70 hover:text-white transition-colors">
-                      Clear
-                    </button>
-                  )}
-                </div>
-                <div className="relative flex items-center gap-2">
-                  <code className="flex-1 text-sm text-ink bg-white px-4 py-3 rounded-xl truncate font-mono shadow-sm">
-                    {displayLink}
-                  </code>
-                  <button
-                    onClick={() => copyToClipboard(displayLink, -1)}
-                    className={`flex-shrink-0 flex items-center gap-1.5 h-[46px] px-4 rounded-xl font-semibold text-sm active:scale-95 transition-all duration-150 cursor-pointer ${copiedId === -1 ? 'bg-white text-brand' : 'bg-white/15 ring-1 ring-white/20 text-white hover:bg-white/25'}`}
-                    title="Copy link"
-                  >
-                    {copiedId === -1
-                      ? <><CheckCircle className="w-4 h-4" /> Copied!</>
-                      : <><Copy className="w-4 h-4" /> Copy</>}
-                  </button>
-                  <a href={displayLink} target="_blank" rel="noopener noreferrer"
-                    className="flex-shrink-0 p-3 bg-white/15 ring-1 ring-white/20 rounded-xl hover:bg-white/25 active:scale-95 transition-all duration-150 cursor-pointer"
-                    title="Open link">
-                    <ExternalLink className="w-5 h-5 text-white" />
-                  </a>
-                </div>
-                {/* summary line */}
-                <div className={`relative overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mt-0' : 'max-h-6 opacity-100 mt-2.5'}`}>
-                  <p className="text-xs font-medium text-white/80">
-                    {builtLink
-                      ? `${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} on your link · ready to share`
-                      : 'Your default tracking link · add cards from the table to build a custom link'}
-                  </p>
-                </div>
-              </div>
-              );
-            })() : (
-              <div className="mb-6 p-4 bg-surface rounded-2xl ring-1 ring-hair/60 text-sm text-faint">
-                No affiliate link configured yet — contact your manager to set up your link.
-              </div>
-            )}
-          </div>
-
             {/* ── Filter toolbar ── */}
             <div className="py-3 mb-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -1299,6 +1298,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 </>
               );
             })()}
+          </div>
           </div>
           </Tabs.Content>
 
