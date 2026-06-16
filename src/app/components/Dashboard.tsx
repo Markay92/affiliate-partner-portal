@@ -24,6 +24,8 @@ import {
   User,
   Link2,
   X,
+  Plus,
+  Check,
 } from 'lucide-react';
 import React from 'react';
 import { ComposedChart, LineChart, Line, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } from 'recharts';
@@ -406,11 +408,21 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [chartMetric, setChartMetric] = useState<'approvals' | 'clicks' | 'earnings'>('approvals');
   const [scrolled, setScrolled] = useState(false);
 
-  // Sticky chrome shrinks once the page is scrolled (mock behavior)
+  // Sticky chrome shrinks once the page is scrolled (mock behavior).
+  // Hysteresis (collapse >72, expand <24) + rAF throttle avoids flicker when
+  // the bar's own height change nudges scrollY back across a single threshold.
   useEffect(() => {
-    const onScroll = () => setScrolled((window.scrollY || 0) > 40);
+    let ticking = false;
+    const update = () => {
+      ticking = false;
+      const y = window.scrollY || 0;
+      setScrolled(prev => (prev ? y > 24 : y > 72));
+    };
+    const onScroll = () => {
+      if (!ticking) { ticking = true; requestAnimationFrame(update); }
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
+    update();
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
@@ -759,7 +771,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-md sticky top-0 z-10 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-[60px]">
+          <div className="flex items-center h-[60px]">
             <div className="flex items-center gap-2.5">
               <div className="flex items-center">
                 <svg width="24" height="22" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -805,7 +817,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 </Tabs.Trigger>
               ))}
             </Tabs.List>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-auto">
               <button
                 onClick={fetchData}
                 className="p-2 text-faint hover:text-brand hover:bg-surface active:scale-95 rounded-lg transition-all duration-150 cursor-pointer"
@@ -1104,204 +1116,144 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         {/* Tab panels — the tab nav lives in the header */}
         <div className="mt-5">
 
-          {/* ── Cards Tab ── */}
+          {/* ── Cards Tab (Robinhood-style filters + list) ── */}
           <Tabs.Content value="cards">
           <div className="pt-6">
-
-            {/* ── Filter toolbar ── */}
-            <div className="py-3 mb-1">
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Search */}
-              <div className="relative flex-1 min-w-[180px]">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-faint pointer-events-none" />
-                <input type="text" placeholder="Search cards or issuer…" value={cardsSearch}
-                  onChange={e => { setCardsSearch(e.target.value); setCardsVisible(PAGE_SIZE); }}
-                  className="w-full pl-8 pr-3 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle transition-shadow" />
-              </div>
-              {/* Issuer */}
-              <select value={cardsIssuerFilter} onChange={e => { setCardsIssuerFilter(e.target.value); setCardsVisible(PAGE_SIZE); }}
-                className="px-2.5 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle cursor-pointer">
-                <option value="all">All issuers</option>
-                {cardIssuers.map(issuer => <option key={issuer} value={issuer}>{issuer}</option>)}
-              </select>
-              {/* Card type (Business / Personal) — only shown when data is available */}
-              {cardTypes.length > 0 && (
-                <div className="flex items-center gap-1.5">
-                  {(['all', ...cardTypes]).map(type => (
+            {/* Type chips */}
+            {cardTypes.length > 0 && (
+              <div className="ds-chips flex items-center gap-2 overflow-x-auto mb-[18px]">
+                {(['all', ...cardTypes]).map(type => {
+                  const on = cardsTypeFilter === type;
+                  return (
                     <button key={type} onClick={() => { setCardsTypeFilter(type); setCardsVisible(PAGE_SIZE); }}
-                      className={`px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
-                        cardsTypeFilter === type
-                          ? 'bg-brand text-white shadow-sm'
-                          : 'text-faint bg-hair2 hover:bg-hair'
+                      className={`flex-shrink-0 h-9 px-4 rounded-full text-[13.5px] font-semibold tracking-[-0.01em] whitespace-nowrap transition-colors cursor-pointer ${
+                        on ? 'bg-brand text-white' : 'bg-hair2 text-subtle hover:bg-hair'
                       }`}>
                       {type === 'all' ? 'All types' : type}
                     </button>
-                  ))}
-                </div>
-              )}
-              {/* CPA range */}
-              <div className="overflow-x-auto">
-                <div className="flex items-center gap-1.5 min-w-max">
-                  {([
-                    { value: 'all', label: 'All CPA' }, { value: 'zero', label: '$0' },
-                    { value: 'lt50', label: '<$50' }, { value: '50-200', label: '$50–$200' },
-                    { value: '200plus', label: '$200+' },
-                  ]).map(({ value, label }) => (
-                    <button key={value} onClick={() => { setCardsPayoutFilter(value); setCardsVisible(PAGE_SIZE); }}
-                      className={`px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
-                        cardsPayoutFilter === value
-                          ? 'bg-brand text-white shadow-sm'
-                          : 'text-faint bg-hair2 hover:bg-hair'
-                      }`}>{label}</button>
-                  ))}
-                </div>
-              </div>
-              {/* Group by issuer */}
-              <div className="flex items-center gap-2 sm:ml-auto">
-                <button onClick={() => { setCardsGroupBy(g => !g); setCardsCollapsed(new Set()); }}
-                  className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-150 cursor-pointer ${
-                    cardsGroupBy ? 'bg-brand text-white border-brand shadow-sm' : 'text-subtle bg-white border-hair hover:border-brand hover:text-brand'
-                  }`}>
-                  <Layers className="w-3.5 h-3.5" />
-                  Group by Issuer
-                </button>
-                {cardsGroupBy && displayCards.length > 0 && (() => {
-                  const allIssuers = Array.from(new Set(displayCards.map(c => c.issuer || 'Other')));
-                  const allCollapsed = allIssuers.every(i => cardsCollapsed.has(i));
-                  return (
-                    <button onClick={() => setCardsCollapsed(allCollapsed ? new Set() : new Set(allIssuers))}
-                      className="text-xs text-faint hover:text-brand transition-colors cursor-pointer">
-                      {allCollapsed ? 'Expand All' : 'Collapse All'}
-                    </button>
                   );
-                })()}
-                {(cardsSearch || cardsIssuerFilter !== 'all' || cardsPayoutFilter !== 'all' || cardsTypeFilter !== 'all') && (
-                  <button onClick={() => { setCardsSearch(''); setCardsIssuerFilter('all'); setCardsPayoutFilter('all'); setCardsTypeFilter('all'); setCardsVisible(PAGE_SIZE); }}
-                    className="text-xs text-brand hover:underline cursor-pointer">Clear</button>
-                )}
+                })}
               </div>
-            </div>
+            )}
+
+            {/* Search */}
+            <div className="relative mb-[18px]">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[17px] h-[17px] text-faint pointer-events-none" />
+              <input type="text" placeholder="Search cards or issuers" value={cardsSearch}
+                onChange={e => { setCardsSearch(e.target.value); setCardsVisible(PAGE_SIZE); }}
+                className="w-full h-[42px] pl-10 pr-3.5 border border-line rounded-[10px] bg-white text-[14.5px] text-ink outline-none transition focus:border-brand focus:ring-[3px] focus:ring-brand/15" />
             </div>
 
-          <div className="pt-5">
-            {displayCards.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="w-14 h-14 bg-surface rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-hair2">
-                  <CreditCard className="w-7 h-7 text-faint2" />
-                </div>
-                <p className="text-sm text-faint font-medium">{links.length === 0 ? 'No cards loaded yet — try refreshing.' : 'No cards match the filters.'}</p>
+            {/* Bold divider */}
+            <div className="h-[1.5px] bg-ink" />
+
+            {/* Group-by + count + sort tabs */}
+            <div className="flex items-center justify-between gap-3.5 flex-wrap pt-[15px] pb-1.5">
+              <button onClick={() => { setCardsGroupBy(g => !g); setCardsCollapsed(new Set()); }}
+                className={`inline-flex items-center gap-1.5 text-[13px] cursor-pointer transition-colors ${cardsGroupBy ? 'text-brand font-bold' : 'text-faint font-medium hover:text-subtle'}`}>
+                <Layers className="w-3.5 h-3.5" />
+                Group by issuer
+              </button>
+              <div className="flex items-center gap-[18px]">
+                <span className="text-xs font-semibold tracking-[0.04em] uppercase text-faint2">{displayCards.length} cards</span>
+                {([['earned', 'Earned'], ['cpa', 'Payout'], ['conv', 'Conv']] as const).map(([key, label]) => {
+                  const on = cardsSort.field === key;
+                  return (
+                    <button key={key}
+                      onClick={() => setCardsSort(s => s.field === key ? { field: key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { field: key, dir: 'desc' })}
+                      className={`inline-flex items-center gap-1 text-[13px] cursor-pointer transition-colors ${on ? 'text-ink font-bold' : 'text-faint2 font-medium hover:text-subtle'}`}>
+                      {label}{on && <span className="text-[11px]">{cardsSort.dir === 'asc' ? '↑' : '↓'}</span>}
+                    </button>
+                  );
+                })}
               </div>
-            ) : (() => {
-              const CardRow = ({ card }: { card: any }) => {
-                const goodConv = card.conv >= 3;
+            </div>
+
+            {/* Card list */}
+            {(() => {
+              const CardRow = ({ card, indent }: { card: any; indent?: boolean }) => {
                 const isAdded = card.cardId && linkBuilderIds.includes(card.cardId);
-                const isCopied = copiedId === card.id;
                 return (
-                <tr key={card.id} className="border-b border-hair2 hover:bg-surface transition-colors duration-150">
-                  <td className="py-[14px] px-4">
-                    <div className="text-sm font-semibold text-ink truncate max-w-[280px]">{card.name}</div>
-                    <div className="text-xs text-faint font-medium mt-0.5">{card.issuer || '—'}</div>
-                  </td>
-                  <td className="py-[14px] px-4 text-right text-sm font-semibold text-ink tabular-nums">
-                    {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : <span className="text-faint2 font-normal">—</span>}
-                  </td>
-                  <td className="py-[14px] px-4 text-right text-sm text-subtle tabular-nums">{card.clicks.toLocaleString()}</td>
-                  <td className="py-[14px] px-4 text-right text-sm font-semibold text-ink tabular-nums">{card.conversions}</td>
-                  <td className={`py-[14px] px-4 text-right text-sm font-semibold tabular-nums ${goodConv ? 'text-brand' : 'text-faint'}`}>{card.conv.toFixed(1)}%</td>
-                  <td className="py-[14px] px-4 text-right text-sm font-bold text-ink tabular-nums">${Math.round(card.earned).toLocaleString()}</td>
-                  <td className="py-[14px] px-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {card.cardId ? (
-                        <button
-                          onClick={() => setLinkBuilderIds(prev =>
-                            isAdded ? prev.filter(id => id !== card.cardId) : [...prev, card.cardId]
-                          )}
-                          className={`h-[30px] px-3 rounded-lg text-[12.5px] font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                            isAdded
-                              ? 'bg-brand text-white hover:bg-brand-dark'
-                              : 'border border-brand/35 text-brand hover:bg-brand-soft'
-                          }`}
-                        >
-                          {isAdded ? 'Added' : 'Add to link'}
-                        </button>
-                      ) : <span className="text-faint2 text-xs">—</span>}
-                      <button
-                        onClick={() => copyToClipboard(card.url || masterLink || '', card.id)}
-                        title="Copy link"
-                        className={`w-[30px] h-[30px] rounded-lg flex items-center justify-center transition-colors cursor-pointer ${isCopied ? 'text-brand' : 'text-faint hover:text-brand hover:bg-brand-soft'}`}
-                      >
-                        {isCopied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      </button>
+                  <div className="flex items-center gap-[18px] py-4 border-b border-hair2 hover:bg-surface transition-colors duration-150"
+                    style={{ paddingLeft: indent ? 24 : 0 }}>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[15.5px] font-semibold text-ink tracking-[-0.01em] truncate">{card.name}</div>
+                      <div className="flex items-center gap-2.5 mt-0.5">
+                        <span className="text-[13px] font-medium text-faint">{card.issuer || '—'}</span>
+                        <span className="w-[3px] h-[3px] rounded-full bg-faint2" />
+                        <span className={`text-[13px] font-semibold tabular-nums ${card.conv >= 3 ? 'text-brand' : 'text-faint'}`}>{card.conv.toFixed(1)}% conv</span>
+                      </div>
                     </div>
-                  </td>
-                </tr>
+                    <div className="text-right flex-shrink-0">
+                      <div className="text-[18px] font-bold text-ink tracking-[-0.02em] tabular-nums">${Math.round(card.earned).toLocaleString()}</div>
+                      <div className="text-[12.5px] font-medium text-faint mt-0.5 tabular-nums">{card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : '—'} / approval</div>
+                    </div>
+                    {card.cardId && (
+                      <button
+                        onClick={() => setLinkBuilderIds(prev => isAdded ? prev.filter(id => id !== card.cardId) : [...prev, card.cardId])}
+                        title={isAdded ? 'Remove from share page' : 'Add to share page'}
+                        className={`flex-shrink-0 w-8 h-8 rounded-full border-[1.5px] flex items-center justify-center transition-all duration-150 cursor-pointer ${
+                          isAdded ? 'bg-brand border-brand text-white' : 'border-line text-faint2 hover:border-brand hover:text-brand'
+                        }`}>
+                        {isAdded ? <Check className="w-[15px] h-[15px]" strokeWidth={3} /> : <Plus className="w-[15px] h-[15px]" strokeWidth={2.4} />}
+                      </button>
+                    )}
+                  </div>
                 );
               };
-              const colCount = 7;
-              const pagedCards = cardsGroupBy ? displayCards : displayCards.slice(0, cardsVisible);
-              return (
-                <>
-                  <p className="text-xs text-faint mb-3">
-                    Showing {pagedCards.length} of {displayCards.length} cards
-                  </p>
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[680px]">
-                      <thead>
-                        <tr className="border-b border-hair">
-                          <SortTh label="Card"      field="name"        sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />
-                          <SortTh label="Payout"    field="cpa"         sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
-                          <SortTh label="Clicks"    field="clicks"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
-                          <SortTh label="Approvals" field="conversions" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
-                          <SortTh label="Conv."     field="conv"        sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
-                          <SortTh label="Earned"    field="earned"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
-                          <th className="py-3 px-4" />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {cardsGroupBy ? (
-                          (() => {
-                            const groups: Record<string, any[]> = {};
-                            pagedCards.forEach(c => { const k = c.issuer || 'Other'; if (!groups[k]) groups[k] = []; groups[k].push(c); });
-                            return Object.entries(groups).sort(([a],[b]) => a.localeCompare(b)).map(([issuer, cards]) => {
-                              const isCollapsed = cardsCollapsed.has(issuer);
-                              const toggle = () => setCardsCollapsed(prev => { const next = new Set(prev); next.has(issuer) ? next.delete(issuer) : next.add(issuer); return next; });
-                              return (
-                                <React.Fragment key={`g-${issuer}`}>
-                                  <tr onClick={toggle} className="bg-surface border-b border-hair cursor-pointer hover:bg-hair2 transition-colors duration-150 select-none">
-                                    <td colSpan={colCount} className="py-2.5 px-4">
-                                      <div className="flex items-center gap-2">
-                                        <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                        <span className="text-xs font-semibold text-subtle uppercase tracking-wider">{issuer}</span>
-                                        <span className="text-xs font-normal text-faint ml-0.5">({cards.length})</span>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                  {!isCollapsed && cards.map(card => <CardRow key={card.id} card={card} />)}
-                                </React.Fragment>
-                              );
-                            });
-                          })()
-                        ) : (
-                          pagedCards.map(card => <CardRow key={card.id} card={card} />)
-                        )}
-                      </tbody>
-                    </table>
+
+              if (displayCards.length === 0) {
+                return (
+                  <div className="py-14 text-center">
+                    <div className="text-base font-bold text-ink mb-1">No cards found</div>
+                    <div className="text-[13.5px] text-faint">{links.length === 0 ? 'No cards loaded yet — try refreshing.' : 'Try a different category or search.'}</div>
                   </div>
-                  {!cardsGroupBy && cardsVisible < displayCards.length && (
-                    <div className="pt-4 text-center">
-                      <button
-                        onClick={() => setCardsVisible(n => n + PAGE_SIZE)}
-                        className="px-4 py-2 text-xs font-medium text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors"
-                      >
+                );
+              }
+
+              if (cardsGroupBy) {
+                const groups: Record<string, any[]> = {};
+                displayCards.forEach(c => { const k = c.issuer || 'Other'; (groups[k] = groups[k] || []).push(c); });
+                const sub = (items: any[]) => items.reduce((s, c) => s + (c.earned || 0), 0);
+                const order = Object.keys(groups).sort((a, b) => sub(groups[b]) - sub(groups[a]));
+                return (
+                  <div>
+                    {order.map(issuer => {
+                      const items = groups[issuer];
+                      const open = !cardsCollapsed.has(issuer);
+                      const toggle = () => setCardsCollapsed(prev => { const next = new Set(prev); next.has(issuer) ? next.delete(issuer) : next.add(issuer); return next; });
+                      return (
+                        <React.Fragment key={`g-${issuer}`}>
+                          <div onClick={toggle} className="flex items-center gap-[11px] pt-5 pb-3 border-t border-hair2 cursor-pointer hover:opacity-70 transition-opacity select-none">
+                            <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${open ? 'rotate-90' : ''}`} strokeWidth={2.6} />
+                            <span className="text-[15px] font-bold text-ink tracking-[-0.01em]">{issuer}</span>
+                            <span className="text-[13px] font-semibold text-faint2 tabular-nums">{items.length}</span>
+                            <span className="ml-auto text-[15px] font-bold text-brand tracking-[-0.02em] tabular-nums">${Math.round(sub(items)).toLocaleString()}</span>
+                          </div>
+                          {open && items.map(card => <CardRow key={card.id} card={card} indent />)}
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                );
+              }
+
+              const pagedCards = displayCards.slice(0, cardsVisible);
+              return (
+                <div>
+                  {pagedCards.map(card => <CardRow key={card.id} card={card} />)}
+                  {cardsVisible < displayCards.length && (
+                    <div className="pt-5 text-center">
+                      <button onClick={() => setCardsVisible(n => n + PAGE_SIZE)}
+                        className="px-4 py-2 text-[13px] font-semibold text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors cursor-pointer">
                         Show {Math.min(PAGE_SIZE, displayCards.length - cardsVisible)} more
                         <span className="text-faint ml-1">({displayCards.length - cardsVisible} remaining)</span>
                       </button>
                     </div>
                   )}
-                </>
+                </div>
               );
             })()}
-          </div>
           </div>
           </Tabs.Content>
 

@@ -429,11 +429,21 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [insightsOpen, setInsightsOpen] = useState(true);
   const [scrolled, setScrolled] = useState(false);
 
-  // Sticky tab bar shrinks its labels to icons once scrolled (mock behavior)
+  // Sticky tab bar shrinks its labels to icons once scrolled (mock behavior).
+  // Hysteresis (collapse >72, expand <24) + rAF throttle avoids flicker near
+  // a single threshold when layout height shifts nudge scrollY.
   useEffect(() => {
-    const onScroll = () => setScrolled((window.scrollY || 0) > 40);
+    let ticking = false;
+    const update = () => {
+      ticking = false;
+      const y = window.scrollY || 0;
+      setScrolled(prev => (prev ? y > 24 : y > 72));
+    };
+    const onScroll = () => {
+      if (!ticking) { ticking = true; requestAnimationFrame(update); }
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
+    update();
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
@@ -1247,7 +1257,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-md sticky top-0 z-10 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-[60px]">
+          <div className="flex items-center h-[60px]">
             <div className="flex items-center gap-2.5">
               <div className="flex items-center">
                 <svg width="24" height="22" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1296,7 +1306,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 </Tabs.Trigger>
               ))}
             </Tabs.List>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-auto">
               {/* Actions dropdown */}
               {(() => {
                 const anyBusy = syncing || syncingTracking || importingCPA;
@@ -1394,10 +1404,16 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               clicks: u.stats?.totalClicks || 0,
               approvals: u.stats?.totalConversions || 0,
             }));
-          const CHART_COLORS = ['#0a84ff','#3d9dff','#6bb4ff','#93c9ff','#b9dbff','#d4e9ff','#e6f2ff','#f0f7ff'];
           const isEmptyPeriod = hasTracking && totalStats.clicks === 0 && totalStats.commissions === 0;
-          const showCharts   = visiblePanels.has('charts')   && chartData.length > 0;
-          const showTopCards = visiblePanels.has('topCards') && mostApprovedCards.length > 0;
+          // Top affiliates by earnings (for the Insights bar-list, design file)
+          const topAffiliates = [...(users as any[])]
+            .filter(u => (u.stats?.totalCommissions || 0) > 0)
+            .sort((a, b) => (b.stats?.totalCommissions || 0) - (a.stats?.totalCommissions || 0))
+            .slice(0, 6)
+            .map(u => ({ name: u.name || u.email || 'Unknown', earned: Math.round(u.stats?.totalCommissions || 0) }));
+          const maxAffEarn = Math.max(1, ...topAffiliates.map(a => a.earned));
+          const showAffiliates = topAffiliates.length > 0;
+          const showTopCards = mostApprovedCards.length > 0;
 
           const fmtInt = (n: number) => Math.round(n).toLocaleString();
           const fmtUsd = (n: number) => `$${Math.round(n).toLocaleString()}`;
@@ -1496,8 +1512,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 ))}
               </div>
 
-              {/* ── Insights: tabbed charts / top cards ── */}
-              {(showCharts || showTopCards) && (
+              {/* ── Insights: top affiliates by earnings + top approved cards (design file) ── */}
+              {(showAffiliates || showTopCards) && (
                 <div data-anim className="pb-7 mb-2 border-b border-hair">
                   <div className="flex items-center justify-between gap-3 mb-4">
                     <button onClick={() => setInsightsOpen(o => !o)} title={insightsOpen ? 'Minimize insights' : 'Show insights'}
@@ -1505,110 +1521,45 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${insightsOpen ? 'rotate-90' : ''}`} strokeWidth={2.6} />
                       <span className="text-[15px] font-bold text-ink group-hover:opacity-70 transition-opacity">Insights</span>
                     </button>
-                    {!insightsOpen && <span className="text-[12.5px] text-faint font-medium">Trends &amp; top cards hidden</span>}
+                    {!insightsOpen && <span className="text-[12.5px] text-faint font-medium">Top affiliates &amp; cards hidden</span>}
                   </div>
-                  {insightsOpen && (<>
-                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                    <div className="flex items-center gap-1 bg-surface rounded-lg p-1 text-xs font-medium">
-                      {showCharts && (
-                        <button onClick={() => setInsightsTab('charts')}
-                          className={`px-3 py-1.5 rounded-md transition-all duration-150 cursor-pointer ${
-                            insightsTab === 'charts' || !showTopCards
-                              ? 'bg-white text-ink shadow-sm ring-1 ring-ink/5'
-                              : 'text-faint hover:text-subtle'
-                          }`}>
-                          Top Affiliates
-                        </button>
-                      )}
-                      {showTopCards && (
-                        <button onClick={() => setInsightsTab('topCards')}
-                          className={`px-3 py-1.5 rounded-md transition-all duration-150 cursor-pointer flex items-center gap-1.5 ${
-                            insightsTab === 'topCards' || !showCharts
-                              ? 'bg-white text-ink shadow-sm ring-1 ring-ink/5'
-                              : 'text-faint hover:text-subtle'
-                          }`}>
-                          <Award className="w-3.5 h-3.5 text-emerald-500" /> Top Cards
-                        </button>
-                      )}
-                    </div>
-                    {(insightsTab === 'charts' || !showTopCards) && showCharts && (
-                      <div className="flex items-center gap-3 text-[11px] text-faint font-medium">
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#b9dbff]" />Clicks</span>
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#0a84ff]" />Approvals</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {showCharts && (insightsTab === 'charts' || !showTopCards) && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 h-48 sm:h-56">
-                      <div className="h-full flex flex-col overflow-hidden">
-                        <div className="text-[11px] font-semibold text-faint uppercase tracking-wider mb-1 flex-none">Earnings (all-time)</div>
-                        <div className="flex-1 min-h-0">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={chartData} margin={{ top:4, right:8, left:0, bottom:0 }}>
-                              <XAxis dataKey="name" tick={{ fontSize:10, fill:'#9499a0' }} axisLine={false} tickLine={false} />
-                              <YAxis tick={{ fontSize:10, fill:'#9499a0' }} axisLine={false} tickLine={false}
-                                tickFormatter={v => v >= 1000 ? `$${(v/1000).toFixed(0)}k` : `$${v}`} width={36} />
-                              <Tooltip formatter={(val: any) => [`$${Number(val).toLocaleString()}`, 'Earnings']}
-                                contentStyle={{ fontSize:12, borderRadius:8, border:'1px solid #e2e8f0' }} />
-                              <Bar dataKey="earnings" radius={[3,3,0,0]}>
-                                {chartData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                              </Bar>
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                      <div className="h-full flex flex-col overflow-hidden">
-                        <div className="text-[11px] font-semibold text-faint uppercase tracking-wider mb-1 flex-none">Clicks vs Approvals</div>
-                        <div className="flex-1 min-h-0">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={chartData} margin={{ top:4, right:8, left:0, bottom:0 }}>
-                              <XAxis dataKey="name" tick={{ fontSize:10, fill:'#9499a0' }} axisLine={false} tickLine={false} />
-                              <YAxis tick={{ fontSize:10, fill:'#9499a0' }} axisLine={false} tickLine={false} width={32} />
-                              <Tooltip contentStyle={{ fontSize:12, borderRadius:8, border:'1px solid #e2e8f0' }} />
-                              <Bar dataKey="clicks" name="Clicks" fill="#b9dbff" radius={[2,2,0,0]} />
-                              <Bar dataKey="approvals" name="Approvals" fill="#0a84ff" radius={[2,2,0,0]} />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {showTopCards && (insightsTab === 'topCards' || !showCharts) && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-1">
-                      {mostApprovedCards.map((c, idx) => (
-                        <div key={c.name} className="flex items-center gap-2.5 py-2 px-2 rounded-lg hover:bg-surface transition-colors duration-150 min-w-0">
-                          <span className={`text-xs font-bold flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center ${
-                            idx === 0 ? 'bg-amber-50 text-amber-500' : idx === 1 ? 'bg-hair2 text-faint' : idx === 2 ? 'bg-orange-50 text-orange-500' : 'bg-surface text-faint2'
-                          }`}>{idx+1}</span>
-                          <span className="text-sm text-subtle truncate flex-1 min-w-0 font-medium">{c.name}</span>
-                          <span className="text-xs text-faint flex-shrink-0 font-semibold tabular-nums">{c.approvals}×</span>
+                  {insightsOpen && (
+                  <div className={`grid gap-0 ${showAffiliates && showTopCards ? 'lg:grid-cols-[1.7fr_1fr]' : 'grid-cols-1'}`}>
+                    {/* Top affiliates by earnings */}
+                    {showAffiliates && (
+                    <div className={showTopCards ? 'lg:pr-9' : ''}>
+                      <h3 className="text-[15px] font-bold text-ink mb-4">Top affiliates by earnings</h3>
+                      {topAffiliates.map(a => (
+                        <div key={a.name} className="mb-3.5">
+                          <div className="flex items-baseline justify-between mb-1.5">
+                            <span className="text-[13.5px] font-semibold text-ink truncate pr-3">{a.name}</span>
+                            <span className="text-[13px] font-bold text-ink tabular-nums flex-shrink-0">${a.earned.toLocaleString()}</span>
+                          </div>
+                          <div className="h-[7px] rounded-md bg-hair2 overflow-hidden">
+                            <div className="h-full rounded-md bg-brand" style={{ width: `${Math.max(3, (a.earned / maxAffEarn) * 100)}%` }} />
+                          </div>
                         </div>
                       ))}
                     </div>
+                    )}
+                    {/* Top approved cards */}
+                    {showTopCards && (
+                    <div className={showAffiliates ? 'lg:pl-9 lg:border-l lg:border-hair mt-7 lg:mt-0' : ''}>
+                      <h3 className="text-[15px] font-bold text-ink mb-0.5">Top approved cards</h3>
+                      <p className="text-[12.5px] text-faint mb-3.5">Across all affiliates</p>
+                      {mostApprovedCards.map((c, idx) => (
+                        <div key={c.name} className="flex items-center gap-3.5 py-2.5 border-b border-hair2">
+                          <span className="text-[13px] font-bold text-faint2 w-3.5 flex-shrink-0 tabular-nums">{idx + 1}</span>
+                          <span className="text-[13.5px] font-semibold text-ink truncate flex-1 min-w-0">{c.name}</span>
+                          <span className="text-sm font-bold text-ink flex-shrink-0 tabular-nums">{c.approvals}</span>
+                        </div>
+                      ))}
+                    </div>
+                    )}
+                  </div>
                   )}
-                  </>)}
                 </div>
               )}
-
-              {/* ── Visibility toggles for the insights panel ── */}
-              <div className="flex items-center gap-1.5 mt-3">
-                <span className="text-[11px] font-semibold text-faint mr-0.5 uppercase tracking-wider">Show:</span>
-                {(['charts', 'topCards'] as const).map(key => {
-                  const labels = { charts: 'Top Affiliates', topCards: 'Top Cards' };
-                  return (
-                    <button key={key} onClick={() => togglePanel(key)}
-                      className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-150 border cursor-pointer ${
-                        visiblePanels.has(key)
-                          ? 'bg-brand text-white border-brand shadow-sm'
-                          : 'bg-white text-faint border-hair hover:border-brand hover:text-brand'
-                      }`}>
-                      {labels[key]}
-                    </button>
-                  );
-                })}
-              </div>
             </div>
           );
         })()}
