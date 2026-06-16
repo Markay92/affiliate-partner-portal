@@ -704,8 +704,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     if (pct === 0) return <span className="text-faint text-[13px] font-medium">No change</span>;
     const up = pct > 0;
     return (
-      <span className={`inline-flex items-center gap-1 ${up ? 'text-emerald-600' : 'text-neg'}`}>
-        <TrendingUp className={`w-3 h-3 ${!up ? 'rotate-180' : ''}`} strokeWidth={3} />
+      <span className={`inline-flex items-center gap-0.5 ${up ? 'text-brand' : 'text-neg'}`}>
+        <ChevronUp className={`w-3.5 h-3.5 -ml-0.5 ${!up ? 'rotate-180' : ''}`} strokeWidth={2.5} />
         <span className="text-[13.5px] font-semibold tabular-nums">{up ? '+' : ''}{pct}%</span>
       </span>
     );

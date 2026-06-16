@@ -383,6 +383,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   });
   const [insightsTab, setInsightsTab] = useState<'charts' | 'topCards'>('charts');
   const [insightsOpen, setInsightsOpen] = useState(true);
+  const [chartMetric, setChartMetric] = useState<'approvals' | 'clicks' | 'earnings'>('approvals');
   const [scrolled, setScrolled] = useState(false);
 
   // Sticky chrome shrinks once the page is scrolled (mock behavior)
@@ -691,10 +692,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     if (pct === null) return <span className="text-faint2 text-[13px] font-medium">—</span>;
     if (pct === 0) return <span className="text-faint text-[13px] font-medium">No change</span>;
     const up = pct > 0;
-    const color = up ? 'text-emerald-600' : 'text-neg';
+    const color = up ? 'text-brand' : 'text-neg';
     return (
-      <span className={`inline-flex items-center gap-1 ${color}`}>
-        <TrendingUp className={`w-3 h-3 ${!up ? 'rotate-180' : ''}`} strokeWidth={3} />
+      <span className={`inline-flex items-center gap-0.5 ${color}`}>
+        <ChevronUp className={`w-3.5 h-3.5 -ml-0.5 ${!up ? 'rotate-180' : ''}`} strokeWidth={2.5} />
         <span className="text-[13.5px] font-semibold tabular-nums">{up ? '+' : ''}{pct}%</span>
       </span>
     );
@@ -890,16 +891,17 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         {/* ── Compact summary bar — all panels in one card, max 30vh ── */}
         {(() => {
           // Build monthly data for charts (all-time, not period-filtered)
-          const monthMap: Record<string, { month: string; clicks: number; approvals: number; applications: number }> = {};
+          const monthMap: Record<string, { month: string; clicks: number; approvals: number; applications: number; earnings: number }> = {};
           tracking.forEach(t => {
             if (!t.clickDate) return;
             const d = parseLocalDate(t.clickDate);
             if (isNaN(d.getTime())) return;
             const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-            if (!monthMap[key]) monthMap[key] = { month: d.toLocaleDateString('en-US', { month:'short', year:'2-digit' }), clicks: 0, approvals: 0, applications: 0 };
+            if (!monthMap[key]) monthMap[key] = { month: d.toLocaleDateString('en-US', { month:'short', year:'2-digit' }), clicks: 0, approvals: 0, applications: 0, earnings: 0 };
             monthMap[key].clicks      += t.clicks       || 0;
             monthMap[key].approvals   += t.approvals    || 0;
             monthMap[key].applications+= t.applications || 0;
+            monthMap[key].earnings    += t.totalEarnings|| 0;
           });
           const monthlyData = Object.entries(monthMap).sort(([a],[b]) => a.localeCompare(b)).map(([,v]) => v);
 
@@ -931,8 +933,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               {/* ── Period header ── */}
               <div data-anim className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div>
-                  <h2 className="text-base sm:text-lg font-bold text-ink tracking-tight">Performance Overview</h2>
-                  <p className="text-xs sm:text-sm text-faint">{STAT_PERIOD_LABELS[statPeriod]}</p>
+                  <h2 className="text-lg font-bold text-ink tracking-[-0.02em]">Performance</h2>
+                  <p className="text-[13px] text-faint">Showing {STAT_PERIOD_LABELS[statPeriod].toLowerCase()}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Mobile: dropdown */}
@@ -956,10 +958,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   <div className="hidden sm:flex items-center gap-5 overflow-x-auto">
                     {([
                       { value: 'today',  label: 'Today' },
-                      { value: 'week',   label: 'This Week' },
-                      { value: 'month',  label: 'This Month' },
-                      { value: 'lm',     label: 'Last Month' },
-                      { value: 'year',   label: 'This Year' },
+                      { value: 'week',   label: 'Week' },
+                      { value: 'month',  label: 'Month' },
+                      { value: 'lm',     label: 'Last month' },
+                      { value: 'year',   label: 'Year' },
                       { value: 'custom', label: 'Custom' },
                     ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
                       <button key={value} onClick={() => setStatPeriod(value)}
@@ -1014,75 +1016,57 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </button>
                     {!insightsOpen && <span className="text-[12.5px] text-faint font-medium">Trends &amp; top cards hidden</span>}
                   </div>
-                  {insightsOpen && (<>
-                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                    <div className="flex items-center gap-1 bg-surface rounded-lg p-1 text-xs font-medium">
-                      {showCharts && (
-                        <button onClick={() => setInsightsTab('charts')}
-                          className={`px-3 py-1.5 rounded-md transition-all duration-150 cursor-pointer ${
-                            insightsTab === 'charts' || !showTopCards
-                              ? 'bg-white text-ink shadow-sm ring-1 ring-ink/5'
-                              : 'text-faint hover:text-subtle'
-                          }`}>
-                          Monthly Performance
-                        </button>
-                      )}
-                      {showTopCards && (
-                        <button onClick={() => setInsightsTab('topCards')}
-                          className={`px-3 py-1.5 rounded-md transition-all duration-150 cursor-pointer flex items-center gap-1.5 ${
-                            insightsTab === 'topCards' || !showCharts
-                              ? 'bg-white text-ink shadow-sm ring-1 ring-ink/5'
-                              : 'text-faint hover:text-subtle'
-                          }`}>
-                          <Award className="w-3.5 h-3.5 text-emerald-500" /> Top Cards
-                        </button>
-                      )}
-                    </div>
-                    {(insightsTab === 'charts' || !showTopCards) && showCharts && (
-                      <div className="flex items-center gap-3 text-[11px] text-faint font-medium">
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#cfe4ff]" />Clicks</span>
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#93c9ff]" />Applications</span>
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#0a84ff]" />Approvals</span>
+                  {insightsOpen && (
+                  <div className={`mt-1 grid gap-0 ${showCharts && showTopCards ? 'lg:grid-cols-[1.7fr_1fr]' : 'grid-cols-1'}`}>
+                    {/* Chart */}
+                    {showCharts && (
+                    <div className={showTopCards ? 'lg:pr-9' : ''}>
+                      <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+                        <h3 className="text-[15px] font-bold text-ink capitalize">Monthly {chartMetric}</h3>
+                        <div className="flex items-center gap-4">
+                          {([['approvals','Approvals'],['clicks','Clicks'],['earnings','Earnings']] as const).map(([key,label]) => (
+                            <button key={key} onClick={() => setChartMetric(key)}
+                              className={`text-[13px] cursor-pointer transition-colors ${chartMetric===key ? 'text-brand font-bold' : 'text-faint font-medium hover:text-subtle'}`}>
+                              {label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    )}
-                  </div>
-
-                  {showCharts && (insightsTab === 'charts' || !showTopCards) && (
-                    <div className="h-48 sm:h-56">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={monthlyData} margin={{ top:4, right:10, left:0, bottom:0 }}>
-                          <defs>
-                            <linearGradient id="dsApprovalsArea" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#0a84ff" stopOpacity={0.16} />
-                              <stop offset="100%" stopColor="#0a84ff" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#ededed" vertical={false} />
-                          <XAxis dataKey="month" tick={{ fontSize:11, fill:'#9499a0' }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fontSize:11, fill:'#9499a0' }} axisLine={false} tickLine={false} width={32} />
-                          <Tooltip contentStyle={{ fontSize:12, borderRadius:10, border:'1px solid #ededed', boxShadow:'0 6px 20px -8px rgba(0,0,0,.18)' }} />
-                          <Line dataKey="clicks"       name="Clicks"       stroke="#cfe4ff" strokeWidth={2} dot={false} animationDuration={900} />
-                          <Line dataKey="applications" name="Applications" stroke="#93c9ff" strokeWidth={2} dot={false} animationDuration={900} />
-                          <Area dataKey="approvals"    name="Approvals"    stroke="#0a84ff" strokeWidth={2.6} strokeLinecap="round" fill="url(#dsApprovalsArea)" dot={renderEndDot} activeDot={{ r:4, strokeWidth:0 }} animationDuration={1000} animationEasing="ease-out" />
-                        </ComposedChart>
-                      </ResponsiveContainer>
+                      <div className="h-48 sm:h-56">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={monthlyData} margin={{ top:4, right:10, left:0, bottom:0 }}>
+                            <defs>
+                              <linearGradient id="dsApprovalsArea" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#0a84ff" stopOpacity={0.16} />
+                                <stop offset="100%" stopColor="#0a84ff" stopOpacity={0} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#ededed" vertical={false} />
+                            <XAxis dataKey="month" tick={{ fontSize:11, fill:'#9499a0' }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fontSize:11, fill:'#9499a0' }} axisLine={false} tickLine={false} width={32} />
+                            <Tooltip contentStyle={{ fontSize:12, borderRadius:10, border:'1px solid #ededed', boxShadow:'0 6px 20px -8px rgba(0,0,0,.18)' }} />
+                            <Area dataKey={chartMetric} stroke="#0a84ff" strokeWidth={2.6} strokeLinecap="round" fill="url(#dsApprovalsArea)" dot={renderEndDot} activeDot={{ r:4, strokeWidth:0 }} animationDuration={900} animationEasing="ease-out" />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      </div>
                     </div>
-                  )}
-
-                  {showTopCards && (insightsTab === 'topCards' || !showCharts) && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-1">
+                    )}
+                    {/* Top approved cards */}
+                    {showTopCards && (
+                    <div className={showCharts ? 'lg:pl-9 lg:border-l lg:border-hair mt-7 lg:mt-0' : ''}>
+                      <h3 className="text-[15px] font-bold text-ink mb-0.5">Top approved cards</h3>
+                      <p className="text-[12.5px] text-faint mb-3.5">Ranked by approvals</p>
                       {mostApprovedCards.map((c, idx) => (
-                        <div key={c.name} className="flex items-center gap-2.5 py-2 px-2 rounded-lg hover:bg-surface transition-colors duration-150 min-w-0">
-                          <span className={`text-xs font-bold flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center ${
-                            idx === 0 ? 'bg-amber-50 text-amber-500' : idx === 1 ? 'bg-hair2 text-faint' : idx === 2 ? 'bg-orange-50 text-orange-500' : 'bg-surface text-faint2'
-                          }`}>{idx+1}</span>
-                          <span className="text-sm text-subtle truncate flex-1 min-w-0 font-medium">{decodeHtml(c.name)}</span>
-                          <span className="text-xs text-faint flex-shrink-0 font-semibold tabular-nums">{c.approvals}×</span>
+                        <div key={c.name} className="flex items-center gap-3.5 py-2.5 border-b border-hair2">
+                          <span className="text-[13px] font-bold text-faint2 w-3.5 flex-shrink-0 tabular-nums">{idx+1}</span>
+                          <span className="text-[13.5px] font-semibold text-ink truncate flex-1 min-w-0">{decodeHtml(c.name)}</span>
+                          <span className="text-sm font-bold text-ink flex-shrink-0 tabular-nums">{c.approvals}</span>
                         </div>
                       ))}
                     </div>
+                    )}
+                  </div>
                   )}
-                  </>)}
                 </div>
               )}
 
