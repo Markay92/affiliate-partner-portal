@@ -234,6 +234,10 @@
   }
 }
 
+/* Horizontal chip rows — hide the scrollbar (design file) */
+.ds-chips { scrollbar-width: none; }
+.ds-chips::-webkit-scrollbar { height: 0; display: none; }
+
 /* Skeleton shimmer for loading states (from the design file) */
 @keyframes ds-shimmer {
   0%   { background-position: 200% 0; }
