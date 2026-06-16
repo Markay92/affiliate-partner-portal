@@ -95,9 +95,9 @@ export function ResetPassword() {
 
   if (checkingToken) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-soft to-brand-soft px-4">
         <div className="text-center">
-          <p className="text-gray-600">Verifying reset link...</p>
+          <p className="text-subtle">Verifying reset link...</p>
         </div>
       </div>
     );
@@ -105,7 +105,7 @@ export function ResetPassword() {
 
   if (!validToken) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-soft to-brand-soft px-4">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-2xl shadow-xl p-8">
             <div className="flex justify-center mb-6">
@@ -115,13 +115,13 @@ export function ResetPassword() {
             </div>
 
             <h1 className="text-center mb-2">Invalid Reset Link</h1>
-            <p className="text-center text-gray-600 mb-6">
+            <p className="text-center text-subtle mb-6">
               {error || 'This password reset link is invalid or has expired.'}
             </p>
 
             <button
               onClick={() => navigate('/')}
-              className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition-colors"
+              className="w-full bg-brand text-white py-3 rounded-lg hover:bg-brand-dark transition-colors"
             >
               Back to Login
             </button>
@@ -132,17 +132,17 @@ export function ResetPassword() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-soft to-brand-soft px-4">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="flex justify-center mb-6">
-            <div className="bg-indigo-600 p-3 rounded-full">
+            <div className="bg-brand p-3 rounded-full">
               <CreditCard className="w-8 h-8 text-white" />
             </div>
           </div>
 
           <h1 className="text-center mb-2">Set New Password</h1>
-          <p className="text-center text-gray-600 mb-8">
+          <p className="text-center text-subtle mb-8">
             Enter your new password below
           </p>
 
@@ -160,7 +160,7 @@ export function ResetPassword() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="newPassword" className="block mb-2 text-gray-700">
+              <label htmlFor="newPassword" className="block mb-2 text-subtle">
                 New Password
               </label>
               <div className="relative">
@@ -169,7 +169,7 @@ export function ResetPassword() {
                   type={showNewPassword ? 'text' : 'password'}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent pr-12"
+                  className="w-full px-4 py-3 rounded-lg border border-faint2 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent pr-12"
                   placeholder="Enter new password"
                   required
                   disabled={loading || !!success}
@@ -177,7 +177,7 @@ export function ResetPassword() {
                 <button
                   type="button"
                   onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-faint hover:text-subtle"
                   disabled={loading || !!success}
                 >
                   {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -186,7 +186,7 @@ export function ResetPassword() {
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block mb-2 text-gray-700">
+              <label htmlFor="confirmPassword" className="block mb-2 text-subtle">
                 Confirm Password
               </label>
               <div className="relative">
@@ -195,7 +195,7 @@ export function ResetPassword() {
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent pr-12"
+                  className="w-full px-4 py-3 rounded-lg border border-faint2 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent pr-12"
                   placeholder="Confirm new password"
                   required
                   disabled={loading || !!success}
@@ -203,7 +203,7 @@ export function ResetPassword() {
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-faint hover:text-subtle"
                   disabled={loading || !!success}
                 >
                   {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -214,7 +214,7 @@ export function ResetPassword() {
             <button
               type="submit"
               disabled={loading || !!success}
-              className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+              className="w-full bg-brand text-white py-3 rounded-lg hover:bg-brand-dark transition-colors disabled:opacity-50"
             >
               {loading ? 'Updating...' : success ? 'Redirecting...' : 'Update Password'}
             </button>
@@ -223,7 +223,7 @@ export function ResetPassword() {
           <div className="mt-6 text-center">
             <button
               onClick={() => navigate('/')}
-              className="text-indigo-600 hover:text-indigo-700"
+              className="text-brand hover:text-brand-dark"
               disabled={loading}
             >
               Back to login

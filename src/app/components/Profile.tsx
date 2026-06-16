@@ -126,13 +126,13 @@ export function Profile({ accessToken }: ProfileProps) {
     }
   };
 
-  const inputCls = "w-full px-3.5 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 text-sm text-slate-900 bg-white";
-  const labelCls = "block text-sm font-medium text-slate-700 mb-1.5";
+  const inputCls = "w-full px-3.5 py-2.5 rounded-lg border border-hair focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-sm text-ink bg-white";
+  const labelCls = "block text-sm font-medium text-subtle mb-1.5";
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <p className="text-slate-500 text-sm">Loading profile…</p>
+        <p className="text-faint text-sm">Loading profile…</p>
       </div>
     );
   }
@@ -142,7 +142,7 @@ export function Profile({ accessToken }: ProfileProps) {
       <div className="flex items-center justify-center py-16">
         <div className="text-center">
           <p className="text-red-600 text-sm mb-1">Failed to load profile data</p>
-          <p className="text-slate-500 text-xs">Check the browser console for details</p>
+          <p className="text-faint text-xs">Check the browser console for details</p>
         </div>
       </div>
     );
@@ -152,10 +152,10 @@ export function Profile({ accessToken }: ProfileProps) {
     <div className="p-6">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-indigo-50 rounded-xl">
-            <User className="w-5 h-5 text-indigo-600" />
+          <div className="p-2 bg-brand-soft rounded-xl">
+            <User className="w-5 h-5 text-brand" />
           </div>
-          <h2 className="text-lg font-semibold text-slate-900">Affiliate Profile</h2>
+          <h2 className="text-lg font-semibold text-ink">Affiliate Profile</h2>
         </div>
 
         {successMessage && (
@@ -165,28 +165,28 @@ export function Profile({ accessToken }: ProfileProps) {
         )}
 
         {/* Affiliate ID */}
-        <div className="bg-gradient-to-r from-indigo-50 to-violet-50 rounded-2xl p-6 mb-5 ring-1 ring-indigo-200/60">
-          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Your Affiliate ID</label>
+        <div className="bg-gradient-to-r from-brand-soft to-brand-soft rounded-2xl p-6 mb-5 ring-1 ring-brand/30">
+          <label className="block text-xs font-semibold text-faint uppercase tracking-wider mb-2">Your Affiliate ID</label>
           <div className="flex items-center gap-3">
-            <code className="flex-1 text-2xl font-bold text-indigo-900 tracking-tight">
+            <code className="flex-1 text-2xl font-bold text-ink tracking-tight">
               {userData?.affiliateId || 'N/A'}
             </code>
             <button
               onClick={copyAffiliateId}
-              className="p-2.5 bg-white hover:bg-slate-50 rounded-xl transition-colors ring-1 ring-indigo-200"
+              className="p-2.5 bg-white hover:bg-surface rounded-xl transition-colors ring-1 ring-brand/30"
               title="Copy Affiliate ID"
             >
               {copiedId
                 ? <CheckCircle className="w-5 h-5 text-emerald-600" />
-                : <Copy className="w-5 h-5 text-indigo-600" />}
+                : <Copy className="w-5 h-5 text-brand" />}
             </button>
           </div>
-          <p className="text-xs text-slate-500 mt-2">This ID is embedded in all your tracking links</p>
+          <p className="text-xs text-faint mt-2">This ID is embedded in all your tracking links</p>
         </div>
 
         {/* Contact Form */}
-        <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-6">
-          <h3 className="text-base font-semibold text-slate-900 mb-5">Contact Information</h3>
+        <div className="bg-white rounded-2xl ring-1 ring-ink/5 shadow-sm p-6">
+          <h3 className="text-base font-semibold text-ink mb-5">Contact Information</h3>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
@@ -198,7 +198,7 @@ export function Profile({ accessToken }: ProfileProps) {
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className={inputCls}
               />
-              <p className="text-xs text-slate-400 mt-1.5">Changing your email updates your login credentials</p>
+              <p className="text-xs text-faint mt-1.5">Changing your email updates your login credentials</p>
             </div>
 
             {/* First Name + Last Name */}
@@ -296,7 +296,7 @@ export function Profile({ accessToken }: ProfileProps) {
               <button
                 type="submit"
                 disabled={saving}
-                className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm font-medium"
+                className="flex items-center gap-2 px-5 py-2.5 bg-brand text-white rounded-lg hover:bg-brand-dark transition-colors disabled:opacity-50 text-sm font-medium"
               >
                 <Save className="w-4 h-4" />
                 {saving ? 'Saving…' : 'Save Changes'}
@@ -306,18 +306,18 @@ export function Profile({ accessToken }: ProfileProps) {
         </div>
 
         {/* Account Details */}
-        <div className="mt-5 bg-slate-50 rounded-2xl p-5 ring-1 ring-slate-200/60">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">Account Details</h3>
+        <div className="mt-5 bg-surface rounded-2xl p-5 ring-1 ring-hair/60">
+          <h3 className="text-sm font-semibold text-subtle mb-3">Account Details</h3>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-slate-500">Member Since:</span>
-              <span className="font-medium text-slate-900">
+              <span className="text-faint">Member Since:</span>
+              <span className="font-medium text-ink">
                 {userData?.createdAt ? new Date(userData.createdAt).toLocaleDateString() : 'N/A'}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-500">Last Updated:</span>
-              <span className="font-medium text-slate-900">
+              <span className="text-faint">Last Updated:</span>
+              <span className="font-medium text-ink">
                 {userData?.updatedAt ? new Date(userData.updatedAt).toLocaleDateString() : 'Never'}
               </span>
             </div>

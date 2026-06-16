@@ -39,6 +39,26 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* ── Design system (light/airy fintech) ─────────────────────────────
+     Shared tokens for the new portal look. Threaded through Tailwind via
+     @theme inline below, so utilities like text-ink / bg-brand / border-hair
+     are available app-wide. */
+  --ds-canvas: #ffffff;       /* page background                         */
+  --ds-ink: #1c1c1e;          /* primary text / big numbers              */
+  --ds-subtle: #6b6f76;       /* secondary text                          */
+  --ds-faint: #9499a0;        /* labels, muted captions                  */
+  --ds-faint2: #c0c4cb;       /* faintest text / inactive arrows         */
+  --ds-line: #e2e2e4;         /* input / control borders                 */
+  --ds-hair: #ededed;         /* section hairlines                       */
+  --ds-hair2: #f4f4f5;        /* row hairlines / hover                   */
+  --ds-surface: #fafafa;      /* subtle hover fill                       */
+  --ds-brand: #0a84ff;        /* accent                                  */
+  --ds-brand-dark: #0070e6;   /* accent hover                            */
+  --ds-brand-soft: #eef5ff;   /* accent tint (icon hover, etc.)         */
+  --ds-pos: #1f9d63;          /* positive / payout green                 */
+  --ds-neg: #ff3b30;          /* negative / destructive                  */
+  --ds-warn: #f0a020;         /* processing / pending amber              */
 }
 
 .dark {
@@ -117,6 +137,27 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Design-system palette → Tailwind utilities (text-ink, bg-brand, …) */
+  --color-canvas: var(--ds-canvas);
+  --color-ink: var(--ds-ink);
+  --color-subtle: var(--ds-subtle);
+  --color-faint: var(--ds-faint);
+  --color-faint2: var(--ds-faint2);
+  --color-line: var(--ds-line);
+  --color-hair: var(--ds-hair);
+  --color-hair2: var(--ds-hair2);
+  --color-surface: var(--ds-surface);
+  --color-brand: var(--ds-brand);
+  --color-brand-dark: var(--ds-brand-dark);
+  --color-brand-soft: var(--ds-brand-soft);
+  --color-pos: var(--ds-pos);
+  --color-neg: var(--ds-neg);
+  --color-warn: var(--ds-warn);
+
+  /* Typefaces */
+  --font-sans: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
 }
 
 @layer base {
@@ -126,6 +167,19 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    color: var(--ds-ink);
+  }
+
+  /* Tabular figures for aligned numeric columns / KPIs */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Monospace utility for links / codes in the new design */
+  .font-mono-ds {
+    font-family: var(--font-mono);
   }
 
   /**
@@ -178,4 +232,28 @@
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
   }
+}
+
+/* Entrance animation — subtle rise+fade, staggered via inline animation-delay */
+@keyframes ds-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.ds-rise { animation: ds-rise 0.5s cubic-bezier(0.2, 0.6, 0.2, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .ds-rise { animation: none; }
+}
+
+/* Native <select> — clean custom chevron, hairline, design-system look.
+   Placed outside @layer (after Tailwind) so padding-right beats utility px-*. */
+select {
+  font-family: var(--font-sans);
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239499a0' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 14px;
+  padding-right: 2rem;
 }

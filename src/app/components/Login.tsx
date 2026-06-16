@@ -124,11 +124,11 @@ export function Login({ onLogin }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4">
-      <div className="w-full max-w-sm">
-        <div className="flex justify-center mb-8">
-          <div className="bg-indigo-500 p-3 rounded-2xl shadow-lg shadow-indigo-500/30">
-            <svg width="36" height="34" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <div className="min-h-screen flex items-center justify-center bg-canvas px-6">
+      <div className="w-full max-w-[360px]">
+        <div className="flex items-center gap-2.5 mb-12">
+          <div className="flex items-center justify-center">
+            <svg width="30" height="28" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
               <g clipPath="url(#clip0_login_aff)">
                 <mask id="mask0_login_aff" style={{maskType:'luminance'}} maskUnits="userSpaceOnUse" x="0" y="0" width="38" height="37">
                   <path d="M37.9056 0H0.00134277V36.2562H37.9056V0Z" fill="white"/>
@@ -150,16 +150,19 @@ export function Login({ onLogin }: LoginProps) {
               </defs>
             </svg>
           </div>
+          <span className="font-bold text-[17px] tracking-tight text-ink">Affiliate Portal</span>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-2xl p-8 ring-1 ring-white/10">
-          <h1 className="text-center text-xl font-semibold text-slate-900 mb-1">Affiliate Partner Portal</h1>
-          <p className="text-center text-sm text-slate-500 mb-7">
-            {isForgotPassword ? 'Reset your password' : (isSignup ? 'Create your account' : 'Sign in to your dashboard')}
+        <div>
+          <h1 className="text-[30px] font-bold tracking-[-0.03em] text-ink mb-2">
+            {isForgotPassword ? 'Reset password' : (isSignup ? 'Create account' : 'Sign in')}
+          </h1>
+          <p className="text-[15px] text-subtle leading-relaxed mb-8">
+            {isForgotPassword ? 'Enter your email and we’ll send you a reset link.' : (isSignup ? 'Set up your partner dashboard access.' : 'Welcome back. Sign in to your partner dashboard.')}
           </p>
 
           {error && (
-            <div className={`mb-5 p-3 rounded-xl text-sm ${error.includes('created') || error.includes('successful') ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200/60' : 'bg-red-50 text-red-700 ring-1 ring-red-200/60'}`}>
+            <div className={`mb-5 p-3 rounded-xl text-sm ${error.includes('created') || error.includes('successful') || error.includes('sent') ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200/60' : 'bg-red-50 text-red-700 ring-1 ring-red-200/60'}`}>
               {error}
             </div>
           )}
@@ -167,7 +170,7 @@ export function Login({ onLogin }: LoginProps) {
           {isForgotPassword ? (
             <form onSubmit={handlePasswordReset} className="space-y-5">
               <div>
-                <label htmlFor="resetEmail" className="block text-sm font-medium text-slate-700 mb-1.5">
+                <label htmlFor="resetEmail" className="block text-[13px] font-semibold text-ink mb-1.5">
                   Email Address
                 </label>
                 <input
@@ -175,11 +178,11 @@ export function Login({ onLogin }: LoginProps) {
                   type="email"
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 text-base sm:text-sm"
+                  className="w-full h-12 px-4 rounded-xl border border-line bg-white text-[15px] text-ink outline-none transition focus:border-brand focus:ring-[3px] focus:ring-brand/15"
                   placeholder="you@example.com"
                   required
                 />
-                <p className="text-xs text-slate-500 mt-1.5">
+                <p className="text-xs text-faint mt-1.5">
                   We'll send you a link to reset your password
                 </p>
               </div>
@@ -187,7 +190,7 @@ export function Login({ onLogin }: LoginProps) {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-indigo-600 text-white py-2.5 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm font-medium"
+                className="w-full h-[50px] bg-brand text-white rounded-xl hover:bg-brand-dark transition-colors disabled:opacity-50 text-[15px] font-bold"
               >
                 {loading ? 'Sending…' : 'Send Reset Link'}
               </button>
@@ -200,7 +203,7 @@ export function Login({ onLogin }: LoginProps) {
                     setError('');
                     setResetEmail('');
                   }}
-                  className="text-sm text-indigo-600 hover:text-indigo-700"
+                  className="text-sm font-semibold text-brand hover:text-brand-dark"
                 >
                   Back to sign in
                 </button>
@@ -211,7 +214,7 @@ export function Login({ onLogin }: LoginProps) {
             <form onSubmit={handleSubmit} className="space-y-5">
             {isSignup && (
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1.5">
+                <label htmlFor="name" className="block text-[13px] font-semibold text-ink mb-1.5">
                   Full Name
                 </label>
                 <input
@@ -219,7 +222,7 @@ export function Login({ onLogin }: LoginProps) {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 text-base sm:text-sm"
+                  className="w-full h-12 px-4 rounded-xl border border-line bg-white text-[15px] text-ink outline-none transition focus:border-brand focus:ring-[3px] focus:ring-brand/15"
                   placeholder="John Doe"
                   required
                 />
@@ -227,7 +230,7 @@ export function Login({ onLogin }: LoginProps) {
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1.5">
+              <label htmlFor="email" className="block text-[13px] font-semibold text-ink mb-1.5">
                 Email Address
               </label>
               <input
@@ -235,14 +238,14 @@ export function Login({ onLogin }: LoginProps) {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 text-base sm:text-sm"
+                className="w-full h-12 px-4 rounded-xl border border-line bg-white text-[15px] text-ink outline-none transition focus:border-brand focus:ring-[3px] focus:ring-brand/15"
                 placeholder="partner@example.com"
                 required
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1.5">
+              <label htmlFor="password" className="block text-[13px] font-semibold text-ink mb-1.5">
                 Password
               </label>
               <div className="relative">
@@ -251,14 +254,14 @@ export function Login({ onLogin }: LoginProps) {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 pr-11 text-base sm:text-sm"
+                  className="w-full h-12 pl-4 pr-12 rounded-xl border border-line bg-white text-[15px] text-ink outline-none transition focus:border-brand focus:ring-[3px] focus:ring-brand/15"
                   placeholder="Enter your password"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-faint hover:text-subtle"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -273,7 +276,7 @@ export function Login({ onLogin }: LoginProps) {
                     setIsForgotPassword(true);
                     setError('');
                   }}
-                  className="text-xs text-indigo-600 hover:text-indigo-700"
+                  className="text-xs font-semibold text-brand hover:text-brand-dark"
                 >
                   Forgot password?
                 </button>
@@ -283,7 +286,7 @@ export function Login({ onLogin }: LoginProps) {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-indigo-600 text-white py-2.5 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm font-medium"
+                className="w-full h-[50px] bg-brand text-white rounded-xl hover:bg-brand-dark transition-colors disabled:opacity-50 text-[15px] font-bold"
               >
                 {loading ? 'Please wait…' : (isSignup ? 'Create Account' : 'Sign In')}
               </button>
@@ -296,7 +299,7 @@ export function Login({ onLogin }: LoginProps) {
                   setIsForgotPassword(false);
                   setError('');
                 }}
-                className="text-sm text-indigo-600 hover:text-indigo-700"
+                className="text-sm font-semibold text-brand hover:text-brand-dark"
               >
                 {isSignup ? 'Already have an account? Sign in' : 'Need an account? Sign up'}
               </button>
