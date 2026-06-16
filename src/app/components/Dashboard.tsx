@@ -307,7 +307,7 @@ function SortTh({
     <th
       onClick={() => onSort(field)}
       aria-sort={sort.field === field ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-      className={`py-3 px-4 text-faint text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-hair2/70 hover:text-subtle transition-colors duration-150 text-${align}`}
+      className={`py-3 px-4 text-faint text-xs font-semibold cursor-pointer select-none hover:text-subtle transition-colors duration-150 text-${align}`}
     >
       <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''} ${sort.field === field ? 'text-brand' : ''}`}>
         {label}{icon}
@@ -354,7 +354,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [trackingStatusFilter, setTrackingStatusFilter] = useState('all');
 
   // Cards tab — sort + filters + search + group
-  const [cardsSort,         setCardsSort]         = useState<SortState>({ field: 'name', dir: 'asc' });
+  const [cardsSort,         setCardsSort]         = useState<SortState>({ field: 'earned', dir: 'desc' });
   const [cardsIssuerFilter, setCardsIssuerFilter] = useState('all');
   const [cardsPayoutFilter, setCardsPayoutFilter] = useState('all');
   const [cardsTypeFilter,   setCardsTypeFilter]   = useState('all');
@@ -476,6 +476,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       rateDate: cpa?.date   ?? '',
       clicks:       link.clicks,
       conversions:  link.conversions,
+      conv:     link.clicks > 0 ? (link.conversions / link.clicks) * 100 : 0,
+      earned:   (cpa?.amount ?? 0) * link.conversions,
       url:      link.url,
       cardId:   cpa?.cardId   ?? '',
       cardType: cpa?.cardType ?? '',
@@ -1164,76 +1166,69 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <p className="text-sm text-faint font-medium">{links.length === 0 ? 'No cards loaded yet — try refreshing.' : 'No cards match the filters.'}</p>
               </div>
             ) : (() => {
-              const CardRow = ({ card }: { card: any }) => (
-                <tr key={card.id} className="border-b border-surface hover:bg-brand-soft/40 transition-colors duration-150">
-                  <td className="py-3.5 px-4 font-medium text-sm text-ink">
-                    <div className="flex items-center gap-2.5">
-                      {card.imageUrl ? (
-                        <img
-                          src={card.imageUrl}
-                          alt={card.name}
-                          className="w-10 h-6 object-contain rounded shrink-0"
-                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                        />
-                      ) : (
-                        <div className="w-10 h-6 bg-hair2 rounded shrink-0" />
-                      )}
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="truncate">{card.name}</span>
-                        {card.cardType && (
-                          <span className={`inline-flex shrink-0 items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                            /business/i.test(card.cardType)
-                              ? 'bg-brand-soft text-brand-dark'
-                              : 'bg-sky-100 text-sky-700'
-                          }`}>{card.cardType}</span>
-                        )}
-                      </div>
-                    </div>
+              const CardRow = ({ card }: { card: any }) => {
+                const goodConv = card.conv >= 3;
+                const isAdded = card.cardId && linkBuilderIds.includes(card.cardId);
+                const isCopied = copiedId === card.id;
+                return (
+                <tr key={card.id} className="border-b border-hair2 hover:bg-surface transition-colors duration-150">
+                  <td className="py-[14px] px-4">
+                    <div className="text-sm font-semibold text-ink truncate max-w-[280px]">{card.name}</div>
+                    <div className="text-xs text-faint font-medium mt-0.5">{card.issuer || '—'}</div>
                   </td>
-                  {!cardsGroupBy && <td className="py-3.5 px-4 text-sm text-faint">{card.issuer || '—'}</td>}
-                  <td className="py-3.5 px-4 text-right text-sm font-semibold text-ink tabular-nums">
+                  <td className="py-[14px] px-4 text-right text-sm font-semibold text-ink tabular-nums">
                     {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : <span className="text-faint2 font-normal">—</span>}
                   </td>
-                  <td className="py-3.5 px-4 text-right text-sm text-subtle tabular-nums">{card.clicks}</td>
-                  <td className="py-3.5 px-4 text-right text-sm text-subtle tabular-nums">{card.conversions}</td>
-                  <td className="py-3.5 px-4 text-right">
-                    {card.cardId ? (() => {
-                      const isAdded = linkBuilderIds.includes(card.cardId);
-                      return (
+                  <td className="py-[14px] px-4 text-right text-sm text-subtle tabular-nums">{card.clicks.toLocaleString()}</td>
+                  <td className="py-[14px] px-4 text-right text-sm font-semibold text-ink tabular-nums">{card.conversions}</td>
+                  <td className={`py-[14px] px-4 text-right text-sm font-semibold tabular-nums ${goodConv ? 'text-brand' : 'text-faint'}`}>{card.conv.toFixed(1)}%</td>
+                  <td className="py-[14px] px-4 text-right text-sm font-bold text-ink tabular-nums">${Math.round(card.earned).toLocaleString()}</td>
+                  <td className="py-[14px] px-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      {card.cardId ? (
                         <button
                           onClick={() => setLinkBuilderIds(prev =>
                             isAdded ? prev.filter(id => id !== card.cardId) : [...prev, card.cardId]
                           )}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                          className={`h-[30px] px-3 rounded-lg text-[12.5px] font-semibold whitespace-nowrap transition-colors cursor-pointer ${
                             isAdded
                               ? 'bg-brand text-white hover:bg-brand-dark'
-                              : 'bg-hair2 text-faint hover:bg-brand-soft hover:text-brand'
+                              : 'border border-brand/35 text-brand hover:bg-brand-soft'
                           }`}
                         >
-                          {isAdded ? <>✓ Added</> : <>+ Add</>}
+                          {isAdded ? 'Added' : 'Add to link'}
                         </button>
-                      );
-                    })() : <span className="text-hair text-xs">—</span>}
+                      ) : <span className="text-faint2 text-xs">—</span>}
+                      <button
+                        onClick={() => copyToClipboard(card.url || masterLink || '', card.id)}
+                        title="Copy link"
+                        className={`w-[30px] h-[30px] rounded-lg flex items-center justify-center transition-colors cursor-pointer ${isCopied ? 'text-brand' : 'text-faint hover:text-brand hover:bg-brand-soft'}`}
+                      >
+                        {isCopied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </td>
                 </tr>
-              );
-              const colCount = cardsGroupBy ? 5 : 6;
+                );
+              };
+              const colCount = 7;
               const pagedCards = cardsGroupBy ? displayCards : displayCards.slice(0, cardsVisible);
               return (
                 <>
                   <p className="text-xs text-faint mb-3">
                     Showing {pagedCards.length} of {displayCards.length} cards
                   </p>
-                  <div className="overflow-x-auto rounded-xl ring-1 ring-hair2">
-                    <table className="w-full">
-                      <thead className="bg-surface/80">
-                        <tr className="border-b border-hair2">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[680px]">
+                      <thead>
+                        <tr className="border-b border-hair">
                           <SortTh label="Card"      field="name"        sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />
-                          {!cardsGroupBy && <SortTh label="Issuer" field="issuer" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />}
-                          <SortTh label="Your CPA"  field="cpa"         sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
+                          <SortTh label="Payout"    field="cpa"         sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
                           <SortTh label="Clicks"    field="clicks"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
                           <SortTh label="Approvals" field="conversions" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
-                          <th className="py-3 px-4 text-right text-xs font-semibold text-faint uppercase tracking-wider">Link Builder</th>
+                          <SortTh label="Conv."     field="conv"        sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
+                          <SortTh label="Earned"    field="earned"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
+                          <th className="py-3 px-4" />
                         </tr>
                       </thead>
                       <tbody>
