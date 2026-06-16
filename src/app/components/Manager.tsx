@@ -1497,7 +1497,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               )}
 
               {/* ── KPI band — borderless big numbers, hairline-separated (mock layout) ── */}
-              <div data-anim className="grid [grid-template-columns:repeat(auto-fit,minmax(140px,1fr))] gap-x-3 gap-y-6 pb-7 mb-7 border-b border-hair">
+              <div data-anim className="grid [grid-template-columns:repeat(auto-fit,minmax(140px,1fr))] gap-x-3 gap-y-6 pb-7 border-b border-hair">
                 {statRows.map(({ label, raw, fmt, sub, pct }) => (
                   <div key={label} className="min-w-0">
                     <div className="text-[13px] font-medium text-faint mb-2">{label}</div>
@@ -1514,7 +1514,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
               {/* ── Insights: top affiliates by earnings + top approved cards (design file) ── */}
               {(showAffiliates || showTopCards) && (
-                <div data-anim className={`border-b border-hair ${insightsOpen ? 'pb-7 mb-2' : 'pb-3'}`}>
+                <div data-anim className={`border-b border-hair ${insightsOpen ? 'pt-4 pb-7 mb-2' : 'py-3'}`}>
                   <div className={`flex items-center justify-between gap-3 ${insightsOpen ? 'mb-4' : 'mb-0'}`}>
                     <button onClick={() => setInsightsOpen(o => !o)} title={insightsOpen ? 'Minimize insights' : 'Show insights'}
                       className="flex items-center gap-2 cursor-pointer group">

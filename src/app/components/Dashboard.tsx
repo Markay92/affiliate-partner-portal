@@ -1030,7 +1030,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               )}
 
               {/* ── KPI band — borderless big numbers, hairline-separated (mock layout) ── */}
-              <div data-anim className="grid [grid-template-columns:repeat(auto-fit,minmax(140px,1fr))] gap-x-3 gap-y-5 pb-6 mb-6 border-b border-hair">
+              <div data-anim className="grid [grid-template-columns:repeat(auto-fit,minmax(140px,1fr))] gap-x-3 gap-y-5 pb-6 border-b border-hair">
                 {statRows.map(({ label, raw, fmt, sub, pct }) => (
                   <div key={label} className="min-w-0">
                     <div className="text-[13px] font-medium text-faint mb-2">{label}</div>
@@ -1047,7 +1047,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
               {/* ── Insights: tabbed chart / top cards ── */}
               {(showCharts || showTopCards) && (
-                <div data-anim className={`border-b border-hair ${insightsOpen ? 'pb-6 mb-1' : 'pb-3'}`}>
+                <div data-anim className={`border-b border-hair ${insightsOpen ? 'pt-4 pb-6 mb-1' : 'py-3'}`}>
                   <div className={`flex items-center justify-between gap-3 ${insightsOpen ? 'mb-4' : 'mb-0'}`}>
                     <button onClick={() => setInsightsOpen(o => !o)} title={insightsOpen ? 'Minimize insights' : 'Show insights'}
                       className="flex items-center gap-2 cursor-pointer group">
