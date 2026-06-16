@@ -406,11 +406,21 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [chartMetric, setChartMetric] = useState<'approvals' | 'clicks' | 'earnings'>('approvals');
   const [scrolled, setScrolled] = useState(false);
 
-  // Sticky chrome shrinks once the page is scrolled (mock behavior)
+  // Sticky chrome shrinks once the page is scrolled (mock behavior).
+  // Hysteresis (collapse >72, expand <24) + rAF throttle avoids flicker when
+  // the bar's own height change nudges scrollY back across a single threshold.
   useEffect(() => {
-    const onScroll = () => setScrolled((window.scrollY || 0) > 40);
+    let ticking = false;
+    const update = () => {
+      ticking = false;
+      const y = window.scrollY || 0;
+      setScrolled(prev => (prev ? y > 24 : y > 72));
+    };
+    const onScroll = () => {
+      if (!ticking) { ticking = true; requestAnimationFrame(update); }
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
+    update();
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 

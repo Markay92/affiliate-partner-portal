@@ -429,11 +429,21 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [insightsOpen, setInsightsOpen] = useState(true);
   const [scrolled, setScrolled] = useState(false);
 
-  // Sticky tab bar shrinks its labels to icons once scrolled (mock behavior)
+  // Sticky tab bar shrinks its labels to icons once scrolled (mock behavior).
+  // Hysteresis (collapse >72, expand <24) + rAF throttle avoids flicker near
+  // a single threshold when layout height shifts nudge scrollY.
   useEffect(() => {
-    const onScroll = () => setScrolled((window.scrollY || 0) > 40);
+    let ticking = false;
+    const update = () => {
+      ticking = false;
+      const y = window.scrollY || 0;
+      setScrolled(prev => (prev ? y > 24 : y > 72));
+    };
+    const onScroll = () => {
+      if (!ticking) { ticking = true; requestAnimationFrame(update); }
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
+    update();
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
