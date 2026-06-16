@@ -338,6 +338,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [invoices, setInvoices]     = useState<Invoice[]>([]);
   const [firstName, setFirstName]   = useState('');
   const [masterLink, setMasterLink] = useState('');
+  const [ezrxRef,   setEzrxRef]     = useState('');
+  const [linkBuilderIds, setLinkBuilderIds] = useState<string[]>([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState('');
 
@@ -523,6 +525,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
       const name = userData.user?.name || '';
       setFirstName(name.split(' ')[0] || '');
+      setEzrxRef((userData.user?.ezrxRef || '').trim());
 
       // Surface Airtable errors so they're visible rather than silently empty
       if (payoutsData.error) {
@@ -982,16 +985,30 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           <div className="p-4 sm:p-6 pb-0">
 
             {/* ── Master affiliate link ── */}
-            {masterLink ? (
+            {masterLink ? (() => {
+              const builtLink = linkBuilderIds.length > 0
+                ? `https://www.cardratings.com/bestcards/featured-credit-cards?src=693350&shnq=${linkBuilderIds.join(',')}${ezrxRef ? `&var2=ezrxref-${ezrxRef}` : ''}`
+                : null;
+              const displayLink = builtLink ?? masterLink;
+              return (
               <div className="mb-6 p-5 bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-2xl shadow-sm relative overflow-hidden">
                 <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
-                <p className="relative text-xs font-semibold text-indigo-100 uppercase tracking-wider mb-3">Your Affiliate Link</p>
+                <div className="relative flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-indigo-100 uppercase tracking-wider">
+                    {builtLink ? `Your Link · ${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} selected` : 'Your Affiliate Link'}
+                  </p>
+                  {builtLink && (
+                    <button onClick={() => setLinkBuilderIds([])} className="text-[11px] text-indigo-200 hover:text-white transition-colors">
+                      Clear
+                    </button>
+                  )}
+                </div>
                 <div className="relative flex items-center gap-2">
                   <code className="flex-1 text-sm text-indigo-900 bg-white px-4 py-3 rounded-xl truncate font-mono shadow-sm">
-                    {masterLink}
+                    {displayLink}
                   </code>
                   <button
-                    onClick={() => copyToClipboard(masterLink, -1)}
+                    onClick={() => copyToClipboard(displayLink, -1)}
                     className="flex-shrink-0 p-3 bg-white/15 ring-1 ring-white/20 rounded-xl hover:bg-white/25 active:scale-95 transition-all duration-150 cursor-pointer"
                     title="Copy link"
                   >
@@ -999,14 +1016,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       ? <CheckCircle className="w-5 h-5 text-emerald-300" />
                       : <Copy className="w-5 h-5 text-white" />}
                   </button>
-                  <a href={masterLink} target="_blank" rel="noopener noreferrer"
+                  <a href={displayLink} target="_blank" rel="noopener noreferrer"
                     className="flex-shrink-0 p-3 bg-white/15 ring-1 ring-white/20 rounded-xl hover:bg-white/25 active:scale-95 transition-all duration-150 cursor-pointer"
                     title="Open link">
                     <ExternalLink className="w-5 h-5 text-white" />
                   </a>
                 </div>
               </div>
-            ) : (
+              );
+            })() : (
               <div className="mb-6 p-4 bg-slate-50 rounded-2xl ring-1 ring-slate-200/60 text-sm text-slate-500">
                 No affiliate link configured yet — contact your manager to set up your link.
               </div>
@@ -1130,16 +1148,23 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   <td className="py-3.5 px-4 text-right text-sm text-slate-600 tabular-nums">{card.clicks}</td>
                   <td className="py-3.5 px-4 text-right text-sm text-slate-600 tabular-nums">{card.conversions}</td>
                   <td className="py-3.5 px-4 text-right">
-                    {card.cardId ? (
-                      <button
-                        onClick={() => navigator.clipboard.writeText(card.cardId)}
-                        title={`Copy Card ID: ${card.cardId}`}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors cursor-pointer"
-                      >
-                        <Copy className="w-3 h-3" />
-                        {card.cardId}
-                      </button>
-                    ) : <span className="text-slate-200 text-xs">—</span>}
+                    {card.cardId ? (() => {
+                      const isAdded = linkBuilderIds.includes(card.cardId);
+                      return (
+                        <button
+                          onClick={() => setLinkBuilderIds(prev =>
+                            isAdded ? prev.filter(id => id !== card.cardId) : [...prev, card.cardId]
+                          )}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                            isAdded
+                              ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                              : 'bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600'
+                          }`}
+                        >
+                          {isAdded ? <>✓ Added</> : <>+ Add</>}
+                        </button>
+                      );
+                    })() : <span className="text-slate-200 text-xs">—</span>}
                   </td>
                 </tr>
               );
@@ -1159,7 +1184,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                           <SortTh label="Your CPA"  field="cpa"         sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
                           <SortTh label="Clicks"    field="clicks"      sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
                           <SortTh label="Approvals" field="conversions" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
-                          <th className="py-3 px-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Card ID</th>
+                          <th className="py-3 px-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Link Builder</th>
                         </tr>
                       </thead>
                       <tbody>
