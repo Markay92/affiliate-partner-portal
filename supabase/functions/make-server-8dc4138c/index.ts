@@ -735,8 +735,16 @@ const CR_FIELD = {
   rawLogo:   'fldm35TYYqxyz17EF', // RawLogoImageUrl — same CDN, no ?w= param
 };
 
+// Strip trademark markers BEFORE removing non-alphanumerics so "(R)" and "®"
+// don't become a stray "r" that breaks fuzzy name matching.
+function normCardName(s: string): string {
+  return s.toLowerCase()
+    .replace(/\(r\)|\(tm\)|®|™/gi, ' ')
+    .replace(/[^a-z0-9]/g, '');
+}
+
 function buildCardRatingIndex(records: any[]): Record<string, any> {
-  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const norm = normCardName;
   const index: Record<string, any> = {};
   for (const rec of records) {
     // returnFieldsByFieldId=true → rec.fields is keyed by field ID
@@ -777,8 +785,7 @@ async function getCachedCardRatingIndex(airtableToken: string): Promise<Record<s
 }
 
 function lookupCardRating(index: Record<string, any>, cardName: string): any {
-  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const key = norm(cardName);
+  const key = normCardName(cardName);
   if (index[key]) return index[key];
   // Partial match fallback
   for (const [k, v] of Object.entries(index)) {
