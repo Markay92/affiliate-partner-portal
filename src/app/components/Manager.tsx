@@ -2370,25 +2370,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         <CurrentYearBadge active={!invoiceShowAllYears} />
                       </p>
                     </div>
-                    <table className="w-full">
-                      <thead className="border-b border-hair">
-                        <tr>
-                          <SortThSm label="Affiliate"  field="name"      sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} />
-                          <SortThSm label="Month"      field="month"     sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} />
-                          <SortThSm label="Amount"     field="amount"    sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} align="right" />
-                          <SortThSm label="Approvals"  field="approvals" sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} align="right" />
-                          <SortThSm label="Status"     field="status"    sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} />
-                          <th className="py-3 px-4 text-faint text-xs font-semibold text-center">Sent</th>
-                          <th className="py-3 px-4 text-faint text-xs font-semibold text-center">Zelle</th>
-                          <th className="py-3 px-4 text-faint text-xs font-semibold">Contact</th>
-                          <th className="py-3 px-4 text-faint text-xs font-semibold text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                    <div>
                         {(() => {
-                          const InvRow = ({ inv }: { inv: any }) => {
+                          const InvRow = ({ inv, indent }: { inv: any; indent?: boolean }) => {
                             const busy = updatingInvoice === inv.id;
                             const isOpen = expandedInvoices.has(inv.id);
+                            const menuOpen = rowMenu === inv.id;
                             const toggleOpen = () => setExpandedInvoices(prev => {
                               const next = new Set(prev);
                               next.has(inv.id) ? next.delete(inv.id) : next.add(inv.id);
@@ -2398,90 +2385,65 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             const approvedCards = allCards.filter((c: any) => c.status === 'approval');
                             const cards = isOpen ? approvedCards : [];
                             const approvalsCount = approvedCards.length;
+                            const paid = inv.status && inv.status.toLowerCase().includes('paid');
+                            const pending = inv.status && inv.status.toLowerCase().includes('pending');
+                            const statusDot = paid ? 'var(--ds-pos)' : pending ? 'var(--ds-warn)' : 'var(--ds-faint2)';
                             return (
                               <React.Fragment key={inv.id}>
-                                <tr
-                                  onClick={toggleOpen}
-                                  className={`border-b border-surface hover:bg-surface transition-colors duration-150 cursor-pointer ${isOpen ? 'bg-brand-soft/40' : ''}`}
-                                >
-                                  <td className="py-3.5 px-4">
-                                    <div className="flex items-center gap-2">
-                                      <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 shrink-0 ${isOpen ? '' : '-rotate-90'}`} />
-                                      <div>
-                                        <div className="font-medium text-sm text-ink">{inv.name}</div>
-                                        <div className="text-xs text-faint mt-0.5">{inv.email}</div>
+                                <div className="flex items-center gap-4 py-3.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
+                                  <button onClick={toggleOpen} className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer">
+                                    <ChevronRight className={`w-3.5 h-3.5 text-faint flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} strokeWidth={2.6} />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-[15px] font-semibold text-ink truncate">{inv.name}</div>
+                                      <div className="flex items-center gap-2 mt-0.5 text-[12.5px] text-faint flex-wrap">
+                                        <span>{inv.month}</span>
+                                        <span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
+                                        <span className="tabular-nums">{approvalsCount} appr.</span>
+                                        {inv.status && <><span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="inline-flex items-center gap-1.5"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: statusDot }} />{inv.status}</span></>}
+                                        {(inv.sent || inv.sentZelle) && <><span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="text-pos font-semibold">{inv.sentZelle ? 'Zelle sent' : 'Sent'}</span></>}
                                       </div>
                                     </div>
-                                  </td>
-                                  <td className="py-3.5 px-4 text-sm text-subtle">{inv.month}</td>
-                                  <td className="py-3.5 px-4 text-right font-semibold text-sm text-ink">
-                                    {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}` : <span className="text-faint2 font-normal">—</span>}
-                                  </td>
-                                  <td className="py-3.5 px-4 text-right text-sm text-subtle">{approvalsCount}</td>
-                                  <td className="py-3.5 px-4">
-                                    {inv.status ? (
-                                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                                        inv.status.toLowerCase().includes('paid')
-                                          ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70'
-                                          : inv.status.toLowerCase().includes('pending')
-                                          ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/70'
-                                          : 'bg-hair2 text-subtle'
-                                      }`}>{inv.status}</span>
-                                    ) : <span className="text-faint2 text-xs">—</span>}
-                                  </td>
-                                  <td className="py-3.5 px-4 text-center" onClick={e => e.stopPropagation()}>
-                                    <button disabled={busy} onClick={() => updateInvoice(inv.id, { sent: !inv.sent })}
-                                      title="Mark payout as sent"
-                                      className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sent ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-hair2 text-faint hover:bg-hair'}`}>
-                                      <CheckCircle className="w-4 h-4" />
-                                    </button>
-                                  </td>
-                                  <td className="py-3.5 px-4 text-center" onClick={e => e.stopPropagation()}>
-                                    <button disabled={busy} onClick={() => updateInvoice(inv.id, { sentZelle: !inv.sentZelle })}
-                                      title="Mark Zelle payout as sent"
-                                      className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sentZelle ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-hair2 text-faint hover:bg-hair'}`}>
-                                      <Send className="w-4 h-4" />
-                                    </button>
-                                  </td>
-                                  <td className="py-3.5 px-4 text-xs text-faint">{inv.zelle || '—'}</td>
-                                  <td className="py-3.5 px-4 text-right">
-                                    {busy && <RefreshCw className="w-4 h-4 animate-spin text-brand ml-auto" />}
-                                  </td>
-                                </tr>
-                                {isOpen && (
-                                  <tr className="bg-surface/40 border-b border-hair2">
-                                    <td colSpan={9} className="px-4 pl-12 py-3">
-                                      {!trackingActivity.length ? (
-                                        <p className="text-xs text-faint py-2 flex items-center gap-2">
-                                          <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Loading cards…
-                                        </p>
-                                      ) : cards.length === 0 ? (
-                                        <p className="text-xs text-faint py-2">No approvals found for {inv.name} in {inv.month}.</p>
-                                      ) : (
-                                        <div className="space-y-1.5 py-1">
-                                          <p className="text-xs font-semibold text-faint mb-1.5">
-                                            Approvals for {inv.name} in {inv.month} ({cards.length})
-                                          </p>
-                                          {cards.map((c: any) => (
-                                            <div key={c.id} className="flex items-center justify-between text-sm py-1.5 px-3 bg-white rounded-lg border border-hair2">
-                                              <div className="flex items-center gap-3 min-w-0">
-                                                <span className="font-medium text-ink truncate">{c.cardName}</span>
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 ${
-                                                  c.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
-                                                  c.status === 'application' ? 'bg-brand-soft text-brand-dark ring-1 ring-brand/30' :
-                                                  'bg-hair2 text-faint'
-                                                }`}>{c.status}</span>
-                                                <span className="text-xs text-faint shrink-0">{formatDate(c.clickDate)}</span>
-                                              </div>
-                                              <span className="font-semibold text-emerald-600 shrink-0 ml-3">
-                                                {c.totalEarnings > 0 ? `$${c.totalEarnings.toFixed(2)}` : <span className="text-faint2 font-normal">—</span>}
-                                              </span>
-                                            </div>
-                                          ))}
-                                        </div>
+                                  </button>
+                                  <div className={`text-[16px] font-bold tabular-nums flex-shrink-0 ${inv.amount > 0 ? 'text-ink' : 'text-faint2'}`}>
+                                    {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}` : '—'}
+                                  </div>
+                                  {busy ? <RefreshCw className="w-4 h-4 animate-spin text-brand flex-shrink-0" /> : (
+                                    <div className="relative flex-shrink-0">
+                                      <button onClick={() => setRowMenu(menuOpen ? null : inv.id)} title="Actions" className="w-8 h-8 rounded-lg flex items-center justify-center text-faint hover:text-ink hover:bg-hair2 transition-colors cursor-pointer"><MoreHorizontal className="w-[18px] h-[18px]" /></button>
+                                      {menuOpen && (
+                                        <>
+                                          <div className="fixed inset-0 z-10" onClick={() => setRowMenu(null)} />
+                                          <div className="absolute right-0 mt-1 w-52 bg-white rounded-xl shadow-lg ring-1 ring-ink/10 z-20 overflow-hidden py-1">
+                                            <button onClick={() => { setRowMenu(null); updateInvoice(inv.id, { sent: !inv.sent }); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-subtle hover:bg-surface transition-colors"><CheckCircle className={`w-4 h-4 ${inv.sent ? 'text-emerald-600' : 'text-faint'}`} />{inv.sent ? 'Unmark sent' : 'Mark payout sent'}</button>
+                                            <button onClick={() => { setRowMenu(null); updateInvoice(inv.id, { sentZelle: !inv.sentZelle }); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-subtle hover:bg-surface transition-colors"><Send className={`w-4 h-4 ${inv.sentZelle ? 'text-emerald-600' : 'text-faint'}`} />{inv.sentZelle ? 'Unmark Zelle' : 'Mark Zelle sent'}</button>
+                                            {inv.zelle && <div className="px-4 py-2 text-xs text-faint border-t border-hair2 mt-1">Zelle: <span className="font-mono-ds text-subtle">{inv.zelle}</span></div>}
+                                          </div>
+                                        </>
                                       )}
-                                    </td>
-                                  </tr>
+                                    </div>
+                                  )}
+                                </div>
+                                {isOpen && (
+                                  <div className="pl-7 pb-2 border-b border-hair2">
+                                    {!trackingActivity.length ? (
+                                      <p className="text-xs text-faint py-3 flex items-center gap-2"><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Loading cards…</p>
+                                    ) : cards.length === 0 ? (
+                                      <p className="text-xs text-faint py-3">No approvals found for {inv.name} in {inv.month}.</p>
+                                    ) : (
+                                      <>
+                                        <div className="text-[11px] font-semibold text-faint2 uppercase tracking-[0.04em] pt-3 pb-1">Approvals ({cards.length})</div>
+                                        {cards.map((c: any) => (
+                                          <div key={c.id} className="flex items-center gap-4 py-2.5 border-b border-hair2 last:border-b-0">
+                                            <div className="flex-1 min-w-0">
+                                              <div className="text-sm font-semibold text-ink truncate">{c.cardName}</div>
+                                              <div className="text-xs text-faint mt-0.5">{formatDate(c.clickDate)}</div>
+                                            </div>
+                                            <div className={`text-sm font-bold tabular-nums flex-shrink-0 ${c.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>{c.totalEarnings > 0 ? `$${c.totalEarnings.toFixed(2)}` : '—'}</div>
+                                          </div>
+                                        ))}
+                                      </>
+                                    )}
+                                  </div>
                                 )}
                               </React.Fragment>
                             );
@@ -2524,30 +2486,23 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             const sublabel     = getSub(key);
                             return (
                               <React.Fragment key={key}>
-                                <tr onClick={toggle} className="bg-surface border-b border-hair cursor-pointer hover:bg-hair2 transition-colors duration-150 select-none">
-                                  <td colSpan={9} className="py-2.5 px-4">
-                                    <div className="flex items-center gap-3 flex-wrap">
-                                      <div className="flex items-center gap-2">
-                                        <ChevronDown className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                        <span className="text-xs font-semibold text-subtle">{getLabel(key, rows)}</span>
-                                        {sublabel && <span className="text-xs text-faint font-mono normal-case">{sublabel}</span>}
-                                        <span className="text-xs font-normal text-faint">({rows.length} invoice{rows.length !== 1 ? 's' : ''})</span>
-                                      </div>
-                                      <div className="flex items-center gap-3 ml-2 text-xs text-faint">
-                                        {grpAmount    > 0 && <span className="font-medium text-emerald-600">${grpAmount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}</span>}
-                                        {grpApprovals > 0 && <span>{grpApprovals} approvals</span>}
-                                        {grpSent      > 0 && <span>{grpSent} paid</span>}
-                                      </div>
-                                    </div>
-                                  </td>
-                                </tr>
-                                {!isCollapsed && rows.map((inv: any) => <InvRow key={inv.id} inv={inv} />)}
+                                <div onClick={toggle} className="flex items-center gap-3 flex-wrap pt-5 pb-3 border-t border-hair2 cursor-pointer hover:opacity-70 transition-opacity select-none">
+                                  <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 flex-shrink-0 ${isCollapsed ? '' : 'rotate-90'}`} strokeWidth={2.6} />
+                                  <span className="text-[15px] font-bold text-ink tracking-[-0.01em]">{getLabel(key, rows)}</span>
+                                  {sublabel && <span className="text-[12px] text-faint font-mono-ds">{sublabel}</span>}
+                                  <span className="text-[13px] font-semibold text-faint2 tabular-nums">{rows.length}</span>
+                                  <div className="ml-auto flex items-center gap-3 text-[12.5px] text-faint">
+                                    {grpApprovals > 0 && <span className="tabular-nums">{grpApprovals} appr.</span>}
+                                    {grpSent      > 0 && <span className="tabular-nums">{grpSent} paid</span>}
+                                    {grpAmount    > 0 && <span className="font-bold text-ink tabular-nums">${grpAmount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}</span>}
+                                  </div>
+                                </div>
+                                {!isCollapsed && rows.map((inv: any) => <InvRow key={inv.id} inv={inv} indent />)}
                               </React.Fragment>
                             );
                           });
                         })()}
-                      </tbody>
-                    </table>
+                    </div>
                     {(invoicesVisible < filtered.length || invoiceHiddenOlderCount > 0 || invoiceShowAllYears) && (
                       <div className="py-4 flex flex-wrap items-center justify-center gap-2">
                         {invoicesVisible < filtered.length && (
