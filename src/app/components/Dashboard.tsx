@@ -33,7 +33,7 @@ import { ComposedChart, LineChart, Line, Area, BarChart, Bar, XAxis, YAxis, Tool
 import * as Tabs from '@radix-ui/react-tabs';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { Profile } from './Profile';
-import { useSwipeTabs } from './ui/use-swipe-tabs';
+import { SwipeCarousel, Slide } from './ui/swipe-tabs';
 
 interface DashboardProps {
   userEmail: string;
@@ -375,8 +375,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [error, setError]           = useState('');
   const [activeTab, setActiveTab]   = useState('cards');   // controlled tabs (drives nav menu)
   const [navOpen,   setNavOpen]     = useState(false);     // mobile ellipsis nav menu
-  // Mobile: swipe the page left/right to move between tabs
-  const swipeTabs = useSwipeTabs(['cards', 'create', 'activity', 'invoices', 'profile'], activeTab, setActiveTab);
 
   // Activity tab (Airtable API Output)
   const [trackingFilter,       setTrackingFilter]       = useState<DateFilter>('week');
@@ -864,7 +862,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   ] as const;
 
   return (
-    <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="min-h-screen bg-canvas" onTouchStart={swipeTabs.onTouchStart} onTouchEnd={swipeTabs.onTouchEnd}>
+    <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="min-h-screen bg-canvas">
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-md sticky top-0 z-30 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1259,11 +1257,16 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           );
         })()}
 
-        {/* Tab panels — the tab nav lives in the header */}
-        <div className="mt-5">
+        {/* Tab panels — the tab nav lives in the header. Real swipe carousel on mobile. */}
+        <SwipeCarousel
+          order={['cards', 'create', 'activity', 'invoices', 'profile']}
+          active={activeTab}
+          onChange={setActiveTab}
+          className="mt-5"
+        >
 
           {/* ── Cards Tab (Robinhood-style filters + list) ── */}
-          <Tabs.Content value="cards">
+          <Slide tabKey="cards">
           <div>
             <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas pt-6 pb-1">
             {/* Type chips */}
@@ -1427,10 +1430,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               );
             })()}
           </div>
-          </Tabs.Content>
+          </Slide>
 
           {/* ── Create Link Tab ── */}
-          <Tabs.Content value="create">
+          <Slide tabKey="create">
           <div className="pt-6">
             {(() => {
               const selected = linkBuilderIds.map(id => allCards.find(c => c.cardId === id)).filter(Boolean) as any[];
@@ -1493,10 +1496,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               );
             })()}
           </div>
-          </Tabs.Content>
+          </Slide>
 
           {/* ── Activity Tab ── */}
-          <Tabs.Content value="activity">
+          <Slide tabKey="activity">
             {/* Sticky controls */}
             <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas border-b border-hair py-3">
             <div className="flex items-center justify-between mb-3 p-3.5 bg-surface rounded-xl border border-hair">
@@ -1637,10 +1640,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </>
             )}
           </div>
-          </Tabs.Content>
+          </Slide>
 
           {/* ── Invoices Tab ── */}
-          <Tabs.Content value="invoices" className="pt-6">
+          <Slide tabKey="invoices" className="pt-6">
             {invoices.length === 0 ? (
               <div className="text-center py-16">
                 <div className="w-14 h-14 bg-surface rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-hair2">
@@ -1724,13 +1727,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               )}
               </>
             )}
-          </Tabs.Content>
+          </Slide>
 
           {/* ── Profile Tab ── */}
-          <Tabs.Content value="profile">
+          <Slide tabKey="profile">
             <Profile accessToken={accessToken} />
-          </Tabs.Content>
-        </div>
+          </Slide>
+        </SwipeCarousel>
       </main>
     </Tabs.Root>
   );

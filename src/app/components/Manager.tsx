@@ -32,7 +32,7 @@ import { projectId, publicAnonKey } from '/utils/supabase/info';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Tabs from '@radix-ui/react-tabs';
 import gsap from 'gsap';
-import { useSwipeTabs } from './ui/use-swipe-tabs';
+import { SwipeCarousel, Slide } from './ui/swipe-tabs';
 
 interface ManagerProps {
   sessionToken: string;
@@ -385,8 +385,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [messageTimeout, setMessageTimeout] = useState<NodeJS.Timeout | null>(null);
   const [trackingActivity, setTrackingActivity] = useState([]);
   const [activeTab, setActiveTab]           = useState('affiliates');
-  // Mobile: swipe the page left/right to move between tabs
-  const swipeTabs = useSwipeTabs(['affiliates', 'tracking', 'cpa-rates', 'invoices'], activeTab, setActiveTab);
   // Timestamps for when each table's data was last fetched
   const [lastUpdated, setLastUpdated] = useState<{ affiliates?: number; tracking?: number; cpa?: number; invoices?: number }>({});
 
@@ -1287,7 +1285,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   ] as const;
 
   return (
-    <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="min-h-screen bg-canvas" onTouchStart={swipeTabs.onTouchStart} onTouchEnd={swipeTabs.onTouchEnd}>
+    <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="min-h-screen bg-canvas">
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-md sticky top-0 z-10 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1573,11 +1571,16 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           );
         })()}
 
-        {/* Tab panels — the tab nav lives in the header */}
-        <div className="border-t border-hair pt-2">
+        {/* Tab panels — the tab nav lives in the header. Real swipe carousel on mobile. */}
+        <SwipeCarousel
+          order={['affiliates', 'tracking', 'cpa-rates', 'invoices']}
+          active={activeTab}
+          onChange={setActiveTab}
+          className="border-t border-hair pt-2"
+        >
 
           {/* ── Affiliates Tab ── */}
-          <Tabs.Content value="affiliates">
+          <Slide tabKey="affiliates">
 
             {/* Toolbar: Search + Date filter + Group + Create */}
             <div className="sticky top-[59px] z-10 bg-canvas/95 backdrop-blur-md py-4 mb-4 space-y-3 border-b border-hair">
@@ -1700,10 +1703,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 </div>
               )}
             </div>
-          </Tabs.Content>
+          </Slide>
 
           {/* ── Tracking Activity Tab ── */}
-          <Tabs.Content value="tracking">
+          <Slide tabKey="tracking">
             <div className="mt-1">
               <div className="sticky top-16 z-10 bg-white p-4 border-b border-hair2 space-y-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1962,10 +1965,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               })()}
               </div>
             </div>
-          </Tabs.Content>
+          </Slide>
 
           {/* ── CPA Rates Tab ── */}
-          <Tabs.Content value="cpa-rates">
+          <Slide tabKey="cpa-rates">
             <div className="mt-1">
               {/* Toolbar */}
               <div className="sticky top-16 z-10 bg-white p-5 border-b border-hair2 space-y-3">
@@ -2238,9 +2241,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 );
               })()}
             </div>
-          </Tabs.Content>
+          </Slide>
           {/* ── Invoices Tab ── */}
-          <Tabs.Content value="invoices">
+          <Slide tabKey="invoices">
             <div className="mt-1">
               {/* Toolbar */}
               <div className="sticky top-16 z-10 bg-white p-5 border-b border-hair2 flex flex-wrap items-center justify-between gap-3">
@@ -2524,9 +2527,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 );
               })()}
             </div>
-          </Tabs.Content>
+          </Slide>
 
-        </div>
+        </SwipeCarousel>
 
         {/* ── Modals ── */}
 
