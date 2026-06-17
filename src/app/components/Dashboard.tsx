@@ -937,11 +937,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           return (
           <div
             data-anim
-            className="sticky top-[60px] z-20 mb-5 flex items-center gap-[18px] flex-wrap bg-white/90 backdrop-blur-md border-b border-hair transition-all duration-300"
-            style={{ paddingTop: scrolled ? 9 : 16, paddingBottom: scrolled ? 9 : 16 }}
+            className="mb-5 flex items-center gap-[18px] flex-wrap border-b border-hair"
+            style={{ paddingTop: 16, paddingBottom: 16 }}
           >
             <div className="flex-1 min-w-[240px]">
-              <div className={`flex items-center overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mb-0' : 'max-h-5 opacity-100 mb-1.5'}`}>
+              <div className="flex items-center mb-1.5">
                 <span className="text-[12.5px] font-medium text-faint">
                   {builtLink ? `Your link · ${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} selected` : 'Your affiliate link'}
                 </span>
@@ -951,10 +951,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   </button>
                 )}
               </div>
-              <div className={`font-mono-ds font-medium text-ink break-all line-clamp-2 sm:line-clamp-none transition-all duration-300 ${scrolled ? 'text-[13.5px]' : 'text-[15.5px]'}`}>
+              <div className="font-mono-ds font-medium text-ink break-all line-clamp-2 sm:line-clamp-none text-[15.5px]">
                 {displayLink}
               </div>
-              <div className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mt-0' : 'max-h-5 opacity-100 mt-1'}`}>
+              <div className="mt-1">
                 <span className="text-xs font-medium text-faint">
                   {builtLink
                     ? `${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} on your link · ready to share`
@@ -1174,7 +1174,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
           {/* ── Cards Tab (Robinhood-style filters + list) ── */}
           <Tabs.Content value="cards">
-          <div className="pt-6">
+          <div>
+            <div className="sticky top-[60px] z-10 bg-canvas pt-6 pb-1">
             {/* Type chips */}
             {cardTypes.length > 0 && (
               <div className="ds-chips flex items-center gap-2 overflow-x-auto mb-[18px]">
@@ -1239,6 +1240,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   );
                 })}
               </div>
+            </div>
             </div>
 
             {/* Card list */}
@@ -1398,7 +1400,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           {/* ── Activity Tab ── */}
           <Tabs.Content value="activity">
             {/* Sticky controls */}
-            <div className="sticky top-16 z-10 bg-white border-b border-hair2 px-4 sm:px-6 py-3">
+            <div className="sticky top-[60px] z-10 bg-canvas border-b border-hair py-3">
             <div className="flex items-center justify-between mb-3 p-3.5 bg-surface rounded-xl border border-hair">
               <p className="text-sm text-subtle">
                 <span className="font-semibold text-ink tabular-nums">{displayTracking.length}</span>
@@ -1547,9 +1549,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
             ) : (
               <>
-              <p className="text-xs text-faint mb-3">
-                Showing {Math.min(invoicesVisible, invoices.length)} of {invoices.length} invoices
-              </p>
+              <div className="sticky top-[60px] z-10 bg-canvas py-3 border-b border-hair">
+                <p className="text-xs text-faint">
+                  Showing {Math.min(invoicesVisible, invoices.length)} of {invoices.length} invoices
+                </p>
+              </div>
               <div>
                 {invoices.slice(0, invoicesVisible).map(inv => {
                   const isExpanded = expandedInvoices.has(inv.id);
