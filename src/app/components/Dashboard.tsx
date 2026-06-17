@@ -410,6 +410,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [insightsOpen, setInsightsOpen] = useState(true);
   const [insCard, setInsCard] = useState(0);   // active Insights card on mobile (swipe)
   const insBodyRef = useRef<HTMLDivElement>(null);
+  const [linkOpen, setLinkOpen] = useState(true);   // referral bar expanded vs thin blue strip
+  const [linkBarH, setLinkBarH] = useState(0);      // measured referral-bar height → sticky offset for tab toolbars
+  const linkBarRef = useRef<HTMLDivElement>(null);
   const [chartMetric, setChartMetric] = useState<'approvals' | 'clicks' | 'earnings'>('approvals');
   const [scrolled, setScrolled] = useState(false);
 
@@ -447,6 +450,18 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     update();
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  // Measure the sticky referral bar so the tab toolbars can pin right below it
+  // (its height changes with collapse state, link length, and viewport wrapping).
+  useEffect(() => {
+    const el = linkBarRef.current;
+    if (!el) { setLinkBarH(0); return; }
+    const update = () => setLinkBarH(el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [loading, linkOpen, masterLink, linkBuilderIds.length]);
 
   // GSAP entrance — staggered rise/fade of the main sections once data is in
   useEffect(() => {
@@ -936,49 +951,74 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           const displayLink = builtLink ?? masterLink;
           return (
           <div
+            ref={linkBarRef}
             data-anim
-            className="mb-5 flex items-center gap-[18px] flex-wrap border-b border-hair"
-            style={{ paddingTop: 16, paddingBottom: 16 }}
+            className="sticky top-[60px] z-20 mb-5"
           >
-            <div className="flex-1 min-w-[240px]">
-              <div className="flex items-center mb-1.5">
-                <span className="text-[12.5px] font-medium text-faint">
-                  {builtLink ? `Your link · ${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} selected` : 'Your affiliate link'}
-                </span>
-                {builtLink && (
-                  <button onClick={() => setLinkBuilderIds([])} className="ml-3 text-[11px] font-medium text-faint hover:text-brand transition-colors cursor-pointer">
-                    Clear
+            {linkOpen ? (
+              /* Expanded — white */
+              <div className="flex items-center gap-[18px] flex-wrap py-4 bg-white/95 backdrop-blur-md border-b border-hair">
+                <div className="flex-1 min-w-[240px]">
+                  <div className="flex items-center mb-1.5">
+                    <span className="text-[12.5px] font-medium text-faint">
+                      {builtLink ? `Your link · ${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} selected` : 'Your affiliate link'}
+                    </span>
+                    {builtLink && (
+                      <button onClick={() => setLinkBuilderIds([])} className="ml-3 text-[11px] font-medium text-faint hover:text-brand transition-colors cursor-pointer">
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <div className="font-mono-ds font-medium text-ink break-all line-clamp-2 sm:line-clamp-none text-[15.5px]">
+                    {displayLink}
+                  </div>
+                  <div className="mt-1">
+                    <span className="text-xs font-medium text-faint">
+                      {builtLink
+                        ? `${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} on your link · ready to share`
+                        : 'Add cards from the table to build a custom link'}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5 flex-shrink-0">
+                  <button
+                    onClick={() => copyToClipboard(displayLink, -1)}
+                    className="flex items-center gap-1.5 h-10 px-[18px] rounded-[10px] bg-brand text-white text-sm font-semibold hover:bg-brand-dark active:scale-95 transition-all duration-150 cursor-pointer"
+                    title="Copy link"
+                  >
+                    {copiedId === -1
+                      ? <><CheckCircle className="w-4 h-4" /> Copied</>
+                      : <><Copy className="w-4 h-4" /> Copy</>}
                   </button>
-                )}
+                  <a href={displayLink} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 h-10 px-4 rounded-[10px] border border-line bg-white text-ink text-sm font-semibold hover:bg-surface transition-colors cursor-pointer"
+                    title="Preview link">
+                    <ExternalLink className="w-[15px] h-[15px]" />
+                    Preview
+                  </a>
+                  <button onClick={() => setLinkOpen(false)} title="Minimize link"
+                    className="flex items-center justify-center w-10 h-10 rounded-[10px] text-faint hover:text-ink hover:bg-surface active:scale-95 transition-all duration-150 cursor-pointer">
+                    <ChevronUp className="w-[18px] h-[18px]" />
+                  </button>
+                </div>
               </div>
-              <div className="font-mono-ds font-medium text-ink break-all line-clamp-2 sm:line-clamp-none text-[15.5px]">
-                {displayLink}
-              </div>
-              <div className="mt-1">
-                <span className="text-xs font-medium text-faint">
-                  {builtLink
-                    ? `${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} on your link · ready to share`
-                    : 'Add cards from the table to build a custom link'}
+            ) : (
+              /* Collapsed — thin blue strip */
+              <button onClick={() => setLinkOpen(true)} title="Show link"
+                className="w-full flex items-center gap-3 py-2.5 px-3.5 bg-brand text-white hover:bg-brand-dark transition-colors cursor-pointer">
+                <Link2 className="w-4 h-4 flex-shrink-0" />
+                <span className="text-[13px] font-semibold truncate flex-1 text-left">
+                  {builtLink ? `Your link · ${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''}` : 'Your affiliate link'}
                 </span>
-              </div>
-            </div>
-            <div className="flex gap-2.5 flex-shrink-0">
-              <button
-                onClick={() => copyToClipboard(displayLink, -1)}
-                className="flex items-center gap-1.5 h-10 px-[18px] rounded-[10px] bg-brand text-white text-sm font-semibold hover:bg-brand-dark active:scale-95 transition-all duration-150 cursor-pointer"
-                title="Copy link"
-              >
-                {copiedId === -1
-                  ? <><CheckCircle className="w-4 h-4" /> Copied</>
-                  : <><Copy className="w-4 h-4" /> Copy</>}
+                <span
+                  onClick={(e) => { e.stopPropagation(); copyToClipboard(displayLink, -1); }}
+                  className="flex items-center gap-1.5 h-7 px-3 rounded-full bg-white/20 hover:bg-white/30 text-[12.5px] font-semibold transition-colors flex-shrink-0"
+                >
+                  {copiedId === -1 ? <><CheckCircle className="w-3.5 h-3.5" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
+                </span>
+                <ChevronDown className="w-[18px] h-[18px] flex-shrink-0" />
               </button>
-              <a href={displayLink} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1.5 h-10 px-4 rounded-[10px] border border-line bg-white text-ink text-sm font-semibold hover:bg-surface transition-colors cursor-pointer"
-                title="Preview link">
-                <ExternalLink className="w-[15px] h-[15px]" />
-                Preview
-              </a>
-            </div>
+            )}
           </div>
           );
         })() : (
@@ -1175,7 +1215,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           {/* ── Cards Tab (Robinhood-style filters + list) ── */}
           <Tabs.Content value="cards">
           <div>
-            <div className="sticky top-[60px] z-10 bg-canvas pt-6 pb-1">
+            <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas pt-6 pb-1">
             {/* Type chips */}
             {cardTypes.length > 0 && (
               <div className="ds-chips flex items-center gap-2 overflow-x-auto mb-[18px]">
@@ -1400,7 +1440,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           {/* ── Activity Tab ── */}
           <Tabs.Content value="activity">
             {/* Sticky controls */}
-            <div className="sticky top-[60px] z-10 bg-canvas border-b border-hair py-3">
+            <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas border-b border-hair py-3">
             <div className="flex items-center justify-between mb-3 p-3.5 bg-surface rounded-xl border border-hair">
               <p className="text-sm text-subtle">
                 <span className="font-semibold text-ink tabular-nums">{displayTracking.length}</span>
@@ -1549,7 +1589,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
             ) : (
               <>
-              <div className="sticky top-[60px] z-10 bg-canvas py-3 border-b border-hair">
+              <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas py-3 border-b border-hair">
                 <p className="text-xs text-faint">
                   Showing {Math.min(invoicesVisible, invoices.length)} of {invoices.length} invoices
                 </p>
