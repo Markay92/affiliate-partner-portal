@@ -32,7 +32,7 @@ import { projectId, publicAnonKey } from '/utils/supabase/info';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Tabs from '@radix-ui/react-tabs';
 import gsap from 'gsap';
-import { useSwipeTabs } from './ui/use-swipe-tabs';
+import { SwipeTabs } from './ui/swipe-tabs';
 
 interface ManagerProps {
   sessionToken: string;
@@ -385,8 +385,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [messageTimeout, setMessageTimeout] = useState<NodeJS.Timeout | null>(null);
   const [trackingActivity, setTrackingActivity] = useState([]);
   const [activeTab, setActiveTab]           = useState('affiliates');
-  // Mobile: swipe the page left/right to move between tabs
-  const swipeTabs = useSwipeTabs(['affiliates', 'tracking', 'cpa-rates', 'invoices'], activeTab, setActiveTab);
   // Timestamps for when each table's data was last fetched
   const [lastUpdated, setLastUpdated] = useState<{ affiliates?: number; tracking?: number; cpa?: number; invoices?: number }>({});
 
@@ -1287,7 +1285,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   ] as const;
 
   return (
-    <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="min-h-screen bg-canvas" onTouchStart={swipeTabs.onTouchStart} onTouchEnd={swipeTabs.onTouchEnd}>
+    <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="min-h-screen bg-canvas">
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-md sticky top-0 z-10 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1573,7 +1571,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           );
         })()}
 
-        {/* Tab panels — the tab nav lives in the header */}
+        {/* Tab panels — the tab nav lives in the header. Wrapped for mobile swipe-to-switch. */}
+        <SwipeTabs
+          order={[
+            { key: 'affiliates', label: 'Affiliates' },
+            { key: 'tracking',   label: 'Activity' },
+            { key: 'cpa-rates',  label: 'CPA Rates' },
+            { key: 'invoices',   label: 'Invoices' },
+          ]}
+          active={activeTab}
+          onChange={setActiveTab}
+        >
         <div className="border-t border-hair pt-2">
 
           {/* ── Affiliates Tab ── */}
@@ -2527,6 +2535,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           </Tabs.Content>
 
         </div>
+        </SwipeTabs>
 
         {/* ── Modals ── */}
 
