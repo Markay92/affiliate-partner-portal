@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import {
@@ -413,6 +413,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [linkOpen, setLinkOpen] = useState(true);   // referral bar expanded vs thin blue strip
   const [linkBarH, setLinkBarH] = useState(0);      // measured referral-bar height → sticky offset for tab toolbars
   const linkBarRef = useRef<HTMLDivElement>(null);
+  const linkBodyRef = useRef<HTMLDivElement>(null);
+  const linkPrevH = useRef<number | null>(null);
   const [chartMetric, setChartMetric] = useState<'approvals' | 'clicks' | 'earnings'>('approvals');
   const [scrolled, setScrolled] = useState(false);
 
@@ -462,6 +464,21 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     ro.observe(el);
     return () => ro.disconnect();
   }, [loading, linkOpen, masterLink, linkBuilderIds.length]);
+
+  // Smoothly tween the referral bar between its expanded and thin (collapsed) states.
+  useLayoutEffect(() => {
+    const el = linkBodyRef.current;
+    if (!el) return;
+    const target = el.offsetHeight;
+    const from = linkPrevH.current;
+    linkPrevH.current = target;
+    if (from == null || from === target) return;
+    gsap.killTweensOf(el);
+    gsap.fromTo(el, { height: from }, {
+      height: target, duration: 0.36, ease: 'power3.inOut',
+      onComplete: () => { gsap.set(el, { height: 'auto' }); setLinkBarH(linkBarRef.current?.offsetHeight || 0); },
+    });
+  }, [linkOpen, masterLink]);
 
   // GSAP entrance — staggered rise/fade of the main sections once data is in
   useEffect(() => {
@@ -953,11 +970,12 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           <div
             ref={linkBarRef}
             data-anim
-            className="sticky top-[60px] z-20 mb-5"
+            className={`sticky top-[60px] z-20 mb-5 -mx-4 sm:-mx-6 lg:-mx-8 transition-colors duration-300 ${linkOpen ? 'bg-white/95 backdrop-blur-md border-b border-hair' : 'bg-brand'}`}
           >
+          <div ref={linkBodyRef} className="overflow-hidden">
             {linkOpen ? (
               /* Expanded — white */
-              <div className="flex items-center gap-[18px] flex-wrap py-4 bg-white/95 backdrop-blur-md border-b border-hair">
+              <div className="flex items-center gap-[18px] flex-wrap py-4 px-4 sm:px-6 lg:px-8">
                 <div className="flex-1 min-w-[240px]">
                   <div className="flex items-center mb-1.5">
                     <span className="text-[12.5px] font-medium text-faint">
@@ -1005,7 +1023,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             ) : (
               /* Collapsed — thin blue strip */
               <button onClick={() => setLinkOpen(true)} title="Show link"
-                className="w-full flex items-center gap-3 py-2.5 px-3.5 bg-brand text-white hover:bg-brand-dark transition-colors cursor-pointer">
+                className="w-full flex items-center gap-3 py-2.5 px-4 sm:px-6 lg:px-8 bg-brand text-white cursor-pointer">
                 <Link2 className="w-4 h-4 flex-shrink-0" />
                 <span className="text-[13px] font-semibold truncate flex-1 text-left">
                   {builtLink ? `Your link · ${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''}` : 'Your affiliate link'}
@@ -1019,6 +1037,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <ChevronDown className="w-[18px] h-[18px] flex-shrink-0" />
               </button>
             )}
+          </div>
           </div>
           );
         })() : (
