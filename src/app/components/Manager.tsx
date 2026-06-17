@@ -381,7 +381,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [messageTimeout, setMessageTimeout] = useState<NodeJS.Timeout | null>(null);
   const [trackingActivity, setTrackingActivity] = useState([]);
   const [activeTab, setActiveTab]           = useState('affiliates');
-  const [navOpen,   setNavOpen]             = useState(false);   // mobile ellipsis nav menu
 
   // Edit user form fields
   const [editName, setEditName]       = useState('');
@@ -1284,42 +1283,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       <header className="bg-white/90 backdrop-blur-md sticky top-0 z-10 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-[60px]">
-            {/* Mobile: ellipsis menu — logo, badge & nav tabs collapse in here */}
-            <div className="relative sm:hidden">
-              <button
-                onClick={() => setNavOpen(o => !o)}
-                aria-label="Menu"
-                className="flex items-center justify-center w-10 h-10 -ml-2 rounded-lg text-subtle hover:text-ink hover:bg-surface active:scale-95 transition-all cursor-pointer"
-              >
-                <MoreHorizontal className="w-5 h-5" />
-              </button>
-              {navOpen && (
-                <>
-                  <div className="fixed inset-0 z-20" onClick={() => setNavOpen(false)} />
-                  <div className="absolute left-0 mt-1 w-56 bg-white rounded-2xl shadow-lg ring-1 ring-ink/10 z-30 overflow-hidden py-1.5 ds-rise">
-                    <div className="flex items-center gap-2 px-4 py-2 mb-1 border-b border-hair">
-                      <span className="text-ink font-bold text-sm tracking-tight">Affiliate Portal</span>
-                      <span className="text-[10px] font-bold text-brand bg-brand-soft px-1.5 py-[2px] rounded-full tracking-[0.04em] leading-none">MANAGER</span>
-                    </div>
-                    {navItems.map(({ key, label, Icon, badge }) => {
-                      const active = activeTab === key;
-                      return (
-                        <button
-                          key={key}
-                          onClick={() => { setActiveTab(key); setNavOpen(false); }}
-                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${active ? 'text-brand font-bold bg-brand-soft' : 'text-subtle font-medium hover:bg-surface'}`}
-                        >
-                          <Icon className={`w-4 h-4 flex-shrink-0 ${active ? 'text-brand' : 'text-faint2'}`} />
-                          <span className="flex-1 text-left">{label}</span>
-                          {badge > 0 && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{badge}</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="hidden sm:flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5">
               <div className="flex items-center">
                 <svg width="24" height="22" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <g clipPath="url(#clip0_mgr_logo)">
@@ -1344,8 +1308,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 <p className="text-faint text-xs hidden xl:block ml-1 whitespace-nowrap">Welcome, {managerName}</p>
               </div>
             </div>
-            {/* Tabs live in the header (mock layout); desktop only — mobile uses the ellipsis menu */}
-            <Tabs.List className="hidden sm:flex items-center gap-1 mx-2 sm:mx-4 min-w-0 overflow-x-auto">
+            {/* Tabs live in the header (mock layout); labels are icon-only on mobile, collapse to icons on scroll */}
+            <Tabs.List className="flex items-center gap-1 mx-2 sm:mx-4 min-w-0 overflow-x-auto">
               {navItems.map(({ key, label, Icon, badge }) => (
                 <Tabs.Trigger
                   key={key}
@@ -1353,7 +1317,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   className="group relative flex items-center gap-2 px-2.5 h-9 rounded-lg text-sm font-medium text-faint data-[state=active]:text-ink data-[state=active]:font-bold hover:text-ink transition-colors whitespace-nowrap cursor-pointer"
                 >
                   <Icon className="w-4 h-4 flex-shrink-0 text-faint2 group-data-[state=active]:text-brand transition-colors" />
-                  <span className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
+                  <span className={`hidden sm:inline-block overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
                     <span className="flex items-center gap-1.5">
                       {label}
                       {badge > 0 && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{badge}</span>}
@@ -1370,11 +1334,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   <div className="relative">
                     <button
                       onClick={() => setActionsOpen(o => !o)}
-                      className="flex items-center gap-2 px-2.5 sm:px-3 h-9 bg-white border border-line text-subtle rounded-lg hover:bg-surface hover:text-ink transition-colors text-sm font-medium"
+                      aria-label="Menu"
+                      className="flex items-center justify-center sm:justify-start gap-2 w-10 sm:w-auto px-0 sm:px-3 h-9 sm:bg-white sm:border sm:border-line text-subtle rounded-lg hover:bg-surface hover:text-ink transition-colors text-sm font-medium"
                     >
                       {anyBusy
-                        ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-brand" />
-                        : <RefreshCw className="w-3.5 h-3.5" />}
+                        ? <RefreshCw className="w-4 h-4 sm:w-3.5 sm:h-3.5 animate-spin text-brand" />
+                        : <>
+                            <MoreHorizontal className="w-5 h-5 sm:hidden" />
+                            <RefreshCw className="hidden sm:block w-3.5 h-3.5" />
+                          </>}
                       <span className="hidden sm:inline">Actions</span>
                       <ChevronDown className={`hidden sm:block w-3.5 h-3.5 transition-transform ${actionsOpen ? 'rotate-180' : ''}`} />
                     </button>
@@ -1416,6 +1384,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               <RefreshCw className={`w-4 h-4 text-brand ${syncingCardRating ? 'animate-spin' : ''}`} />
                               {syncingCardRating ? 'Syncing…' : 'Sync Card Rating API'}
                             </button>
+                            {/* Mobile only: logout lives in this ellipsis menu */}
+                            <div className="sm:hidden border-t border-hair mt-1 pt-1">
+                              <button
+                                onClick={() => { setActionsOpen(false); onLogout(); }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neg font-medium hover:bg-surface transition-colors"
+                              >
+                                <LogOut className="w-4 h-4" /> Logout
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </>
@@ -1425,10 +1402,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               })()}
               <button
                 onClick={onLogout}
-                className="flex items-center gap-2 px-3 h-9 text-faint hover:text-neg rounded-lg transition-colors text-sm font-medium"
+                className="hidden sm:flex items-center gap-2 px-3 h-9 text-faint hover:text-neg rounded-lg transition-colors text-sm font-medium"
               >
                 <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Logout</span>
+                <span>Logout</span>
               </button>
             </div>
           </div>
