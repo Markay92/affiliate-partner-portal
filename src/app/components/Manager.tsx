@@ -1296,7 +1296,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 </svg>
               </div>
               <div className="flex items-center gap-2.5 flex-shrink-0">
-                <h1 className="text-ink font-bold text-[16px] tracking-tight leading-none whitespace-nowrap">Affiliate Portal</h1>
+                <h1 className="hidden sm:block text-ink font-bold text-[16px] tracking-tight leading-none whitespace-nowrap">Affiliate Portal</h1>
                 <span className="text-[10.5px] font-bold text-brand bg-brand-soft px-2 py-[3px] rounded-full tracking-[0.04em] leading-none whitespace-nowrap">MANAGER</span>
                 <p className="text-faint text-xs hidden xl:block ml-1 whitespace-nowrap">Welcome, {managerName}</p>
               </div>
@@ -1315,7 +1315,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   className="group relative flex items-center gap-2 px-2.5 h-9 rounded-lg text-sm font-medium text-faint data-[state=active]:text-ink data-[state=active]:font-bold hover:text-ink transition-colors whitespace-nowrap cursor-pointer"
                 >
                   <Icon className="w-4 h-4 flex-shrink-0 text-faint2 group-data-[state=active]:text-brand transition-colors" />
-                  <span className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
+                  <span className={`hidden sm:inline-block overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
                     <span className="flex items-center gap-1.5">
                       {label}
                       {badge && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{badge}</span>}
@@ -1332,13 +1332,13 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   <div className="relative">
                     <button
                       onClick={() => setActionsOpen(o => !o)}
-                      className="flex items-center gap-2 px-3 h-9 bg-white border border-line text-subtle rounded-lg hover:bg-surface hover:text-ink transition-colors text-sm font-medium"
+                      className="flex items-center gap-2 px-2.5 sm:px-3 h-9 bg-white border border-line text-subtle rounded-lg hover:bg-surface hover:text-ink transition-colors text-sm font-medium"
                     >
                       {anyBusy
                         ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-brand" />
                         : <RefreshCw className="w-3.5 h-3.5" />}
-                      Actions
-                      <ChevronDown className={`w-3.5 h-3.5 transition-transform ${actionsOpen ? 'rotate-180' : ''}`} />
+                      <span className="hidden sm:inline">Actions</span>
+                      <ChevronDown className={`hidden sm:block w-3.5 h-3.5 transition-transform ${actionsOpen ? 'rotate-180' : ''}`} />
                     </button>
                     {actionsOpen && (
                       <>
