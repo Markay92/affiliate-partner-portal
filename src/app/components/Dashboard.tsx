@@ -336,6 +336,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [masterLink, setMasterLink] = useState('');
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState('');
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   // Activity tab (Airtable API Output)
   const [trackingFilter,       setTrackingFilter]       = useState<DateFilter>('week');
@@ -509,6 +510,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
       const name = userData.user?.name || '';
       setFirstName(name.split(' ')[0] || '');
+
+      setLastUpdated(new Date());
 
       // Surface Airtable errors so they're visible rather than silently empty
       if (payoutsData.error) {
@@ -1045,9 +1048,16 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               const pagedCards = displayCards.slice(0, cardsVisible);
               return (
                 <>
-                  <p className="text-xs text-slate-400 mb-3">
-                    Showing {pagedCards.length} of {displayCards.length} cards
-                  </p>
+                  <div className="flex items-center justify-between mb-3 gap-2">
+                    <p className="text-xs text-slate-400">
+                      Showing {pagedCards.length} of {displayCards.length} cards
+                    </p>
+                    {lastUpdated && (
+                      <p className="text-xs text-gray-400">
+                        Last updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
+                  </div>
                   <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
                     <table className="w-full">
                       <thead className="bg-slate-50/80">
@@ -1179,9 +1189,16 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
             ) : (
               <>
-                <p className="text-xs text-slate-400 mb-3">
-                  Showing {Math.min(activityVisible, displayTracking.length)} of {displayTracking.length} records
-                </p>
+                <div className="flex items-center justify-between mb-3 gap-2">
+                  <p className="text-xs text-slate-400">
+                    Showing {Math.min(activityVisible, displayTracking.length)} of {displayTracking.length} records
+                  </p>
+                  {lastUpdated && (
+                    <p className="text-xs text-gray-400">
+                      Last updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  )}
+                </div>
                 <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
                   <table className="w-full">
                     <thead className="bg-slate-50/80 border-b border-slate-100">
@@ -1248,9 +1265,16 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
             ) : (
               <>
-              <p className="text-xs text-slate-400 mb-3">
-                Showing {Math.min(invoicesVisible, invoices.length)} of {invoices.length} invoices
-              </p>
+              <div className="flex items-center justify-between mb-3 gap-2">
+                <p className="text-xs text-slate-400">
+                  Showing {Math.min(invoicesVisible, invoices.length)} of {invoices.length} invoices
+                </p>
+                {lastUpdated && (
+                  <p className="text-xs text-gray-400">
+                    Last updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                )}
+              </div>
               <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
                 <table className="w-full">
                   <thead className="bg-slate-50/80">

@@ -470,6 +470,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [invoiceCollapsed,      setInvoiceCollapsed]      = useState<Set<string>>(new Set());
   const [expandedInvoices,      setExpandedInvoices]      = useState<Set<string>>(new Set());
 
+  // "Last updated" timestamps — one per independently-fetched list
+  const [affiliatesUpdated, setAffiliatesUpdated] = useState<Date | null>(null);
+  const [trackingUpdated,   setTrackingUpdated]   = useState<Date | null>(null);
+  const [cpaUpdated,        setCpaUpdated]        = useState<Date | null>(null);
+  const [invoicesUpdated,   setInvoicesUpdated]   = useState<Date | null>(null);
+
   // ── Derived display data ────────────────────────────────────────────────────
   const displayUsers = sortUsers(
     users.filter((u: any) => {
@@ -713,6 +719,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       if (response.ok) {
         const userList = data.users || [];
         setUsers(userList);
+        setAffiliatesUpdated(new Date());
         if (userList.length === 0) {
           setMessageWithTimeout('No affiliates yet. Create your first affiliate to get started.', 8000);
         } else {
@@ -938,7 +945,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         },
       );
       const data = await response.json();
-      if (data.success) { setTrackingActivity(data.activity || []); }
+      if (data.success) { setTrackingActivity(data.activity || []); setTrackingUpdated(new Date()); }
       else setMessageWithTimeout(data.error || 'Failed to fetch tracking activity', 8000);
     } catch (error: any) { setMessageWithTimeout(`Failed to fetch tracking: ${error.message}`, 8000); }
   };
@@ -992,6 +999,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       const data = await res.json();
       setCpaRates(data.rates || []);
       setCpaAffiliateLabel(data.affiliateName || '');
+      setCpaUpdated(new Date());
     } catch (err: any) {
       setMessageWithTimeout(`Failed to load CPA rates: ${err.message}`, 6000);
     } finally {
@@ -1013,7 +1021,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         },
       );
       const data = await res.json();
-      if (data.invoices) setInvoices(data.invoices);
+      if (data.invoices) { setInvoices(data.invoices); setInvoicesUpdated(new Date()); }
       else setMessageWithTimeout(data.error || 'Failed to fetch invoices', 8000);
     } catch (err: any) {
       setMessageWithTimeout(`Failed to fetch invoices: ${err.message}`, 8000);
@@ -1541,9 +1549,16 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
             {/* Affiliates Table */}
             <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm">
-              <p className="text-xs text-slate-400 px-5 pt-4">
-                Showing {Math.min(affiliatesVisible, displayUsers.length)} of {displayUsers.length} affiliates
-              </p>
+              <div className="flex items-center justify-between gap-2 px-5 pt-4">
+                <p className="text-xs text-slate-400">
+                  Showing {Math.min(affiliatesVisible, displayUsers.length)} of {displayUsers.length} affiliates
+                </p>
+                {affiliatesUpdated && (
+                  <p className="text-xs text-gray-400">
+                    Last updated {affiliatesUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                )}
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-slate-50/80 border-b border-slate-100">
@@ -1735,9 +1750,16 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 const pagedTracking = displayTrackingActivity.slice(0, trackingVisible);
                 return (
                   <>
-                    <p className="text-xs text-slate-400 mb-3">
-                      Showing {pagedTracking.length} of {displayTrackingActivity.length} records
-                    </p>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <p className="text-xs text-slate-400">
+                        Showing {pagedTracking.length} of {displayTrackingActivity.length} records
+                      </p>
+                      {trackingUpdated && (
+                        <p className="text-xs text-gray-400">
+                          Last updated {trackingUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      )}
+                    </div>
                     <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
                       <table className="w-full">
                         <thead className="bg-slate-50/80 border-b border-slate-100">
@@ -2074,6 +2096,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         {cpaAffiliateLabel ? ` · ${cpaAffiliateLabel}` : ''}
                         <CurrentYearBadge active={!cpaShowAllYears} />
                       </p>
+                      {cpaUpdated && (
+                        <p className="text-xs text-gray-400">
+                          Last updated {cpaUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      )}
                     </div>
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50/80 border-b border-slate-100">
@@ -2284,6 +2311,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         {invoices.length !== filtered.length ? ` (${invoices.length} total)` : ''}
                         <CurrentYearBadge active={!invoiceShowAllYears} />
                       </p>
+                      {invoicesUpdated && (
+                        <p className="text-xs text-gray-400">
+                          Last updated {invoicesUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      )}
                     </div>
                     <table className="w-full">
                       <thead className="bg-slate-50/80 border-b border-slate-100">
