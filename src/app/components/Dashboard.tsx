@@ -416,11 +416,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const insBodyRef = useRef<HTMLDivElement>(null);
   const [perfOpen, setPerfOpen] = useState(false);   // Performance compact by default, pull to expand (design)
   const perfBodyRef = useRef<HTMLDivElement>(null);
-  const [linkOpen, setLinkOpen] = useState(true);   // referral bar expanded vs thin blue strip
   const [linkBarH, setLinkBarH] = useState(0);      // measured referral-bar height → sticky offset for tab toolbars
   const linkBarRef = useRef<HTMLDivElement>(null);
-  const linkBodyRef = useRef<HTMLDivElement>(null);
-  const linkPrevH = useRef<number | null>(null);
   const [chartMetric, setChartMetric] = useState<'approvals' | 'clicks' | 'earnings'>('approvals');
   const [scrolled, setScrolled] = useState(false);
 
@@ -493,24 +490,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [loading, linkOpen, masterLink, linkBuilderIds.length]);
-
-  // Smoothly tween the referral bar between its expanded and thin (collapsed) states.
-  useLayoutEffect(() => {
-    const el = linkBodyRef.current;
-    if (!el) return;
-    const target = el.offsetHeight;
-    const from = linkPrevH.current;
-    linkPrevH.current = target;
-    if (from == null || from === target) return;
-    gsap.killTweensOf(el);
-    const child = el.firstElementChild as HTMLElement | null;
-    gsap.fromTo(el, { height: from }, {
-      height: target, duration: 0.44, ease: 'power2.inOut',
-      onComplete: () => { gsap.set(el, { height: 'auto' }); setLinkBarH(linkBarRef.current?.offsetHeight || 0); },
-    });
-    if (child) gsap.fromTo(child, { opacity: 0, y: -4 }, { opacity: 1, y: 0, duration: 0.34, ease: 'power2.out' });
-  }, [linkOpen, masterLink]);
+  }, [loading, masterLink, linkBuilderIds.length]);
 
   // GSAP entrance — staggered rise/fade of the main sections once data is in
   useEffect(() => {
@@ -987,74 +967,29 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             data-anim
             className="sticky top-[60px] z-20 mb-5 -mx-4 sm:-mx-6 lg:-mx-8 bg-white/95 backdrop-blur-md border-b border-hair"
           >
-          <div ref={linkBodyRef} className="overflow-hidden">
-            {linkOpen ? (
-              /* Expanded — white */
-              <div className="flex items-center gap-[18px] flex-wrap py-4 px-4 sm:px-6 lg:px-8">
-                <div className="flex-1 min-w-[240px]">
-                  <div className="flex items-center mb-1.5">
-                    <span className="text-[12.5px] font-medium text-faint">
-                      {builtLink ? `Your link · ${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} selected` : 'Your affiliate link'}
-                    </span>
-                    {builtLink && (
-                      <button onClick={() => setLinkBuilderIds([])} className="ml-3 text-[11px] font-medium text-faint hover:text-brand transition-colors cursor-pointer">
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                  <div className="font-mono-ds font-medium text-ink break-all line-clamp-2 sm:line-clamp-none text-[15.5px]">
-                    {displayLink}
-                  </div>
-                  <div className="mt-1">
-                    <span className="text-xs font-medium text-faint">
-                      {builtLink
-                        ? `${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} on your link · ready to share`
-                        : 'Add cards from the table to build a custom link'}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2.5 flex-shrink-0">
-                  <button
-                    onClick={() => copyToClipboard(displayLink, -1)}
-                    className="flex items-center gap-[7px] h-10 px-[18px] rounded-full bg-brand text-white text-sm font-semibold hover:bg-brand-dark active:scale-95 transition-all duration-150 cursor-pointer"
-                    title="Copy link"
-                  >
-                    {copiedId === -1
-                      ? <><CheckCircle className="w-4 h-4" /> Copied</>
-                      : <><Copy className="w-4 h-4" /> Copy</>}
-                  </button>
-                  <a href={displayLink} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-[7px] h-9 px-4 rounded-full border border-line bg-white text-ink text-sm font-semibold hover:bg-surface transition-colors cursor-pointer"
-                    title="Preview link">
-                    <ExternalLink className="w-[15px] h-[15px]" />
-                    Preview
-                  </a>
-                  <button onClick={() => setLinkOpen(false)} title="Minimize link"
-                    className="flex items-center justify-center w-9 h-9 rounded-full text-faint hover:text-ink hover:bg-surface active:scale-95 transition-all duration-150 cursor-pointer">
-                    <ChevronUp className="w-[18px] h-[18px]" />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* Collapsed — same bar, condensed to a single line */
-              <div className="flex items-center gap-3 py-2.5 px-4 sm:px-6 lg:px-8">
-                <Link2 className="w-4 h-4 text-faint2 flex-shrink-0" />
-                <span className="font-mono-ds text-[13px] font-medium text-ink truncate flex-1 min-w-0">
-                  {displayLink}
-                </span>
-                <button
-                  onClick={() => copyToClipboard(displayLink, -1)}
-                  title="Copy link"
-                  className="flex items-center gap-1.5 h-7 px-3 rounded-full bg-brand-soft text-brand-dark text-[12.5px] font-semibold hover:bg-brand/15 transition-colors flex-shrink-0 cursor-pointer"
-                >
-                  {copiedId === -1 ? <><CheckCircle className="w-3.5 h-3.5" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
-                </button>
-                <button onClick={() => setLinkOpen(true)} title="Expand link"
-                  className="flex items-center justify-center w-8 h-8 rounded-lg text-faint hover:text-ink hover:bg-surface transition-colors flex-shrink-0 cursor-pointer">
-                  <ChevronDown className="w-[18px] h-[18px]" />
-                </button>
-              </div>
+          {/* Compact referral link bar — single line, no expanded state */}
+          <div className="flex items-center gap-3 py-2.5 px-4 sm:px-6 lg:px-8">
+            <Link2 className="w-4 h-4 text-faint2 flex-shrink-0" />
+            <span className="font-mono-ds text-[13px] font-medium text-ink truncate flex-1 min-w-0">
+              {displayLink}
+            </span>
+            {builtLink && (
+              <button onClick={() => setLinkBuilderIds([])} title="Reset to your default link"
+                className="text-[11px] font-medium text-faint hover:text-brand transition-colors flex-shrink-0 cursor-pointer">
+                Clear
+              </button>
             )}
+            <button
+              onClick={() => copyToClipboard(displayLink, -1)}
+              title="Copy link"
+              className="flex items-center gap-1.5 h-7 px-3 rounded-full bg-brand-soft text-brand-dark text-[12.5px] font-semibold hover:bg-brand/15 transition-colors flex-shrink-0 cursor-pointer"
+            >
+              {copiedId === -1 ? <><CheckCircle className="w-3.5 h-3.5" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
+            </button>
+            <a href={displayLink} target="_blank" rel="noopener noreferrer" title="Preview link"
+              className="flex items-center justify-center w-8 h-8 rounded-lg text-faint hover:text-ink hover:bg-surface transition-colors flex-shrink-0 cursor-pointer">
+              <ExternalLink className="w-[15px] h-[15px]" />
+            </a>
           </div>
           </div>
           );
