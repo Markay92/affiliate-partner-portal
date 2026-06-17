@@ -1213,14 +1213,22 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           <Slide tabKey="cards">
           <div>
             <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas pt-6 pb-1">
-            {/* Type chips */}
+            {/* Search */}
+            <div className="relative mb-[13px]">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[17px] h-[17px] text-faint pointer-events-none" />
+              <input type="text" placeholder="Search cards or issuers" value={cardsSearch}
+                onChange={e => { setCardsSearch(e.target.value); setCardsVisible(PAGE_SIZE); }}
+                className="w-full h-[42px] pl-10 pr-3.5 border border-line rounded-[10px] bg-white text-[14.5px] text-ink outline-none transition focus:border-brand focus:ring-[3px] focus:ring-brand/15" />
+            </div>
+
+            {/* Type chips — smaller, under the search */}
             {cardTypes.length > 0 && (
-              <div className="ds-chips flex items-center gap-2 overflow-x-auto mb-[18px]">
+              <div className="ds-chips flex items-center gap-1.5 overflow-x-auto mb-[14px]">
                 {(['all', ...cardTypes]).map(type => {
                   const on = cardsTypeFilter === type;
                   return (
                     <button key={type} onClick={() => { setCardsTypeFilter(type); setCardsVisible(PAGE_SIZE); }}
-                      className={`flex-shrink-0 h-9 px-4 rounded-full text-[13.5px] font-semibold tracking-[-0.01em] whitespace-nowrap transition-colors cursor-pointer ${
+                      className={`flex-shrink-0 h-7 px-3 rounded-full text-[12.5px] font-medium tracking-[-0.01em] whitespace-nowrap transition-colors cursor-pointer ${
                         on ? 'bg-brand text-white' : 'bg-hair2 text-subtle hover:bg-hair'
                       }`}>
                       {type === 'all' ? 'All types' : type}
@@ -1229,14 +1237,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 })}
               </div>
             )}
-
-            {/* Search */}
-            <div className="relative mb-[18px]">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[17px] h-[17px] text-faint pointer-events-none" />
-              <input type="text" placeholder="Search cards or issuers" value={cardsSearch}
-                onChange={e => { setCardsSearch(e.target.value); setCardsVisible(PAGE_SIZE); }}
-                className="w-full h-[42px] pl-10 pr-3.5 border border-line rounded-[10px] bg-white text-[14.5px] text-ink outline-none transition focus:border-brand focus:ring-[3px] focus:ring-brand/15" />
-            </div>
 
             {/* Bold divider */}
             <div className="h-[1.5px] bg-ink" />
