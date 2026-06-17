@@ -164,6 +164,23 @@ function formatDate(str: string | undefined): string {
   });
 }
 
+function formatLastUpdated(ts?: number): string {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleString(undefined, {
+    month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  });
+}
+
+function LastUpdated({ ts }: { ts?: number }) {
+  return (
+    <p className="flex items-center gap-1.5 text-[11px] font-medium text-faint">
+      <RefreshCw className="w-3 h-3" />
+      Last updated {formatLastUpdated(ts)}
+    </p>
+  );
+}
+
 /** Format a time string (ISO or HH:MM:SS) as "6:46 PM" */
 function formatTime(str: string | undefined): string {
   if (!str) return '';
@@ -362,6 +379,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [payouts, setPayouts]   = useState<Payout[]>([]);
   const [tracking, setTracking] = useState<TrackingItem[]>([]);
   const [invoices, setInvoices]     = useState<Invoice[]>([]);
+  const [lastUpdated, setLastUpdated] = useState<number | undefined>(undefined);
   const [firstName, setFirstName]   = useState('');
   const [masterLink, setMasterLink] = useState('');
   const [ezrxRef,   setEzrxRef]     = useState('');
@@ -665,6 +683,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       setTracking(trackingData.tracking || []);
       setPayouts(payoutsData.payouts    || []);
       setInvoices(invoicesData.invoices || []);
+      setLastUpdated(Date.now());
 
       const name = userData.user?.name || '';
       setFirstName(name.split(' ')[0] || '');
@@ -1295,6 +1314,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             {/* Bold divider */}
             <div className="h-[1.5px] bg-ink" />
 
+            <div className="pt-2"><LastUpdated ts={lastUpdated} /></div>
+
             {/* Group-by + count + sort tabs */}
             <div className="flex items-center justify-between gap-3.5 flex-wrap pt-[15px] pb-1.5">
               <div className="flex items-center gap-4 flex-wrap">
@@ -1499,10 +1520,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             {/* Sticky controls */}
             <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas border-b border-hair py-3">
             <div className="flex items-center justify-between mb-3 p-3.5 bg-surface rounded-xl border border-hair">
-              <p className="text-sm text-subtle">
-                <span className="font-semibold text-ink tabular-nums">{displayTracking.length}</span>
-                {trackingFilter !== 'all' ? <span className="text-faint"> of {tracking.length}</span> : ''} activity records
-              </p>
+              <div>
+                <p className="text-sm text-subtle">
+                  <span className="font-semibold text-ink tabular-nums">{displayTracking.length}</span>
+                  {trackingFilter !== 'all' ? <span className="text-faint"> of {tracking.length}</span> : ''} activity records
+                </p>
+                <div className="mt-1"><LastUpdated ts={lastUpdated} /></div>
+              </div>
               <button
                 onClick={fetchData}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-subtle bg-white border border-hair rounded-lg hover:border-brand hover:text-brand active:scale-95 transition-all duration-150 cursor-pointer"
@@ -1646,10 +1670,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
             ) : (
               <>
-              <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas py-3 border-b border-hair">
+              <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas py-3 border-b border-hair flex items-center justify-between gap-3">
                 <p className="text-xs text-faint">
                   Showing {Math.min(invoicesVisible, invoices.length)} of {invoices.length} invoices
                 </p>
+                <LastUpdated ts={lastUpdated} />
               </div>
               <div>
                 {invoices.slice(0, invoicesVisible).map(inv => {

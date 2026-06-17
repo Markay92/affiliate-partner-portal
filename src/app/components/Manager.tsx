@@ -106,6 +106,23 @@ function CurrentYearBadge({ active }: { active: boolean }) {
   );
 }
 
+function formatLastUpdated(ts?: number): string {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleString(undefined, {
+    month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  });
+}
+
+function LastUpdated({ ts }: { ts?: number }) {
+  return (
+    <p className="flex items-center gap-1.5 text-[11px] font-medium text-faint">
+      <RefreshCw className="w-3 h-3" />
+      Last updated {formatLastUpdated(ts)}
+    </p>
+  );
+}
+
 const DATE_LABELS: Record<DateFilter, string> = {
   today: 'Today', week: 'This Week', month: 'This Month',
   lm: 'Last Month', all: 'All Time', custom: 'Custom',
@@ -381,6 +398,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [messageTimeout, setMessageTimeout] = useState<NodeJS.Timeout | null>(null);
   const [trackingActivity, setTrackingActivity] = useState([]);
   const [activeTab, setActiveTab]           = useState('affiliates');
+  // Timestamps for when each table's data was last fetched
+  const [lastUpdated, setLastUpdated] = useState<{ affiliates?: number; tracking?: number; cpa?: number; invoices?: number }>({});
 
   // Edit user form fields
   const [editName, setEditName]       = useState('');
@@ -802,6 +821,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       if (response.ok) {
         const userList = data.users || [];
         setUsers(userList);
+        setLastUpdated(prev => ({ ...prev, affiliates: Date.now() }));
         if (userList.length === 0) {
           setMessageWithTimeout('No affiliates yet. Create your first affiliate to get started.', 8000);
         } else {
@@ -1027,7 +1047,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         },
       );
       const data = await response.json();
-      if (data.success) { setTrackingActivity(data.activity || []); }
+      if (data.success) { setTrackingActivity(data.activity || []); setLastUpdated(prev => ({ ...prev, tracking: Date.now() })); }
       else setMessageWithTimeout(data.error || 'Failed to fetch tracking activity', 8000);
     } catch (error: any) { setMessageWithTimeout(`Failed to fetch tracking: ${error.message}`, 8000); }
   };
@@ -1113,6 +1133,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       });
       const data = await res.json();
       setCpaRates(data.rates || []);
+      setLastUpdated(prev => ({ ...prev, cpa: Date.now() }));
       setCpaAffiliateLabel(data.affiliateName || '');
     } catch (err: any) {
       setMessageWithTimeout(`Failed to load CPA rates: ${err.message}`, 6000);
@@ -1135,7 +1156,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         },
       );
       const data = await res.json();
-      if (data.invoices) setInvoices(data.invoices);
+      if (data.invoices) { setInvoices(data.invoices); setLastUpdated(prev => ({ ...prev, invoices: Date.now() })); }
       else setMessageWithTimeout(data.error || 'Failed to fetch invoices', 8000);
     } catch (err: any) {
       setMessageWithTimeout(`Failed to fetch invoices: ${err.message}`, 8000);
@@ -1647,9 +1668,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
             {/* Affiliates Table */}
             <div className="mt-1">
-              <p className="text-xs text-faint px-5 pt-4">
-                Showing {Math.min(affiliatesVisible, displayUsers.length)} of {displayUsers.length} affiliates
-              </p>
+              <div className="flex items-center justify-between gap-3 px-5 pt-4">
+                <p className="text-xs text-faint">
+                  Showing {Math.min(affiliatesVisible, displayUsers.length)} of {displayUsers.length} affiliates
+                </p>
+                <LastUpdated ts={lastUpdated.affiliates} />
+              </div>
               <div>
                 {(() => {
                   const pagedUsers = displayUsers.slice(0, affiliatesVisible);
@@ -1712,6 +1736,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         ? ` of ${trackingActivity.length}` : ''} records
                       <CurrentYearBadge active={!trackingShowAllYears} />
                     </p>
+                    <div className="mt-1"><LastUpdated ts={lastUpdated.tracking} /></div>
                   </div>
                   <div className="flex items-center gap-2">
                     {/* Group by segmented control */}
@@ -2158,6 +2183,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         {filtered.length !== cpaRates.length ? ` (${cpaRates.length} total)` : ''}
                         {cpaAffiliateLabel ? ` · ${cpaAffiliateLabel}` : ''}
                       </p>
+                      <LastUpdated ts={lastUpdated.cpa} />
                       <div className="flex items-center gap-1.5 text-xs text-faint">
                         <span>Show</span>
                         {[25, 50, 100].map(n => (
@@ -2378,6 +2404,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         {invoices.length !== filtered.length ? ` (${invoices.length} total)` : ''}
                         <CurrentYearBadge active={!invoiceShowAllYears} />
                       </p>
+                      <LastUpdated ts={lastUpdated.invoices} />
                     </div>
                     <div>
                         {(() => {
