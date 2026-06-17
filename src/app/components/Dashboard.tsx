@@ -273,32 +273,18 @@ function FilterBar({
   customTo: string;   setCustomTo: (s: string) => void;
 }) {
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-medium text-faint flex-shrink-0">Period:</span>
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value as DateFilter)}
-          className="sm:hidden flex-1 min-w-0 text-xs font-medium bg-hair2 border border-transparent rounded-lg px-2.5 py-1.5 text-subtle focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
-        >
-          {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
-            <option key={f} value={f}>{DATE_LABELS[f]}</option>
-          ))}
-        </select>
-        <div className="hidden sm:block overflow-x-auto">
-          <div className="flex items-center gap-1.5 min-w-max">
-            {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
-              <button key={f} onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
-                  filter === f
-                    ? 'bg-brand text-white shadow-sm'
-                    : 'text-faint bg-hair2 hover:bg-hair'
-                }`}>
-                {DATE_LABELS[f]}
-              </button>
-            ))}
-          </div>
-        </div>
+    <div className="space-y-2.5">
+      <div className="ds-chips flex items-center gap-5 overflow-x-auto -mx-1 px-1">
+        {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
+          <button key={f} onClick={() => setFilter(f)}
+            className={`whitespace-nowrap text-[13.5px] cursor-pointer transition-colors py-0.5 ${
+              filter === f
+                ? 'text-brand font-bold'
+                : 'text-faint font-medium hover:text-subtle'
+            }`}>
+            {DATE_LABELS[f]}
+          </button>
+        ))}
       </div>
       {filter === 'custom' && (
         <div className="flex flex-wrap items-center gap-2">
@@ -426,7 +412,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   });
   const [insightsTab, setInsightsTab] = useState<'charts' | 'topCards'>('charts');
   const [insightsOpen, setInsightsOpen] = useState(true);
-  const [insCard, setInsCard] = useState(0);   // active Insights card on mobile (swipe)
   const insBodyRef = useRef<HTMLDivElement>(null);
   const [perfOpen, setPerfOpen] = useState(false);   // Performance compact by default, pull to expand (design)
   const perfBodyRef = useRef<HTMLDivElement>(null);
@@ -1213,12 +1198,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   </div>
                   <div ref={insBodyRef} className="overflow-hidden">
                   <div
-                    onScroll={e => { if (window.innerWidth < 1024) setInsCard(Math.round(e.currentTarget.scrollLeft / Math.max(1, e.currentTarget.clientWidth))); }}
-                    className={`pt-5 ${showCharts && showTopCards ? 'flex gap-0 overflow-x-auto snap-x snap-mandatory ds-chips lg:grid lg:grid-cols-[1.7fr_1fr] lg:overflow-visible' : 'grid grid-cols-1'}`}
+                    className={`pt-5 ${showCharts && showTopCards ? 'grid grid-cols-1 gap-4 lg:grid-cols-[1.7fr_1fr] lg:gap-0' : 'grid grid-cols-1'}`}
                   >
                     {/* Chart */}
                     {showCharts && (
-                    <div className={showTopCards ? 'snap-start shrink-0 w-full lg:w-auto lg:pr-9' : ''}>
+                    <div className={showTopCards ? 'rounded-2xl border border-hair p-4 lg:border-0 lg:rounded-none lg:p-0 lg:pr-9' : ''}>
                       <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
                         <h3 className="text-[15px] font-bold text-ink capitalize">Monthly {chartMetric}</h3>
                         <div className="flex items-center gap-4">
@@ -1251,7 +1235,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     )}
                     {/* Top approved cards */}
                     {showTopCards && (
-                    <div className={showCharts ? 'snap-start shrink-0 w-full lg:w-auto lg:pl-9 lg:border-l lg:border-hair' : ''}>
+                    <div className={showCharts ? 'rounded-2xl border border-hair p-4 lg:border-0 lg:border-l lg:border-hair lg:rounded-none lg:p-0 lg:pl-9' : ''}>
                       <h3 className="text-[15px] font-bold text-ink mb-0.5">Top approved cards</h3>
                       <p className="text-[12.5px] text-faint mb-3.5">Ranked by approvals</p>
                       {mostApprovedCards.map((c, idx) => (
@@ -1264,13 +1248,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </div>
                     )}
                   </div>
-                  {showCharts && showTopCards && (
-                    <div className="flex lg:hidden items-center justify-center gap-1.5 pt-3">
-                      {[0, 1].map(i => (
-                        <span key={i} className={`h-1.5 rounded-full transition-all ${insCard === i ? 'w-5 bg-brand' : 'w-1.5 bg-hair'}`} />
-                      ))}
-                    </div>
-                  )}
                   </div>
                 </div>
               )}
@@ -1360,7 +1337,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               const CardRow = ({ card, indent }: { card: any; indent?: boolean }) => {
                 const isAdded = card.cardId && linkBuilderIds.includes(card.cardId);
                 return (
-                  <div className="flex items-center gap-[18px] py-4 border-b border-hair2 hover:bg-surface transition-colors duration-150"
+                  <div className="flex items-center gap-[18px] py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150"
                     style={{ paddingLeft: indent ? 24 : 0 }}>
                     <div className="flex-1 min-w-0">
                       <div className="text-[15.5px] font-semibold text-ink tracking-[-0.01em] truncate">{card.name}</div>
@@ -1626,7 +1603,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   {displayTracking.slice(0, activityVisible).map((item) => {
                     const dot = item.status === 'approval' ? 'var(--ds-pos)' : item.status === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
                     return (
-                      <div key={item.id} className="flex items-center gap-4 py-3.5 border-b border-hair2 hover:bg-surface transition-colors duration-150">
+                      <div key={item.id} className="flex items-center gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150">
                         <div className="flex-1 min-w-0">
                           <div className="text-[15px] font-semibold text-ink truncate">{item.cardName || '—'}</div>
                           <div className="flex items-center gap-2 mt-0.5 text-[12.5px] text-faint flex-wrap">
@@ -1688,7 +1665,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   return (
                     <div key={inv.id}>
                       <div
-                        className="flex items-center gap-4 py-3.5 border-b border-hair2 hover:bg-surface transition-colors duration-150 cursor-pointer"
+                        className="flex items-center gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150 cursor-pointer"
                         onClick={() => setExpandedInvoices(prev => { const next = new Set(prev); next.has(inv.id) ? next.delete(inv.id) : next.add(inv.id); return next; })}
                       >
                         <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`} strokeWidth={2.6} />

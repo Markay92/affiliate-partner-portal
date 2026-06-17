@@ -292,32 +292,18 @@ function FilterBar({
   customTo: string;   setCustomTo: (s: string) => void;
 }) {
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-medium text-faint flex-shrink-0">Period:</span>
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value as DateFilter)}
-          className="sm:hidden flex-1 min-w-0 text-xs font-medium bg-hair2 border border-transparent rounded-lg px-2.5 py-1.5 text-subtle focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
-        >
-          {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
-            <option key={f} value={f}>{DATE_LABELS[f]}</option>
-          ))}
-        </select>
-        <div className="hidden sm:block overflow-x-auto">
-          <div className="flex items-center gap-1.5 min-w-max">
-            {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
-              <button key={f} onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
-                  filter === f
-                    ? 'bg-brand text-white shadow-sm'
-                    : 'text-faint bg-hair2 hover:bg-hair'
-                }`}>
-                {DATE_LABELS[f]}
-              </button>
-            ))}
-          </div>
-        </div>
+    <div className="space-y-2.5">
+      <div className="ds-chips flex items-center gap-5 overflow-x-auto -mx-1 px-1">
+        {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
+          <button key={f} onClick={() => setFilter(f)}
+            className={`whitespace-nowrap text-[13.5px] cursor-pointer transition-colors py-0.5 ${
+              filter === f
+                ? 'text-brand font-bold'
+                : 'text-faint font-medium hover:text-subtle'
+            }`}>
+            {DATE_LABELS[f]}
+          </button>
+        ))}
       </div>
       {filter === 'custom' && (
         <div className="flex flex-wrap items-center gap-2">
@@ -448,7 +434,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [insightsTab, setInsightsTab] = useState<'charts' | 'topCards'>('charts');
   const [rowMenu, setRowMenu] = useState<string | null>(null);
   const [insightsOpen, setInsightsOpen] = useState(true);
-  const [insCard, setInsCard] = useState(0);   // active Insights card on mobile (swipe)
   const insBodyRef = useRef<HTMLDivElement>(null);
   const [scrolled, setScrolled] = useState(false);
 
@@ -1213,7 +1198,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     const editing = editingCommission === user.id;
     const menuOpen = rowMenu === user.id;
     return (
-      <div key={user.id} className="flex items-center gap-4 py-4 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
+      <div key={user.id} className="flex items-center gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
         <span className="w-9 h-9 rounded-full bg-brand-soft text-brand text-xs font-bold flex items-center justify-center flex-shrink-0">{initials}</span>
         <div className="flex-1 min-w-0">
           <div className="text-[15px] font-semibold text-ink truncate">{user.name || 'N/A'}</div>
@@ -1545,12 +1530,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   </div>
                   <div ref={insBodyRef} className="overflow-hidden">
                   <div
-                    onScroll={e => { if (window.innerWidth < 1024) setInsCard(Math.round(e.currentTarget.scrollLeft / Math.max(1, e.currentTarget.clientWidth))); }}
-                    className={`pt-5 ${showAffiliates && showTopCards ? 'flex gap-0 overflow-x-auto snap-x snap-mandatory ds-chips lg:grid lg:grid-cols-[1.7fr_1fr] lg:overflow-visible' : 'grid grid-cols-1'}`}
+                    className={`pt-5 ${showAffiliates && showTopCards ? 'grid grid-cols-1 gap-4 lg:grid-cols-[1.7fr_1fr] lg:gap-0' : 'grid grid-cols-1'}`}
                   >
                     {/* Top affiliates by earnings */}
                     {showAffiliates && (
-                    <div className={showTopCards ? 'snap-start shrink-0 w-full lg:w-auto lg:pr-9' : ''}>
+                    <div className={showTopCards ? 'rounded-2xl border border-hair p-4 lg:border-0 lg:rounded-none lg:p-0 lg:pr-9' : ''}>
                       <h3 className="text-[15px] font-bold text-ink mb-4">Top affiliates by earnings</h3>
                       {topAffiliates.map(a => (
                         <div key={a.name} className="mb-3.5">
@@ -1567,7 +1551,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     )}
                     {/* Top approved cards */}
                     {showTopCards && (
-                    <div className={showAffiliates ? 'snap-start shrink-0 w-full lg:w-auto lg:pl-9 lg:border-l lg:border-hair' : ''}>
+                    <div className={showAffiliates ? 'rounded-2xl border border-hair p-4 lg:border-0 lg:border-l lg:border-hair lg:rounded-none lg:p-0 lg:pl-9' : ''}>
                       <h3 className="text-[15px] font-bold text-ink mb-0.5">Top approved cards</h3>
                       <p className="text-[12.5px] text-faint mb-3.5">Across all affiliates</p>
                       {mostApprovedCards.map((c, idx) => (
@@ -1580,13 +1564,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </div>
                     )}
                   </div>
-                  {showAffiliates && showTopCards && (
-                    <div className="flex lg:hidden items-center justify-center gap-1.5 pt-3">
-                      {[0, 1].map(i => (
-                        <span key={i} className={`h-1.5 rounded-full transition-all ${insCard === i ? 'w-5 bg-brand' : 'w-1.5 bg-hair'}`} />
-                      ))}
-                    </div>
-                  )}
                   </div>
                 </div>
               )}
@@ -1881,7 +1858,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             const dotColor = (s: string) => s === 'approval' ? 'var(--ds-pos)' : s === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
                             // Single row renderer — used in both flat and grouped modes
                             const TrackRow = ({ a, indent }: { a: any; indent?: boolean }) => (
-                              <div key={a.id} className="flex items-center gap-4 py-3.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
+                              <div key={a.id} className="flex items-center gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
                                 <div className="flex-1 min-w-0">
                                   <div className="text-[15px] font-semibold text-ink truncate">{a.cardName || '—'}</div>
                                   <div className="flex items-center gap-2 mt-0.5 text-[12.5px] text-faint flex-wrap">
@@ -2146,7 +2123,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 });
 
                 const CpaRow = ({ rate, indent }: { rate: any; indent?: boolean }) => (
-                  <div className="flex items-center gap-4 py-3.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
+                  <div className="flex items-center gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
                     <div className="flex-1 min-w-0">
                       <div className="text-[15px] font-semibold text-ink truncate">{rate.card}</div>
                       <div className="flex items-center gap-2 mt-0.5 text-[12.5px] text-faint flex-wrap">
@@ -2426,7 +2403,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             const statusDot = paid ? 'var(--ds-pos)' : pending ? 'var(--ds-warn)' : 'var(--ds-faint2)';
                             return (
                               <React.Fragment key={inv.id}>
-                                <div className="flex items-center gap-4 py-3.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
+                                <div className="flex items-center gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
                                   <button onClick={toggleOpen} className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer">
                                     <ChevronRight className={`w-3.5 h-3.5 text-faint flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} strokeWidth={2.6} />
                                     <div className="flex-1 min-w-0">
