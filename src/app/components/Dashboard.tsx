@@ -474,10 +474,12 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     linkPrevH.current = target;
     if (from == null || from === target) return;
     gsap.killTweensOf(el);
+    const child = el.firstElementChild as HTMLElement | null;
     gsap.fromTo(el, { height: from }, {
-      height: target, duration: 0.36, ease: 'power3.inOut',
+      height: target, duration: 0.44, ease: 'power2.inOut',
       onComplete: () => { gsap.set(el, { height: 'auto' }); setLinkBarH(linkBarRef.current?.offsetHeight || 0); },
     });
+    if (child) gsap.fromTo(child, { opacity: 0, y: -4 }, { opacity: 1, y: 0, duration: 0.34, ease: 'power2.out' });
   }, [linkOpen, masterLink]);
 
   // GSAP entrance — staggered rise/fade of the main sections once data is in
@@ -1313,13 +1315,19 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       <div className="text-[15.5px] font-semibold text-ink tracking-[-0.01em] truncate">{card.name}</div>
                       <div className="flex items-center gap-2.5 mt-0.5">
                         <span className="text-[13px] font-medium text-faint">{card.issuer || '—'}</span>
-                        <span className="w-[3px] h-[3px] rounded-full bg-faint2" />
-                        <span className={`text-[13px] font-semibold tabular-nums ${card.conv >= 3 ? 'text-brand' : 'text-faint'}`}>{card.conv.toFixed(1)}% conv</span>
+                        {card.earned > 0 && (
+                          <>
+                            <span className="w-[3px] h-[3px] rounded-full bg-faint2" />
+                            <span className="text-[13px] font-medium text-faint tabular-nums">${Math.round(card.earned).toLocaleString()} earned</span>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <div className="text-[18px] font-bold text-ink tracking-[-0.02em] tabular-nums">${Math.round(card.earned).toLocaleString()}</div>
-                      <div className="text-[12.5px] font-medium text-faint mt-0.5 tabular-nums">{card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : '—'} / approval</div>
+                      <div className="text-[18px] font-bold text-ink tracking-[-0.02em] tabular-nums">
+                        {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : '—'}<span className="text-[12px] font-semibold text-faint2"> /appr</span>
+                      </div>
+                      <div className={`text-[12.5px] font-semibold mt-0.5 tabular-nums ${card.conv >= 3 ? 'text-brand' : 'text-faint'}`}>{card.conv.toFixed(1)}% conv</div>
                     </div>
                     {card.cardId && (
                       <button
