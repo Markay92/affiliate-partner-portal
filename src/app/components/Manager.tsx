@@ -529,7 +529,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
   // ── Year-limited views: default to current year, "Load more" reveals older ──
   const [trackingShowAllYears, setTrackingShowAllYears] = useState(false);
-  const [invoiceShowAllYears,  setInvoiceShowAllYears]  = useState(false);
 
   // ── Tracking Activity filter / sort ────────────────────────────────────────
   const [mgTrackingFilter,           setMgTrackingFilter]           = useState<DateFilter>('all');
@@ -2371,11 +2370,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   <p className="text-faint text-sm">Loading invoices…</p>
                 </div>
               ) : (() => {
-                const invoiceHiddenOlderCount = (invoices as any[])
-                  .filter((inv: any) => { const y = yearOf(inv.date); return y !== null && y !== CURRENT_YEAR; }).length;
                 const filtered = applySort(
                   invoices.filter((inv: any) =>
-                    (invoiceShowAllYears || yearOf(inv.date) === null || yearOf(inv.date) === CURRENT_YEAR) &&
                     (invoiceAffiliateFilter === 'all' || inv.email === invoiceAffiliateFilter) &&
                     (invoiceMonthFilter     === 'all' || inv.month === invoiceMonthFilter) &&
                     (invoiceStatusFilter    === 'all' || inv.status === invoiceStatusFilter)
@@ -2388,11 +2384,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <FileText className="w-7 h-7 text-faint2" />
                     </div>
                     <p className="text-faint text-sm">No invoices match the selected filters.</p>
-                    {invoiceHiddenOlderCount > 0 && !invoiceShowAllYears && (
-                      <div className="mt-3">
-                        <LoadMoreYears showAll={invoiceShowAllYears} setShowAll={v => { setInvoiceShowAllYears(v); setInvoicesVisible(PAGE_SIZE); }} hiddenCount={invoiceHiddenOlderCount} />
-                      </div>
-                    )}
                   </div>
                 );
                 const pagedFiltered = filtered.slice(0, invoicesVisible);
@@ -2402,7 +2393,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <p className="text-xs text-faint">
                         Showing {pagedFiltered.length} of {filtered.length} invoices
                         {invoices.length !== filtered.length ? ` (${invoices.length} total)` : ''}
-                        <CurrentYearBadge active={!invoiceShowAllYears} />
                       </p>
                       <LastUpdated ts={lastUpdated.invoices} />
                     </div>
@@ -2539,18 +2529,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                           });
                         })()}
                     </div>
-                    {(invoicesVisible < filtered.length || invoiceHiddenOlderCount > 0 || invoiceShowAllYears) && (
+                    {invoicesVisible < filtered.length && (
                       <div className="py-4 flex flex-wrap items-center justify-center gap-2">
-                        {invoicesVisible < filtered.length && (
-                          <button
-                            onClick={() => setInvoicesVisible(n => n + PAGE_SIZE)}
-                            className="px-4 py-2 text-xs font-medium text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors duration-150 cursor-pointer"
-                          >
-                            Show {Math.min(PAGE_SIZE, filtered.length - invoicesVisible)} more
-                            <span className="text-faint ml-1">({filtered.length - invoicesVisible} remaining)</span>
-                          </button>
-                        )}
-                        <LoadMoreYears showAll={invoiceShowAllYears} setShowAll={v => { setInvoiceShowAllYears(v); setInvoicesVisible(PAGE_SIZE); }} hiddenCount={invoiceHiddenOlderCount} />
+                        <button
+                          onClick={() => setInvoicesVisible(n => n + PAGE_SIZE)}
+                          className="px-4 py-2 text-xs font-medium text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors duration-150 cursor-pointer"
+                        >
+                          Show {Math.min(PAGE_SIZE, filtered.length - invoicesVisible)} more
+                          <span className="text-faint ml-1">({filtered.length - invoicesVisible} remaining)</span>
+                        </button>
                       </div>
                     )}
                   </div>
