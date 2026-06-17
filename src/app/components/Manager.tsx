@@ -435,6 +435,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [insightsTab, setInsightsTab] = useState<'charts' | 'topCards'>('charts');
   const [rowMenu, setRowMenu] = useState<string | null>(null);
   const [insightsOpen, setInsightsOpen] = useState(true);
+  const [insCard, setInsCard] = useState(0);   // active Insights panel on mobile (swipe)
   const insBodyRef = useRef<HTMLDivElement>(null);
   const [perfOpen, setPerfOpen] = useState(false);   // Performance compact by default, pull to expand (design)
   const perfBodyRef = useRef<HTMLDivElement>(null);
@@ -1573,11 +1574,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   </div>
                   <div ref={insBodyRef} className="overflow-hidden">
                   <div
-                    className={`pt-5 ${showAffiliates && showTopCards ? 'grid grid-cols-1 gap-4 lg:grid-cols-[1.7fr_1fr] lg:gap-0' : 'grid grid-cols-1'}`}
+                    onScroll={e => { if (window.innerWidth < 1024) setInsCard(Math.round(e.currentTarget.scrollLeft / Math.max(1, e.currentTarget.clientWidth))); }}
+                    className={`pt-5 ${showAffiliates && showTopCards ? 'flex gap-0 overflow-x-auto snap-x snap-mandatory ds-chips lg:grid lg:grid-cols-[1.7fr_1fr] lg:overflow-visible' : 'grid grid-cols-1'}`}
                   >
                     {/* Top affiliates by earnings */}
                     {showAffiliates && (
-                    <div className={showTopCards ? 'rounded-2xl border border-hair p-4 lg:border-0 lg:rounded-none lg:p-0 lg:pr-9' : ''}>
+                    <div className={showTopCards ? 'snap-start shrink-0 w-full lg:w-auto lg:pr-9' : ''}>
                       <h3 className="text-[15px] font-bold text-ink mb-4">Top affiliates by earnings</h3>
                       {topAffiliates.map(a => (
                         <div key={a.name} className="mb-3.5">
@@ -1594,7 +1596,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     )}
                     {/* Top approved cards */}
                     {showTopCards && (
-                    <div className={showAffiliates ? 'rounded-2xl border border-hair p-4 lg:border-0 lg:border-l lg:border-hair lg:rounded-none lg:p-0 lg:pl-9' : ''}>
+                    <div className={showAffiliates ? 'snap-start shrink-0 w-full lg:w-auto lg:pl-9 lg:border-l lg:border-hair' : ''}>
                       <h3 className="text-[15px] font-bold text-ink mb-0.5">Top approved cards</h3>
                       <p className="text-[12.5px] text-faint mb-3.5">Across all affiliates</p>
                       {mostApprovedCards.map((c, idx) => (
@@ -1607,6 +1609,13 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </div>
                     )}
                   </div>
+                  {showAffiliates && showTopCards && (
+                    <div className="flex lg:hidden items-center justify-center gap-1.5 pt-3">
+                      {[0, 1].map(i => (
+                        <span key={i} className={`h-1.5 rounded-full transition-all ${insCard === i ? 'w-5 bg-brand' : 'w-1.5 bg-hair'}`} />
+                      ))}
+                    </div>
+                  )}
                   </div>
                 </div>
               )}
