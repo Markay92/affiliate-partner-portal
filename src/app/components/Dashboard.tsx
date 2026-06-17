@@ -972,7 +972,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           <div
             ref={linkBarRef}
             data-anim
-            className={`sticky top-[60px] z-20 mb-5 -mx-4 sm:-mx-6 lg:-mx-8 transition-colors duration-300 ${linkOpen ? 'bg-white/95 backdrop-blur-md border-b border-hair' : 'bg-brand'}`}
+            className="sticky top-[60px] z-20 mb-5 -mx-4 sm:-mx-6 lg:-mx-8 bg-white/95 backdrop-blur-md border-b border-hair"
           >
           <div ref={linkBodyRef} className="overflow-hidden">
             {linkOpen ? (
@@ -1023,21 +1023,24 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 </div>
               </div>
             ) : (
-              /* Collapsed — thin blue strip */
-              <button onClick={() => setLinkOpen(true)} title="Show link"
-                className="w-full flex items-center gap-3 py-2.5 px-4 sm:px-6 lg:px-8 bg-brand text-white cursor-pointer">
-                <Link2 className="w-4 h-4 flex-shrink-0" />
-                <span className="text-[13px] font-semibold truncate flex-1 text-left">
-                  {builtLink ? `Your link · ${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''}` : 'Your affiliate link'}
+              /* Collapsed — same bar, condensed to a single line */
+              <div className="flex items-center gap-3 py-2.5 px-4 sm:px-6 lg:px-8">
+                <Link2 className="w-4 h-4 text-faint2 flex-shrink-0" />
+                <span className="font-mono-ds text-[13px] font-medium text-ink truncate flex-1 min-w-0">
+                  {displayLink}
                 </span>
-                <span
-                  onClick={(e) => { e.stopPropagation(); copyToClipboard(displayLink, -1); }}
-                  className="flex items-center gap-1.5 h-7 px-3 rounded-full bg-white/20 hover:bg-white/30 text-[12.5px] font-semibold transition-colors flex-shrink-0"
+                <button
+                  onClick={() => copyToClipboard(displayLink, -1)}
+                  title="Copy link"
+                  className="flex items-center gap-1.5 h-7 px-3 rounded-full bg-brand-soft text-brand-dark text-[12.5px] font-semibold hover:bg-brand/15 transition-colors flex-shrink-0 cursor-pointer"
                 >
                   {copiedId === -1 ? <><CheckCircle className="w-3.5 h-3.5" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
-                </span>
-                <ChevronDown className="w-[18px] h-[18px] flex-shrink-0" />
-              </button>
+                </button>
+                <button onClick={() => setLinkOpen(true)} title="Expand link"
+                  className="flex items-center justify-center w-8 h-8 rounded-lg text-faint hover:text-ink hover:bg-surface transition-colors flex-shrink-0 cursor-pointer">
+                  <ChevronDown className="w-[18px] h-[18px]" />
+                </button>
+              </div>
             )}
           </div>
           </div>
