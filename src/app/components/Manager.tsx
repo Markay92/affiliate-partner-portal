@@ -429,6 +429,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [insightsTab, setInsightsTab] = useState<'charts' | 'topCards'>('charts');
   const [rowMenu, setRowMenu] = useState<string | null>(null);
   const [insightsOpen, setInsightsOpen] = useState(true);
+  const [insCard, setInsCard] = useState(0);   // active Insights card on mobile (swipe)
   const insBodyRef = useRef<HTMLDivElement>(null);
   const [scrolled, setScrolled] = useState(false);
 
@@ -1282,8 +1283,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-md sticky top-0 z-10 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-[60px]">
-            <div className="flex items-center gap-2.5">
+          <div className="flex items-center h-[60px] gap-2">
+            <div className="flex items-center gap-2.5 flex-1 min-w-0">
               <div className="flex items-center">
                 <svg width="24" height="22" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <g clipPath="url(#clip0_mgr_logo)">
@@ -1304,17 +1305,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               </div>
               <div className="flex items-center gap-2.5 flex-shrink-0">
                 <h1 className="hidden sm:block text-ink font-bold text-[16px] tracking-tight leading-none whitespace-nowrap">Affiliate Portal</h1>
-                <span className="text-[10.5px] font-bold text-brand bg-brand-soft px-2 py-[3px] rounded-full tracking-[0.04em] leading-none whitespace-nowrap">MANAGER</span>
+                <span className="hidden sm:inline-flex text-[10.5px] font-bold text-brand bg-brand-soft px-2 py-[3px] rounded-full tracking-[0.04em] leading-none whitespace-nowrap">MANAGER</span>
                 <p className="text-faint text-xs hidden xl:block ml-1 whitespace-nowrap">Welcome, {managerName}</p>
               </div>
             </div>
-            {/* Tabs live in the header (mock layout); labels are icon-only on mobile, collapse to icons on scroll */}
-            <Tabs.List className="flex items-center gap-1 mx-2 sm:mx-4 min-w-0 overflow-x-auto">
+            {/* Centered pill nav; labels are icon-only on mobile, collapse to icons on scroll */}
+            <Tabs.List className="flex items-center gap-0.5 bg-surface rounded-full p-1 flex-shrink-0 max-w-full overflow-x-auto ds-chips">
               {navItems.map(({ key, label, Icon, badge }) => (
                 <Tabs.Trigger
                   key={key}
                   value={key}
-                  className="group relative flex items-center gap-2 px-2.5 h-9 rounded-lg text-sm font-medium text-faint data-[state=active]:text-ink data-[state=active]:font-bold hover:text-ink transition-colors whitespace-nowrap cursor-pointer"
+                  className="group relative flex items-center gap-2 px-3 h-8 rounded-full text-sm font-medium text-faint data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-ink data-[state=active]:font-semibold hover:text-ink transition-all whitespace-nowrap cursor-pointer"
                 >
                   <Icon className="w-4 h-4 flex-shrink-0 text-faint2 group-data-[state=active]:text-brand transition-colors" />
                   <span className={`hidden sm:inline-block overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
@@ -1326,7 +1327,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 </Tabs.Trigger>
               ))}
             </Tabs.List>
-            <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-2 flex-1 justify-end">
               {/* Actions dropdown */}
               {(() => {
                 const anyBusy = syncing || syncingTracking || importingCPA;
@@ -1540,10 +1541,13 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     {!insightsOpen && <span className="text-[12.5px] text-faint font-medium">Top affiliates &amp; cards hidden</span>}
                   </div>
                   <div ref={insBodyRef} className="overflow-hidden">
-                  <div className={`pt-5 grid gap-0 ${showAffiliates && showTopCards ? 'lg:grid-cols-[1.7fr_1fr]' : 'grid-cols-1'}`}>
+                  <div
+                    onScroll={e => { if (window.innerWidth < 1024) setInsCard(Math.round(e.currentTarget.scrollLeft / Math.max(1, e.currentTarget.clientWidth))); }}
+                    className={`pt-5 ${showAffiliates && showTopCards ? 'flex gap-0 overflow-x-auto snap-x snap-mandatory ds-chips lg:grid lg:grid-cols-[1.7fr_1fr] lg:overflow-visible' : 'grid grid-cols-1'}`}
+                  >
                     {/* Top affiliates by earnings */}
                     {showAffiliates && (
-                    <div className={showTopCards ? 'lg:pr-9' : ''}>
+                    <div className={showTopCards ? 'snap-start shrink-0 w-full lg:w-auto lg:pr-9' : ''}>
                       <h3 className="text-[15px] font-bold text-ink mb-4">Top affiliates by earnings</h3>
                       {topAffiliates.map(a => (
                         <div key={a.name} className="mb-3.5">
@@ -1560,7 +1564,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     )}
                     {/* Top approved cards */}
                     {showTopCards && (
-                    <div className={showAffiliates ? 'lg:pl-9 lg:border-l lg:border-hair mt-7 lg:mt-0' : ''}>
+                    <div className={showAffiliates ? 'snap-start shrink-0 w-full lg:w-auto lg:pl-9 lg:border-l lg:border-hair' : ''}>
                       <h3 className="text-[15px] font-bold text-ink mb-0.5">Top approved cards</h3>
                       <p className="text-[12.5px] text-faint mb-3.5">Across all affiliates</p>
                       {mostApprovedCards.map((c, idx) => (
@@ -1573,6 +1577,13 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </div>
                     )}
                   </div>
+                  {showAffiliates && showTopCards && (
+                    <div className="flex lg:hidden items-center justify-center gap-1.5 pt-3">
+                      {[0, 1].map(i => (
+                        <span key={i} className={`h-1.5 rounded-full transition-all ${insCard === i ? 'w-5 bg-brand' : 'w-1.5 bg-hair'}`} />
+                      ))}
+                    </div>
+                  )}
                   </div>
                 </div>
               )}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import {
@@ -408,7 +408,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   });
   const [insightsTab, setInsightsTab] = useState<'charts' | 'topCards'>('charts');
   const [insightsOpen, setInsightsOpen] = useState(true);
+  const [insCard, setInsCard] = useState(0);   // active Insights card on mobile (swipe)
   const insBodyRef = useRef<HTMLDivElement>(null);
+  const [linkOpen, setLinkOpen] = useState(true);   // referral bar expanded vs thin blue strip
+  const [linkBarH, setLinkBarH] = useState(0);      // measured referral-bar height → sticky offset for tab toolbars
+  const linkBarRef = useRef<HTMLDivElement>(null);
+  const linkBodyRef = useRef<HTMLDivElement>(null);
+  const linkPrevH = useRef<number | null>(null);
   const [chartMetric, setChartMetric] = useState<'approvals' | 'clicks' | 'earnings'>('approvals');
   const [scrolled, setScrolled] = useState(false);
 
@@ -446,6 +452,33 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     update();
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  // Measure the sticky referral bar so the tab toolbars can pin right below it
+  // (its height changes with collapse state, link length, and viewport wrapping).
+  useEffect(() => {
+    const el = linkBarRef.current;
+    if (!el) { setLinkBarH(0); return; }
+    const update = () => setLinkBarH(el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [loading, linkOpen, masterLink, linkBuilderIds.length]);
+
+  // Smoothly tween the referral bar between its expanded and thin (collapsed) states.
+  useLayoutEffect(() => {
+    const el = linkBodyRef.current;
+    if (!el) return;
+    const target = el.offsetHeight;
+    const from = linkPrevH.current;
+    linkPrevH.current = target;
+    if (from == null || from === target) return;
+    gsap.killTweensOf(el);
+    gsap.fromTo(el, { height: from }, {
+      height: target, duration: 0.36, ease: 'power3.inOut',
+      onComplete: () => { gsap.set(el, { height: 'auto' }); setLinkBarH(linkBarRef.current?.offsetHeight || 0); },
+    });
+  }, [linkOpen, masterLink]);
 
   // GSAP entrance — staggered rise/fade of the main sections once data is in
   useEffect(() => {
@@ -800,8 +833,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-md sticky top-0 z-30 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-[60px]">
-            <div className="flex items-center gap-2.5">
+          <div className="flex items-center h-[60px] gap-2">
+            <div className="flex items-center gap-2.5 flex-1 min-w-0">
               <div className="flex items-center">
                 <svg width="24" height="22" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <g clipPath="url(#clip0_logo)">
@@ -822,13 +855,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
               <h1 className="hidden sm:block text-ink font-bold text-[16px] tracking-tight">Affiliate Portal</h1>
             </div>
-            {/* Tabs live in the header (mock layout); labels are icon-only on mobile, collapse to icons on scroll */}
-            <Tabs.List className="flex items-center gap-1 mx-2 sm:mx-4 min-w-0 overflow-x-auto">
+            {/* Centered pill nav; labels are icon-only on mobile, collapse to icons on scroll */}
+            <Tabs.List className="flex items-center gap-0.5 bg-surface rounded-full p-1 flex-shrink-0 max-w-full overflow-x-auto ds-chips">
               {navItems.map(({ key, label, Icon, badge }) => (
                 <Tabs.Trigger
                   key={key}
                   value={key}
-                  className="group relative flex items-center gap-2 px-2.5 h-9 rounded-lg text-sm font-medium text-faint data-[state=active]:text-ink data-[state=active]:font-bold hover:text-ink transition-colors whitespace-nowrap cursor-pointer"
+                  className="group relative flex items-center gap-2 px-3 h-8 rounded-full text-sm font-medium text-faint data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-ink data-[state=active]:font-semibold hover:text-ink transition-all whitespace-nowrap cursor-pointer"
                 >
                   <Icon className="w-4 h-4 flex-shrink-0 text-faint2 group-data-[state=active]:text-brand transition-colors" />
                   <span className={`hidden sm:inline-block overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
@@ -840,7 +873,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 </Tabs.Trigger>
               ))}
             </Tabs.List>
-            <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-2 flex-1 justify-end">
               {/* Desktop: inline utility actions */}
               <button
                 onClick={fetchData}
@@ -935,49 +968,76 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           const displayLink = builtLink ?? masterLink;
           return (
           <div
+            ref={linkBarRef}
             data-anim
-            className="sticky top-[60px] z-20 mb-5 flex items-center gap-[18px] flex-wrap bg-white/90 backdrop-blur-md border-b border-hair transition-all duration-300"
-            style={{ paddingTop: scrolled ? 9 : 16, paddingBottom: scrolled ? 9 : 16 }}
+            className={`sticky top-[60px] z-20 mb-5 -mx-4 sm:-mx-6 lg:-mx-8 transition-colors duration-300 ${linkOpen ? 'bg-white/95 backdrop-blur-md border-b border-hair' : 'bg-brand'}`}
           >
-            <div className="flex-1 min-w-[240px]">
-              <div className={`flex items-center overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mb-0' : 'max-h-5 opacity-100 mb-1.5'}`}>
-                <span className="text-[12.5px] font-medium text-faint">
-                  {builtLink ? `Your link · ${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} selected` : 'Your affiliate link'}
-                </span>
-                {builtLink && (
-                  <button onClick={() => setLinkBuilderIds([])} className="ml-3 text-[11px] font-medium text-faint hover:text-brand transition-colors cursor-pointer">
-                    Clear
+          <div ref={linkBodyRef} className="overflow-hidden">
+            {linkOpen ? (
+              /* Expanded — white */
+              <div className="flex items-center gap-[18px] flex-wrap py-4 px-4 sm:px-6 lg:px-8">
+                <div className="flex-1 min-w-[240px]">
+                  <div className="flex items-center mb-1.5">
+                    <span className="text-[12.5px] font-medium text-faint">
+                      {builtLink ? `Your link · ${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} selected` : 'Your affiliate link'}
+                    </span>
+                    {builtLink && (
+                      <button onClick={() => setLinkBuilderIds([])} className="ml-3 text-[11px] font-medium text-faint hover:text-brand transition-colors cursor-pointer">
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <div className="font-mono-ds font-medium text-ink break-all line-clamp-2 sm:line-clamp-none text-[15.5px]">
+                    {displayLink}
+                  </div>
+                  <div className="mt-1">
+                    <span className="text-xs font-medium text-faint">
+                      {builtLink
+                        ? `${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} on your link · ready to share`
+                        : 'Add cards from the table to build a custom link'}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5 flex-shrink-0">
+                  <button
+                    onClick={() => copyToClipboard(displayLink, -1)}
+                    className="flex items-center gap-1.5 h-10 px-[18px] rounded-[10px] bg-brand text-white text-sm font-semibold hover:bg-brand-dark active:scale-95 transition-all duration-150 cursor-pointer"
+                    title="Copy link"
+                  >
+                    {copiedId === -1
+                      ? <><CheckCircle className="w-4 h-4" /> Copied</>
+                      : <><Copy className="w-4 h-4" /> Copy</>}
                   </button>
-                )}
+                  <a href={displayLink} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 h-10 px-4 rounded-[10px] border border-line bg-white text-ink text-sm font-semibold hover:bg-surface transition-colors cursor-pointer"
+                    title="Preview link">
+                    <ExternalLink className="w-[15px] h-[15px]" />
+                    Preview
+                  </a>
+                  <button onClick={() => setLinkOpen(false)} title="Minimize link"
+                    className="flex items-center justify-center w-10 h-10 rounded-[10px] text-faint hover:text-ink hover:bg-surface active:scale-95 transition-all duration-150 cursor-pointer">
+                    <ChevronUp className="w-[18px] h-[18px]" />
+                  </button>
+                </div>
               </div>
-              <div className={`font-mono-ds font-medium text-ink break-all line-clamp-2 sm:line-clamp-none transition-all duration-300 ${scrolled ? 'text-[13.5px]' : 'text-[15.5px]'}`}>
-                {displayLink}
-              </div>
-              <div className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mt-0' : 'max-h-5 opacity-100 mt-1'}`}>
-                <span className="text-xs font-medium text-faint">
-                  {builtLink
-                    ? `${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} on your link · ready to share`
-                    : 'Add cards from the table to build a custom link'}
+            ) : (
+              /* Collapsed — thin blue strip */
+              <button onClick={() => setLinkOpen(true)} title="Show link"
+                className="w-full flex items-center gap-3 py-2.5 px-4 sm:px-6 lg:px-8 bg-brand text-white cursor-pointer">
+                <Link2 className="w-4 h-4 flex-shrink-0" />
+                <span className="text-[13px] font-semibold truncate flex-1 text-left">
+                  {builtLink ? `Your link · ${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''}` : 'Your affiliate link'}
                 </span>
-              </div>
-            </div>
-            <div className="flex gap-2.5 flex-shrink-0">
-              <button
-                onClick={() => copyToClipboard(displayLink, -1)}
-                className="flex items-center gap-1.5 h-10 px-[18px] rounded-[10px] bg-brand text-white text-sm font-semibold hover:bg-brand-dark active:scale-95 transition-all duration-150 cursor-pointer"
-                title="Copy link"
-              >
-                {copiedId === -1
-                  ? <><CheckCircle className="w-4 h-4" /> Copied</>
-                  : <><Copy className="w-4 h-4" /> Copy</>}
+                <span
+                  onClick={(e) => { e.stopPropagation(); copyToClipboard(displayLink, -1); }}
+                  className="flex items-center gap-1.5 h-7 px-3 rounded-full bg-white/20 hover:bg-white/30 text-[12.5px] font-semibold transition-colors flex-shrink-0"
+                >
+                  {copiedId === -1 ? <><CheckCircle className="w-3.5 h-3.5" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
+                </span>
+                <ChevronDown className="w-[18px] h-[18px] flex-shrink-0" />
               </button>
-              <a href={displayLink} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1.5 h-10 px-4 rounded-[10px] border border-line bg-white text-ink text-sm font-semibold hover:bg-surface transition-colors cursor-pointer"
-                title="Preview link">
-                <ExternalLink className="w-[15px] h-[15px]" />
-                Preview
-              </a>
-            </div>
+            )}
+          </div>
           </div>
           );
         })() : (
@@ -1102,10 +1162,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     {!insightsOpen && <span className="text-[12.5px] text-faint font-medium">Trends &amp; top cards hidden</span>}
                   </div>
                   <div ref={insBodyRef} className="overflow-hidden">
-                  <div className={`pt-5 grid gap-0 ${showCharts && showTopCards ? 'lg:grid-cols-[1.7fr_1fr]' : 'grid-cols-1'}`}>
+                  <div
+                    onScroll={e => { if (window.innerWidth < 1024) setInsCard(Math.round(e.currentTarget.scrollLeft / Math.max(1, e.currentTarget.clientWidth))); }}
+                    className={`pt-5 ${showCharts && showTopCards ? 'flex gap-0 overflow-x-auto snap-x snap-mandatory ds-chips lg:grid lg:grid-cols-[1.7fr_1fr] lg:overflow-visible' : 'grid grid-cols-1'}`}
+                  >
                     {/* Chart */}
                     {showCharts && (
-                    <div className={showTopCards ? 'lg:pr-9' : ''}>
+                    <div className={showTopCards ? 'snap-start shrink-0 w-full lg:w-auto lg:pr-9' : ''}>
                       <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
                         <h3 className="text-[15px] font-bold text-ink capitalize">Monthly {chartMetric}</h3>
                         <div className="flex items-center gap-4">
@@ -1138,7 +1201,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     )}
                     {/* Top approved cards */}
                     {showTopCards && (
-                    <div className={showCharts ? 'lg:pl-9 lg:border-l lg:border-hair mt-7 lg:mt-0' : ''}>
+                    <div className={showCharts ? 'snap-start shrink-0 w-full lg:w-auto lg:pl-9 lg:border-l lg:border-hair' : ''}>
                       <h3 className="text-[15px] font-bold text-ink mb-0.5">Top approved cards</h3>
                       <p className="text-[12.5px] text-faint mb-3.5">Ranked by approvals</p>
                       {mostApprovedCards.map((c, idx) => (
@@ -1151,6 +1214,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </div>
                     )}
                   </div>
+                  {showCharts && showTopCards && (
+                    <div className="flex lg:hidden items-center justify-center gap-1.5 pt-3">
+                      {[0, 1].map(i => (
+                        <span key={i} className={`h-1.5 rounded-full transition-all ${insCard === i ? 'w-5 bg-brand' : 'w-1.5 bg-hair'}`} />
+                      ))}
+                    </div>
+                  )}
                   </div>
                 </div>
               )}
@@ -1163,7 +1233,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
           {/* ── Cards Tab (Robinhood-style filters + list) ── */}
           <Tabs.Content value="cards">
-          <div className="pt-6">
+          <div>
+            <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas pt-6 pb-1">
             {/* Type chips */}
             {cardTypes.length > 0 && (
               <div className="ds-chips flex items-center gap-2 overflow-x-auto mb-[18px]">
@@ -1228,6 +1299,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   );
                 })}
               </div>
+            </div>
             </div>
 
             {/* Card list */}
@@ -1387,7 +1459,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           {/* ── Activity Tab ── */}
           <Tabs.Content value="activity">
             {/* Sticky controls */}
-            <div className="sticky top-16 z-10 bg-white border-b border-hair2 px-4 sm:px-6 py-3">
+            <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas border-b border-hair py-3">
             <div className="flex items-center justify-between mb-3 p-3.5 bg-surface rounded-xl border border-hair">
               <p className="text-sm text-subtle">
                 <span className="font-semibold text-ink tabular-nums">{displayTracking.length}</span>
@@ -1536,9 +1608,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
             ) : (
               <>
-              <p className="text-xs text-faint mb-3">
-                Showing {Math.min(invoicesVisible, invoices.length)} of {invoices.length} invoices
-              </p>
+              <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas py-3 border-b border-hair">
+                <p className="text-xs text-faint">
+                  Showing {Math.min(invoicesVisible, invoices.length)} of {invoices.length} invoices
+                </p>
+              </div>
               <div>
                 {invoices.slice(0, invoicesVisible).map(inv => {
                   const isExpanded = expandedInvoices.has(inv.id);
