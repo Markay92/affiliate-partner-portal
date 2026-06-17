@@ -405,8 +405,26 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   });
   const [insightsTab, setInsightsTab] = useState<'charts' | 'topCards'>('charts');
   const [insightsOpen, setInsightsOpen] = useState(true);
+  const insBodyRef = useRef<HTMLDivElement>(null);
   const [chartMetric, setChartMetric] = useState<'approvals' | 'clicks' | 'earnings'>('approvals');
   const [scrolled, setScrolled] = useState(false);
+
+  // Smoothly tween the Insights body open/closed (GSAP, from the design file)
+  const toggleInsights = () => {
+    const willOpen = !insightsOpen;
+    const el = insBodyRef.current;
+    if (el) {
+      gsap.killTweensOf(el);
+      if (willOpen) {
+        gsap.set(el, { height: 'auto' });
+        const h = el.offsetHeight;
+        gsap.fromTo(el, { height: 0, opacity: 0 }, { height: h, opacity: 1, duration: 0.42, ease: 'power3.out', onComplete: () => gsap.set(el, { height: 'auto' }) });
+      } else {
+        gsap.to(el, { height: 0, opacity: 0, duration: 0.34, ease: 'power3.inOut' });
+      }
+    }
+    setInsightsOpen(willOpen);
+  };
 
   // Sticky chrome shrinks once the page is scrolled (mock behavior).
   // Hysteresis (collapse >72, expand <24) + rAF throttle avoids flicker when
@@ -1047,17 +1065,17 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
               {/* ── Insights: tabbed chart / top cards ── */}
               {(showCharts || showTopCards) && (
-                <div data-anim className={`border-b border-hair ${insightsOpen ? 'pt-4 pb-6 mb-1' : 'py-3'}`}>
-                  <div className={`flex items-center justify-between gap-3 ${insightsOpen ? 'mb-4' : 'mb-0'}`}>
-                    <button onClick={() => setInsightsOpen(o => !o)} title={insightsOpen ? 'Minimize insights' : 'Show insights'}
+                <div data-anim className="border-b border-hair py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <button onClick={toggleInsights} title={insightsOpen ? 'Minimize insights' : 'Show insights'}
                       className="flex items-center gap-2 cursor-pointer group">
                       <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${insightsOpen ? 'rotate-90' : ''}`} strokeWidth={2.6} />
                       <span className="text-[15px] font-bold text-ink group-hover:opacity-70 transition-opacity">Insights</span>
                     </button>
                     {!insightsOpen && <span className="text-[12.5px] text-faint font-medium">Trends &amp; top cards hidden</span>}
                   </div>
-                  {insightsOpen && (
-                  <div className={`mt-1 grid gap-0 ${showCharts && showTopCards ? 'lg:grid-cols-[1.7fr_1fr]' : 'grid-cols-1'}`}>
+                  <div ref={insBodyRef} className="overflow-hidden">
+                  <div className={`pt-5 grid gap-0 ${showCharts && showTopCards ? 'lg:grid-cols-[1.7fr_1fr]' : 'grid-cols-1'}`}>
                     {/* Chart */}
                     {showCharts && (
                     <div className={showTopCards ? 'lg:pr-9' : ''}>
@@ -1106,7 +1124,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </div>
                     )}
                   </div>
-                  )}
+                  </div>
                 </div>
               )}
             </div>
