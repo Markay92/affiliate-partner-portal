@@ -26,6 +26,7 @@ import {
   X,
   Plus,
   Check,
+  MoreHorizontal,
 } from 'lucide-react';
 import React from 'react';
 import { ComposedChart, LineChart, Line, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } from 'recharts';
@@ -367,6 +368,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [linkBuilderIds, setLinkBuilderIds] = useState<string[]>([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState('');
+  const [activeTab, setActiveTab]   = useState('cards');   // controlled tabs (drives nav menu)
+  const [navOpen,   setNavOpen]     = useState(false);     // mobile ellipsis nav menu
 
   // Activity tab (Airtable API Output)
   const [trackingFilter,       setTrackingFilter]       = useState<DateFilter>('week');
@@ -784,13 +787,55 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     );
   }
 
+  const navItems = [
+    { key: 'cards',    label: 'Cards',       Icon: CreditCard, badge: 0 },
+    { key: 'create',   label: 'Create Link', Icon: Link2,      badge: linkBuilderIds.length },
+    { key: 'activity', label: 'Activity',    Icon: Activity,   badge: 0 },
+    { key: 'invoices', label: 'Invoices',    Icon: FileText,   badge: invoices.length },
+    { key: 'profile',  label: 'Profile',     Icon: User,       badge: 0 },
+  ] as const;
+
   return (
-    <Tabs.Root defaultValue="cards" className="min-h-screen bg-canvas">
+    <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="min-h-screen bg-canvas">
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-md sticky top-0 z-10 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-[60px]">
-            <div className="flex items-center gap-2.5">
+            {/* Mobile: ellipsis menu — logo, badge & nav tabs collapse in here */}
+            <div className="relative sm:hidden">
+              <button
+                onClick={() => setNavOpen(o => !o)}
+                aria-label="Menu"
+                className="flex items-center justify-center w-10 h-10 -ml-2 rounded-lg text-subtle hover:text-ink hover:bg-surface active:scale-95 transition-all cursor-pointer"
+              >
+                <MoreHorizontal className="w-5 h-5" />
+              </button>
+              {navOpen && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setNavOpen(false)} />
+                  <div className="absolute left-0 mt-1 w-56 bg-white rounded-2xl shadow-lg ring-1 ring-ink/10 z-30 overflow-hidden py-1.5 ds-rise">
+                    <div className="px-4 py-2 mb-1 border-b border-hair">
+                      <span className="text-ink font-bold text-sm tracking-tight">Affiliate Portal</span>
+                    </div>
+                    {navItems.map(({ key, label, Icon, badge }) => {
+                      const active = activeTab === key;
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => { setActiveTab(key); setNavOpen(false); }}
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${active ? 'text-brand font-bold bg-brand-soft' : 'text-subtle font-medium hover:bg-surface'}`}
+                        >
+                          <Icon className={`w-4 h-4 flex-shrink-0 ${active ? 'text-brand' : 'text-faint2'}`} />
+                          <span className="flex-1 text-left">{label}</span>
+                          {badge > 0 && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{badge}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="hidden sm:flex items-center gap-2.5">
               <div className="flex items-center">
                 <svg width="24" height="22" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <g clipPath="url(#clip0_logo)">
@@ -811,22 +856,16 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
               <h1 className="hidden sm:block text-ink font-bold text-[16px] tracking-tight">Affiliate Portal</h1>
             </div>
-            {/* Tabs live in the header (mock layout); labels collapse to icons on scroll */}
-            <Tabs.List className="flex items-center gap-1 mx-2 sm:mx-4 min-w-0 overflow-x-auto">
-              {([
-                { key: 'cards',    label: 'Cards',       Icon: CreditCard, badge: 0 },
-                { key: 'create',   label: 'Create Link', Icon: Link2,      badge: linkBuilderIds.length },
-                { key: 'activity', label: 'Activity',    Icon: Activity,   badge: 0 },
-                { key: 'invoices', label: 'Invoices',    Icon: FileText,   badge: invoices.length },
-                { key: 'profile',  label: 'Profile',     Icon: User,       badge: 0 },
-              ] as const).map(({ key, label, Icon, badge }) => (
+            {/* Tabs live in the header (mock layout); desktop only — mobile uses the ellipsis menu */}
+            <Tabs.List className="hidden sm:flex items-center gap-1 mx-2 sm:mx-4 min-w-0 overflow-x-auto">
+              {navItems.map(({ key, label, Icon, badge }) => (
                 <Tabs.Trigger
                   key={key}
                   value={key}
                   className="group relative flex items-center gap-2 px-2.5 h-9 rounded-lg text-sm font-medium text-faint data-[state=active]:text-ink data-[state=active]:font-bold hover:text-ink transition-colors whitespace-nowrap cursor-pointer"
                 >
                   <Icon className="w-4 h-4 flex-shrink-0 text-faint2 group-data-[state=active]:text-brand transition-colors" />
-                  <span className={`hidden sm:inline-block overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
+                  <span className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
                     <span className="flex items-center gap-1.5">
                       {label}
                       {badge > 0 && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{badge}</span>}
@@ -992,26 +1031,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   <h2 className="text-lg font-bold text-ink tracking-[-0.02em]">Performance</h2>
                   <p className="text-[13px] text-faint">Showing {STAT_PERIOD_LABELS[statPeriod].toLowerCase()}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  {/* Mobile: dropdown */}
-                  <select
-                    value={statPeriod}
-                    onChange={e => setStatPeriod(e.target.value as StatPeriod)}
-                    className="sm:hidden text-xs font-medium bg-white border border-hair rounded-lg px-2.5 py-2 text-subtle shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30"
-                  >
-                    {([
-                      { value: 'today',  label: 'Today' },
-                      { value: 'week',   label: 'This Week' },
-                      { value: 'month',  label: 'This Month' },
-                      { value: 'lm',     label: 'Last Month' },
-                      { value: 'year',   label: 'This Year' },
-                      { value: 'custom', label: 'Custom' },
-                    ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
-                  {/* Desktop: plain text toggles (mock style) */}
-                  <div className="hidden sm:flex items-center gap-5 overflow-x-auto">
+                <div className="flex items-center gap-2 min-w-0 max-w-full">
+                  {/* Period toggles — same colored tab-menu style at every size (mock style) */}
+                  <div className="flex items-center gap-4 sm:gap-5 overflow-x-auto ds-chips -mx-1 px-1">
                     {([
                       { value: 'today',  label: 'Today' },
                       { value: 'week',   label: 'Week' },

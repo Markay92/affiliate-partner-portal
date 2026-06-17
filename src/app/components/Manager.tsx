@@ -381,6 +381,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [messageTimeout, setMessageTimeout] = useState<NodeJS.Timeout | null>(null);
   const [trackingActivity, setTrackingActivity] = useState([]);
   const [activeTab, setActiveTab]           = useState('affiliates');
+  const [navOpen,   setNavOpen]             = useState(false);   // mobile ellipsis nav menu
 
   // Edit user form fields
   const [editName, setEditName]       = useState('');
@@ -1270,13 +1271,55 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     );
   }
 
+  const navItems = [
+    { key: 'affiliates', label: 'Affiliates', Icon: Users,    badge: 0 },
+    { key: 'tracking',   label: 'Activity',   Icon: Activity, badge: 0 },
+    { key: 'cpa-rates',  label: 'CPA Rates',  Icon: Layers,   badge: 0 },
+    { key: 'invoices',   label: 'Invoices',   Icon: FileText, badge: invoices.length },
+  ] as const;
+
   return (
     <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="min-h-screen bg-canvas">
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-md sticky top-0 z-10 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-[60px]">
-            <div className="flex items-center gap-2.5">
+            {/* Mobile: ellipsis menu — logo, badge & nav tabs collapse in here */}
+            <div className="relative sm:hidden">
+              <button
+                onClick={() => setNavOpen(o => !o)}
+                aria-label="Menu"
+                className="flex items-center justify-center w-10 h-10 -ml-2 rounded-lg text-subtle hover:text-ink hover:bg-surface active:scale-95 transition-all cursor-pointer"
+              >
+                <MoreHorizontal className="w-5 h-5" />
+              </button>
+              {navOpen && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setNavOpen(false)} />
+                  <div className="absolute left-0 mt-1 w-56 bg-white rounded-2xl shadow-lg ring-1 ring-ink/10 z-30 overflow-hidden py-1.5 ds-rise">
+                    <div className="flex items-center gap-2 px-4 py-2 mb-1 border-b border-hair">
+                      <span className="text-ink font-bold text-sm tracking-tight">Affiliate Portal</span>
+                      <span className="text-[10px] font-bold text-brand bg-brand-soft px-1.5 py-[2px] rounded-full tracking-[0.04em] leading-none">MANAGER</span>
+                    </div>
+                    {navItems.map(({ key, label, Icon, badge }) => {
+                      const active = activeTab === key;
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => { setActiveTab(key); setNavOpen(false); }}
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${active ? 'text-brand font-bold bg-brand-soft' : 'text-subtle font-medium hover:bg-surface'}`}
+                        >
+                          <Icon className={`w-4 h-4 flex-shrink-0 ${active ? 'text-brand' : 'text-faint2'}`} />
+                          <span className="flex-1 text-left">{label}</span>
+                          {badge > 0 && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{badge}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="hidden sm:flex items-center gap-2.5">
               <div className="flex items-center">
                 <svg width="24" height="22" viewBox="0 0 39 37" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <g clipPath="url(#clip0_mgr_logo)">
@@ -1301,24 +1344,19 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 <p className="text-faint text-xs hidden xl:block ml-1 whitespace-nowrap">Welcome, {managerName}</p>
               </div>
             </div>
-            {/* Tabs live in the header (mock layout); labels collapse to icons on scroll */}
-            <Tabs.List className="flex items-center gap-1 mx-2 sm:mx-4 min-w-0 overflow-x-auto">
-              {([
-                { key: 'affiliates', label: 'Affiliates', Icon: Users,      badge: undefined as number | undefined },
-                { key: 'tracking',   label: 'Activity',   Icon: Activity,   badge: undefined },
-                { key: 'cpa-rates',  label: 'CPA Rates',  Icon: Layers,     badge: undefined },
-                { key: 'invoices',   label: 'Invoices',   Icon: FileText,   badge: invoices.length || undefined },
-              ] as const).map(({ key, label, Icon, badge }) => (
+            {/* Tabs live in the header (mock layout); desktop only — mobile uses the ellipsis menu */}
+            <Tabs.List className="hidden sm:flex items-center gap-1 mx-2 sm:mx-4 min-w-0 overflow-x-auto">
+              {navItems.map(({ key, label, Icon, badge }) => (
                 <Tabs.Trigger
                   key={key}
                   value={key}
                   className="group relative flex items-center gap-2 px-2.5 h-9 rounded-lg text-sm font-medium text-faint data-[state=active]:text-ink data-[state=active]:font-bold hover:text-ink transition-colors whitespace-nowrap cursor-pointer"
                 >
                   <Icon className="w-4 h-4 flex-shrink-0 text-faint2 group-data-[state=active]:text-brand transition-colors" />
-                  <span className={`hidden sm:inline-block overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
+                  <span className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
                     <span className="flex items-center gap-1.5">
                       {label}
-                      {badge && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{badge}</span>}
+                      {badge > 0 && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{badge}</span>}
                     </span>
                   </span>
                 </Tabs.Trigger>
@@ -1459,26 +1497,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     {users.length.toLocaleString()} affiliate{users.length === 1 ? '' : 's'}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  {/* Mobile: dropdown */}
-                  <select
-                    value={statPeriod}
-                    onChange={e => setStatPeriod(e.target.value as StatPeriod)}
-                    className="sm:hidden text-xs font-medium bg-white border border-hair rounded-lg px-2.5 py-2 text-subtle shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30 cursor-pointer"
-                  >
-                    {([
-                      { value: 'today',  label: 'Today' },
-                      { value: 'week',   label: 'This Week' },
-                      { value: 'month',  label: 'This Month' },
-                      { value: 'lm',     label: 'Last Month' },
-                      { value: 'year',   label: 'This Year' },
-                      { value: 'custom', label: 'Custom' },
-                    ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
-                  {/* Desktop: plain text toggles (mock style) */}
-                  <div className="hidden sm:flex items-center gap-5 overflow-x-auto">
+                <div className="flex items-center gap-2 min-w-0 max-w-full">
+                  {/* Period toggles — same colored tab-menu style at every size (mock style) */}
+                  <div className="flex items-center gap-4 sm:gap-5 overflow-x-auto ds-chips -mx-1 px-1">
                     {([
                       { value: 'today',  label: 'Today' },
                       { value: 'week',   label: 'This Week' },
