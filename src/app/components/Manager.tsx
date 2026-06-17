@@ -32,7 +32,7 @@ import { projectId, publicAnonKey } from '/utils/supabase/info';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Tabs from '@radix-ui/react-tabs';
 import gsap from 'gsap';
-import { SwipeTabs } from './ui/swipe-tabs';
+import { SwipeCarousel, Slide } from './ui/swipe-tabs';
 
 interface ManagerProps {
   sessionToken: string;
@@ -1571,21 +1571,16 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           );
         })()}
 
-        {/* Tab panels — the tab nav lives in the header. Wrapped for mobile swipe-to-switch. */}
-        <SwipeTabs
-          order={[
-            { key: 'affiliates', label: 'Affiliates' },
-            { key: 'tracking',   label: 'Activity' },
-            { key: 'cpa-rates',  label: 'CPA Rates' },
-            { key: 'invoices',   label: 'Invoices' },
-          ]}
+        {/* Tab panels — the tab nav lives in the header. Real swipe carousel on mobile. */}
+        <SwipeCarousel
+          order={['affiliates', 'tracking', 'cpa-rates', 'invoices']}
           active={activeTab}
           onChange={setActiveTab}
+          className="border-t border-hair pt-2"
         >
-        <div className="border-t border-hair pt-2">
 
           {/* ── Affiliates Tab ── */}
-          <Tabs.Content value="affiliates">
+          <Slide tabKey="affiliates">
 
             {/* Toolbar: Search + Date filter + Group + Create */}
             <div className="sticky top-[59px] z-10 bg-canvas/95 backdrop-blur-md py-4 mb-4 space-y-3 border-b border-hair">
@@ -1708,10 +1703,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 </div>
               )}
             </div>
-          </Tabs.Content>
+          </Slide>
 
           {/* ── Tracking Activity Tab ── */}
-          <Tabs.Content value="tracking">
+          <Slide tabKey="tracking">
             <div className="mt-1">
               <div className="sticky top-16 z-10 bg-white p-4 border-b border-hair2 space-y-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1970,10 +1965,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               })()}
               </div>
             </div>
-          </Tabs.Content>
+          </Slide>
 
           {/* ── CPA Rates Tab ── */}
-          <Tabs.Content value="cpa-rates">
+          <Slide tabKey="cpa-rates">
             <div className="mt-1">
               {/* Toolbar */}
               <div className="sticky top-16 z-10 bg-white p-5 border-b border-hair2 space-y-3">
@@ -2246,9 +2241,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 );
               })()}
             </div>
-          </Tabs.Content>
+          </Slide>
           {/* ── Invoices Tab ── */}
-          <Tabs.Content value="invoices">
+          <Slide tabKey="invoices">
             <div className="mt-1">
               {/* Toolbar */}
               <div className="sticky top-16 z-10 bg-white p-5 border-b border-hair2 flex flex-wrap items-center justify-between gap-3">
@@ -2532,10 +2527,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 );
               })()}
             </div>
-          </Tabs.Content>
+          </Slide>
 
-        </div>
-        </SwipeTabs>
+        </SwipeCarousel>
 
         {/* ── Modals ── */}
 

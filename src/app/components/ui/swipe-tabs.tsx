@@ -1,60 +1,81 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import {
+  Children, isValidElement, useEffect, useLayoutEffect, useRef,
+  type ReactNode,
+} from 'react';
 import gsap from 'gsap';
 
-export interface SwipeTab { key: string; label: string }
+/**
+ * One tab panel. Rendered by <SwipeCarousel>; never renders on its own.
+ */
+export function Slide(_props: { tabKey: string; className?: string; children: ReactNode }) {
+  return null;
+}
+
+interface SlideDef { key: string; className?: string; node: ReactNode }
 
 /**
- * Wraps a set of tab panels and adds a real-time, finger-following swipe to
- * move between tabs on mobile (< 1024px):
- *  - the active panel translates with the drag,
- *  - a floating pill shows the tab you're swiping into (its title + arrow),
- *    growing more prominent as you approach the commit threshold,
- *  - on release it either animates the panel out / new panel in (GSAP) or
- *    springs back.
- *
- * Gestures that begin inside horizontally scrollable regions (chips/nav,
- * inputs, [data-noswipe]) are left alone so they keep scrolling natively.
+ * A swipeable tab carousel. The active panel and its immediate neighbours are
+ * mounted side-by-side; on mobile (< 1024px) a horizontal drag slides the real
+ * panels with your finger — the current tab moves out as the next moves in.
+ * Past the commit threshold (or a quick flick) it animates to the neighbour and
+ * commits; otherwise it springs back. Desktop and non-horizontal gestures are
+ * untouched, and drags that begin in scrollable chips/nav, inputs, or
+ * [data-noswipe] are ignored.
  */
-export function SwipeTabs({
-  order, active, onChange, children,
+export function SwipeCarousel({
+  order, active, onChange, className, children,
 }: {
-  order: SwipeTab[];
+  order: string[];
   active: string;
   onChange: (key: string) => void;
+  className?: string;
   children: ReactNode;
 }) {
   const vpRef = useRef<HTMLDivElement>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const indRef = useRef<HTMLDivElement>(null);
-  const arrowRef = useRef<HTMLSpanElement>(null);
-  const labelRef = useRef<HTMLSpanElement>(null);
+  const nodes = useRef<Record<string, HTMLDivElement | null>>({});
+  const winsRef = useRef<{ rel: number; key: string }[]>([]);
+  const animating = useRef(false);
 
-  // Keep the latest props in refs so the (once-bound) native listeners read fresh values.
+  // Latest props for the once-bound native listeners.
   const live = useRef({ order, active, onChange });
   live.current = { order, active, onChange };
 
+  // Build key -> content map from <Slide> children.
+  const defs: SlideDef[] = Children.toArray(children)
+    .filter(isValidElement)
+    .map((el: any) => ({ key: el.props.tabKey, className: el.props.className, node: el.props.children }));
+  const byKey = new Map(defs.map(d => [d.key, d]));
+
+  const ai = order.indexOf(active);
+  const wins = ([-1, 0, 1] as const)
+    .map(rel => ({ rel, i: ai + rel }))
+    .filter(({ i }) => i >= 0 && i < order.length)
+    .map(({ rel, i }) => ({ rel, key: order[i] }));
+  winsRef.current = wins;
+
+  const applyTransform = (dx: number) => {
+    for (const { rel, key } of winsRef.current) {
+      const n = nodes.current[key];
+      if (n) n.style.transform = `translateX(calc(${rel * 100}% + ${dx}px))`;
+    }
+  };
+
+  // Snap panels to their base positions whenever the active tab changes.
+  useLayoutEffect(() => { applyTransform(0); }, [active]);
+
   useEffect(() => {
     const vp = vpRef.current;
-    const track = trackRef.current;
-    const ind = indRef.current;
-    if (!vp || !track) return;
-
+    if (!vp) return;
     const isMobile = () => window.innerWidth < 1024;
-    const idxOf = (k: string) => live.current.order.findIndex(t => t.key === k);
-    const setX = gsap.quickSetter(track, 'x', 'px') as (v: number) => void;
+    const relOf = (k: string) => winsRef.current.find(w => w.key === k)?.rel;
 
-    let st: { x: number; y: number; decided: boolean; horiz: boolean; skip: boolean; dx: number } | null = null;
-    let animating = false;
-
-    const hideInd = () => { if (ind) ind.style.opacity = '0'; };
+    let st: { x: number; y: number; t: number; decided: boolean; horiz: boolean; skip: boolean; dx: number } | null = null;
 
     const onStart = (e: TouchEvent) => {
-      if (animating || e.touches.length !== 1 || !isMobile()) { st = null; return; }
+      if (animating.current || e.touches.length !== 1 || !isMobile()) { st = null; return; }
       const t = e.touches[0];
-      const skip = !!(e.target as HTMLElement).closest(
-        '.ds-chips, .flo-scroll, input, textarea, select, [data-noswipe]',
-      );
-      st = { x: t.clientX, y: t.clientY, decided: false, horiz: false, skip, dx: 0 };
+      const skip = !!(e.target as HTMLElement).closest('.ds-chips, .flo-scroll, input, textarea, select, [data-noswipe]');
+      st = { x: t.clientX, y: t.clientY, t: e.timeStamp, decided: false, horiz: false, skip, dx: 0 };
     };
 
     const onMove = (e: TouchEvent) => {
@@ -70,56 +91,43 @@ export function SwipeTabs({
       if (!st.horiz) return;
       e.preventDefault(); // listener is non-passive
 
-      const { order } = live.current;
-      const i = idxOf(live.current.active);
+      const { order, active } = live.current;
+      const i = order.indexOf(active);
       const goingNext = dx < 0;
       const atEnd = (goingNext && i >= order.length - 1) || (!goingNext && i <= 0);
-      if (atEnd) dx *= 0.22; // rubber-band at the ends
+      if (atEnd) dx *= 0.25; // rubber-band at the ends
       st.dx = dx;
-      setX(dx);
-
-      if (!ind) return;
-      if (atEnd) { ind.style.opacity = '0'; return; }
-      const tgt = goingNext ? order[i + 1] : order[i - 1];
-      if (labelRef.current) labelRef.current.textContent = tgt.label;
-      const w = vp.clientWidth || 1;
-      const progress = Math.min(1, Math.abs(dx) / (w * 0.32));
-      ind.style.opacity = String(0.35 + progress * 0.65);
-      ind.style.left = goingNext ? 'auto' : '14px';
-      ind.style.right = goingNext ? '14px' : 'auto';
-      ind.style.transform = `translateY(-50%) scale(${0.92 + progress * 0.08})`;
-      ind.style.background = progress >= 1 ? 'var(--ds-brand, #0a84ff)' : 'rgba(28,28,30,.84)';
-      if (arrowRef.current) arrowRef.current.style.transform = goingNext ? 'none' : 'rotate(180deg)';
+      applyTransform(dx);
     };
 
-    const onEnd = () => {
+    const onEnd = (e: TouchEvent) => {
       const s = st; st = null;
-      hideInd();
-      if (!s || s.skip || !s.horiz) { gsap.to(track, { x: 0, duration: 0.2, ease: 'power3.out' }); return; }
-      const { order, onChange } = live.current;
-      const i = idxOf(live.current.active);
+      if (!s || s.skip || !s.horiz) { gsap.to({}, { duration: 0 }); applyTransform(0); return; }
+      const { order, active, onChange } = live.current;
+      const i = order.indexOf(active);
       const w = vp.clientWidth || 1;
       const goingNext = s.dx < 0;
       const atEnd = (goingNext && i >= order.length - 1) || (!goingNext && i <= 0);
-      const threshold = Math.min(110, w * 0.3);
+      const dt = Math.max(1, e.timeStamp - s.t);
+      const velocity = Math.abs(s.dx) / dt; // px per ms
+      const commit = !atEnd && (Math.abs(s.dx) > Math.min(110, w * 0.3) || velocity > 0.5);
 
-      if (!atEnd && Math.abs(s.dx) > threshold) {
-        animating = true;
+      if (commit) {
+        const nextKey = goingNext ? order[i + 1] : order[i - 1];
         const dir = goingNext ? -1 : 1;
-        gsap.to(track, {
-          x: dir * w, duration: 0.16, ease: 'power2.in',
-          onComplete: () => {
-            onChange(goingNext ? order[i + 1].key : order[i - 1].key);
-            requestAnimationFrame(() => {
-              gsap.fromTo(track, { x: -dir * w }, {
-                x: 0, duration: 0.26, ease: 'power3.out',
-                onComplete: () => { animating = false; },
-              });
-            });
-          },
+        animating.current = true;
+        const proxy = { dx: s.dx };
+        gsap.to(proxy, {
+          dx: dir * w, duration: 0.2, ease: 'power2.out',
+          onUpdate: () => applyTransform(proxy.dx),
+          onComplete: () => { onChange(nextKey); animating.current = false; },
         });
       } else {
-        gsap.to(track, { x: 0, duration: 0.3, ease: 'power3.out' });
+        const proxy = { dx: s.dx };
+        gsap.to(proxy, {
+          dx: 0, duration: 0.3, ease: 'power3.out',
+          onUpdate: () => applyTransform(proxy.dx),
+        });
       }
     };
 
@@ -136,26 +144,28 @@ export function SwipeTabs({
   }, []);
 
   return (
-    <div ref={vpRef} style={{ position: 'relative', overflowX: 'clip' }}>
-      <div ref={trackRef} style={{ willChange: 'transform' }}>{children}</div>
-      <div
-        ref={indRef}
-        aria-hidden
-        style={{
-          position: 'fixed', top: '50%', right: '14px', zIndex: 50, opacity: 0,
-          pointerEvents: 'none', display: 'flex', alignItems: 'center', gap: '7px',
-          padding: '9px 14px', borderRadius: '999px', background: 'rgba(28,28,30,.84)',
-          color: '#fff', transform: 'translateY(-50%)', backdropFilter: 'blur(6px)',
-          WebkitBackdropFilter: 'blur(6px)', boxShadow: '0 10px 30px -10px rgba(0,0,0,.5)',
-          fontSize: '13px', fontWeight: 700, letterSpacing: '-.01em', whiteSpace: 'nowrap',
-          transition: 'background .12s',
-        }}
-      >
-        <span ref={arrowRef} style={{ display: 'inline-flex' }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="m9 6 6 6-6 6" /></svg>
-        </span>
-        <span ref={labelRef} />
-      </div>
+    <div ref={vpRef} className={className} style={{ position: 'relative', overflowX: 'clip' }}>
+      {wins.map(({ rel, key }) => {
+        const def = byKey.get(key);
+        if (!def) return null;
+        return (
+          <div
+            key={key}
+            ref={n => { nodes.current[key] = n; }}
+            className={def.className}
+            role="tabpanel"
+            style={{
+              position: rel === 0 ? 'relative' : 'absolute',
+              top: 0, left: 0, width: '100%',
+              transform: `translateX(${rel * 100}%)`,
+              // Keep off-screen neighbours from grabbing taps before they're active.
+              pointerEvents: rel === 0 ? 'auto' : 'none',
+            }}
+          >
+            {def.node}
+          </div>
+        );
+      })}
     </div>
   );
 }
