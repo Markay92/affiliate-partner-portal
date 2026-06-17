@@ -410,6 +410,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [insightsOpen, setInsightsOpen] = useState(true);
   const [insCard, setInsCard] = useState(0);   // active Insights card on mobile (swipe)
   const insBodyRef = useRef<HTMLDivElement>(null);
+  const [perfOpen, setPerfOpen] = useState(false);   // Performance compact by default, pull to expand (design)
+  const perfBodyRef = useRef<HTMLDivElement>(null);
   const [linkOpen, setLinkOpen] = useState(true);   // referral bar expanded vs thin blue strip
   const [linkBarH, setLinkBarH] = useState(0);      // measured referral-bar height → sticky offset for tab toolbars
   const linkBarRef = useRef<HTMLDivElement>(null);
@@ -434,6 +436,30 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     }
     setInsightsOpen(willOpen);
   };
+
+  // Pull-to-expand the whole Performance section (compact by default), GSAP height tween.
+  const togglePerf = () => {
+    const willOpen = !perfOpen;
+    const el = perfBodyRef.current;
+    if (el) {
+      gsap.killTweensOf(el);
+      if (willOpen) {
+        gsap.set(el, { height: 'auto' });
+        const h = el.offsetHeight;
+        gsap.fromTo(el, { height: 0, opacity: 0 }, { height: h, opacity: 1, duration: 0.42, ease: 'power3.out', onComplete: () => gsap.set(el, { height: 'auto' }) });
+      } else {
+        gsap.to(el, { height: 0, opacity: 0, duration: 0.34, ease: 'power3.inOut' });
+      }
+    }
+    setPerfOpen(willOpen);
+  };
+
+  // Performance is compact by default — collapse its body before first paint (no flash).
+  useLayoutEffect(() => {
+    if (loading) return;
+    if (!perfOpen && perfBodyRef.current) gsap.set(perfBodyRef.current, { height: 0, opacity: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   // Sticky chrome shrinks once the page is scrolled (mock behavior).
   // Hysteresis (collapse >72, expand <24) + rAF throttle avoids flicker when
@@ -972,7 +998,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           <div
             ref={linkBarRef}
             data-anim
-            className={`sticky top-[60px] z-20 mb-5 -mx-4 sm:-mx-6 lg:-mx-8 transition-colors duration-300 ${linkOpen ? 'bg-white/95 backdrop-blur-md border-b border-hair' : 'bg-brand'}`}
+            className="sticky top-[60px] z-20 mb-5 -mx-4 sm:-mx-6 lg:-mx-8 bg-white/95 backdrop-blur-md border-b border-hair"
           >
           <div ref={linkBodyRef} className="overflow-hidden">
             {linkOpen ? (
@@ -1003,7 +1029,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <div className="flex items-center gap-2.5 flex-shrink-0">
                   <button
                     onClick={() => copyToClipboard(displayLink, -1)}
-                    className="flex items-center gap-1.5 h-10 px-[18px] rounded-[10px] bg-brand text-white text-sm font-semibold hover:bg-brand-dark active:scale-95 transition-all duration-150 cursor-pointer"
+                    className="flex items-center gap-[7px] h-10 px-[18px] rounded-full bg-brand text-white text-sm font-semibold hover:bg-brand-dark active:scale-95 transition-all duration-150 cursor-pointer"
                     title="Copy link"
                   >
                     {copiedId === -1
@@ -1011,33 +1037,36 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       : <><Copy className="w-4 h-4" /> Copy</>}
                   </button>
                   <a href={displayLink} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 h-10 px-4 rounded-[10px] border border-line bg-white text-ink text-sm font-semibold hover:bg-surface transition-colors cursor-pointer"
+                    className="flex items-center gap-[7px] h-9 px-4 rounded-full border border-line bg-white text-ink text-sm font-semibold hover:bg-surface transition-colors cursor-pointer"
                     title="Preview link">
                     <ExternalLink className="w-[15px] h-[15px]" />
                     Preview
                   </a>
                   <button onClick={() => setLinkOpen(false)} title="Minimize link"
-                    className="flex items-center justify-center w-10 h-10 rounded-[10px] text-faint hover:text-ink hover:bg-surface active:scale-95 transition-all duration-150 cursor-pointer">
+                    className="flex items-center justify-center w-9 h-9 rounded-full text-faint hover:text-ink hover:bg-surface active:scale-95 transition-all duration-150 cursor-pointer">
                     <ChevronUp className="w-[18px] h-[18px]" />
                   </button>
                 </div>
               </div>
             ) : (
-              /* Collapsed — thin blue strip */
-              <button onClick={() => setLinkOpen(true)} title="Show link"
-                className="w-full flex items-center gap-3 py-2.5 px-4 sm:px-6 lg:px-8 bg-brand text-white cursor-pointer">
-                <Link2 className="w-4 h-4 flex-shrink-0" />
-                <span className="text-[13px] font-semibold truncate flex-1 text-left">
-                  {builtLink ? `Your link · ${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''}` : 'Your affiliate link'}
+              /* Collapsed — same bar, condensed to a single line */
+              <div className="flex items-center gap-3 py-2.5 px-4 sm:px-6 lg:px-8">
+                <Link2 className="w-4 h-4 text-faint2 flex-shrink-0" />
+                <span className="font-mono-ds text-[13px] font-medium text-ink truncate flex-1 min-w-0">
+                  {displayLink}
                 </span>
-                <span
-                  onClick={(e) => { e.stopPropagation(); copyToClipboard(displayLink, -1); }}
-                  className="flex items-center gap-1.5 h-7 px-3 rounded-full bg-white/20 hover:bg-white/30 text-[12.5px] font-semibold transition-colors flex-shrink-0"
+                <button
+                  onClick={() => copyToClipboard(displayLink, -1)}
+                  title="Copy link"
+                  className="flex items-center gap-1.5 h-7 px-3 rounded-full bg-brand-soft text-brand-dark text-[12.5px] font-semibold hover:bg-brand/15 transition-colors flex-shrink-0 cursor-pointer"
                 >
                   {copiedId === -1 ? <><CheckCircle className="w-3.5 h-3.5" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
-                </span>
-                <ChevronDown className="w-[18px] h-[18px] flex-shrink-0" />
-              </button>
+                </button>
+                <button onClick={() => setLinkOpen(true)} title="Expand link"
+                  className="flex items-center justify-center w-8 h-8 rounded-lg text-faint hover:text-ink hover:bg-surface transition-colors flex-shrink-0 cursor-pointer">
+                  <ChevronDown className="w-[18px] h-[18px]" />
+                </button>
+              </div>
             )}
           </div>
           </div>
@@ -1091,44 +1120,62 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           ];
 
           return (
-            <div className="mb-5">
-              {/* ── Period header ── */}
-              <div data-anim className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                <div>
-                  <h2 className="text-lg font-bold text-ink tracking-[-0.02em]">Performance</h2>
-                  <p className="text-[13px] text-faint">Showing {STAT_PERIOD_LABELS[statPeriod].toLowerCase()}</p>
-                </div>
-                <div className="flex items-center gap-2 min-w-0 max-w-full">
-                  {/* Period toggles — same colored tab-menu style at every size (mock style) */}
-                  <div className="flex items-center gap-4 sm:gap-5 overflow-x-auto ds-chips -mx-1 px-1">
-                    {([
-                      { value: 'today',  label: 'Today' },
-                      { value: 'week',   label: 'Week' },
-                      { value: 'month',  label: 'Month' },
-                      { value: 'lm',     label: 'Last month' },
-                      { value: 'year',   label: 'Year' },
-                      { value: 'custom', label: 'Custom' },
-                    ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
-                      <button key={value} onClick={() => setStatPeriod(value)}
-                        className={`text-[13.5px] whitespace-nowrap cursor-pointer transition-colors ${
-                          statPeriod === value ? 'text-brand font-bold' : 'text-faint font-medium hover:text-subtle'
-                        }`}>
-                        {label}
-                      </button>
+            <div data-anim className="border-b border-hair py-5">
+              {/* ── Pull-to-expand header (compact by default, design) ── */}
+              <div className="flex items-center justify-between gap-3.5 flex-wrap">
+                <button onClick={togglePerf} title={perfOpen ? 'Minimize performance' : 'Show performance'}
+                  className="flex items-center gap-2.5 cursor-pointer group flex-shrink-0">
+                  <ChevronRight className={`w-[15px] h-[15px] text-faint transition-transform duration-200 ${perfOpen ? 'rotate-90' : ''}`} strokeWidth={2.6} />
+                  <span className="text-[19px] font-bold text-ink tracking-[-0.02em] group-hover:opacity-70 transition-opacity">Performance</span>
+                </button>
+
+                {/* Collapsed: compact inline KPI summary */}
+                {!perfOpen && (
+                  <div className="flex items-center gap-4 overflow-x-auto ds-chips min-w-0">
+                    {statRows.map(({ label, raw, fmt }) => (
+                      <span key={label} className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
+                        <span className="text-[15px] font-bold text-ink tracking-[-0.01em] tabular-nums">{fmt(raw)}</span>
+                        <span className="text-[12px] font-medium text-faint">{label}</span>
+                      </span>
                     ))}
                   </div>
-                  {/* Custom date inputs */}
-                  {statPeriod === 'custom' && (
-                    <div className="flex items-center gap-1.5">
-                      <input type="date" value={statCustomFrom} onChange={e => setStatCustomFrom(e.target.value)}
-                        className="text-xs border border-hair rounded-lg px-2 py-1.5 text-subtle bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
-                      <span className="text-xs text-faint">→</span>
-                      <input type="date" value={statCustomTo} onChange={e => setStatCustomTo(e.target.value)}
-                        className="text-xs border border-hair rounded-lg px-2 py-1.5 text-subtle bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
+                )}
+
+                {/* Expanded: period selector */}
+                {perfOpen && (
+                  <div className="flex items-center gap-2 min-w-0 max-w-full">
+                    <div className="flex items-center gap-4 sm:gap-5 overflow-x-auto ds-chips -mx-1 px-1">
+                      {([
+                        { value: 'today',  label: 'Today' },
+                        { value: 'week',   label: 'Week' },
+                        { value: 'month',  label: 'Month' },
+                        { value: 'lm',     label: 'Last month' },
+                        { value: 'year',   label: 'Year' },
+                        { value: 'custom', label: 'Custom' },
+                      ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
+                        <button key={value} onClick={() => setStatPeriod(value)}
+                          className={`text-[13.5px] whitespace-nowrap cursor-pointer transition-colors ${
+                            statPeriod === value ? 'text-brand font-bold' : 'text-faint font-medium hover:text-subtle'
+                          }`}>
+                          {label}
+                        </button>
+                      ))}
                     </div>
-                  )}
-                </div>
+                    {statPeriod === 'custom' && (
+                      <div className="flex items-center gap-1.5">
+                        <input type="date" value={statCustomFrom} onChange={e => setStatCustomFrom(e.target.value)}
+                          className="text-xs border border-hair rounded-lg px-2 py-1.5 text-subtle bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
+                        <span className="text-xs text-faint">→</span>
+                        <input type="date" value={statCustomTo} onChange={e => setStatCustomTo(e.target.value)}
+                          className="text-xs border border-hair rounded-lg px-2 py-1.5 text-subtle bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
+
+              <div ref={perfBodyRef} className="overflow-hidden">
+              <p className="text-[13px] text-faint mt-3.5">Showing {STAT_PERIOD_LABELS[statPeriod].toLowerCase()}</p>
 
               {isEmptyPeriod && (
                 <div className="mb-3 flex items-center gap-1.5 text-xs text-faint font-medium">
@@ -1226,6 +1273,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   </div>
                 </div>
               )}
+              </div>
             </div>
           );
         })()}
