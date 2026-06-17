@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import {
   Users,
@@ -436,6 +436,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [rowMenu, setRowMenu] = useState<string | null>(null);
   const [insightsOpen, setInsightsOpen] = useState(true);
   const insBodyRef = useRef<HTMLDivElement>(null);
+  const [perfOpen, setPerfOpen] = useState(false);   // Performance compact by default, pull to expand (design)
+  const perfBodyRef = useRef<HTMLDivElement>(null);
   const [scrolled, setScrolled] = useState(false);
 
   // Smoothly tween the Insights body open/closed (GSAP, from the design file)
@@ -454,6 +456,30 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     }
     setInsightsOpen(willOpen);
   };
+
+  // Pull-to-expand the whole Performance section (compact by default), GSAP height tween.
+  const togglePerf = () => {
+    const willOpen = !perfOpen;
+    const el = perfBodyRef.current;
+    if (el) {
+      gsap.killTweensOf(el);
+      if (willOpen) {
+        gsap.set(el, { height: 'auto' });
+        const h = el.offsetHeight;
+        gsap.fromTo(el, { height: 0, opacity: 0 }, { height: h, opacity: 1, duration: 0.42, ease: 'power3.out', onComplete: () => gsap.set(el, { height: 'auto' }) });
+      } else {
+        gsap.to(el, { height: 0, opacity: 0, duration: 0.34, ease: 'power3.inOut' });
+      }
+    }
+    setPerfOpen(willOpen);
+  };
+
+  // Performance is compact by default — collapse its body before first paint (no flash).
+  useLayoutEffect(() => {
+    if (loading) return;
+    if (!perfOpen && perfBodyRef.current) gsap.set(perfBodyRef.current, { height: 0, opacity: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   // Sticky tab bar shrinks its labels to icons once scrolled (mock behavior).
   // Hysteresis (collapse >72, expand <24) + rAF throttle avoids flicker near
@@ -1448,55 +1474,72 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
           return (
             <div className="mb-6 sm:mb-8">
-              {/* ── Period header ── */}
-              <div data-anim className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                <div>
-                  <h2 className="text-base sm:text-lg font-bold text-ink tracking-tight">
-                    Network performance
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-soft text-brand-dark ring-1 ring-brand/30 ml-2 align-middle tracking-normal">
-                      {STAT_PERIOD_SHORT[statPeriod]}
-                    </span>
-                  </h2>
-                  <p className="text-xs sm:text-sm text-faint">
-                    {STAT_PERIOD_LABELS[statPeriod]}
-                    <span className="text-faint2 mx-1.5">•</span>
-                    {users.length.toLocaleString()} affiliate{users.length === 1 ? '' : 's'}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 min-w-0 max-w-full">
-                  {/* Period toggles — same colored tab-menu style at every size (mock style) */}
-                  <div className="flex items-center gap-4 sm:gap-5 overflow-x-auto ds-chips -mx-1 px-1">
-                    {([
-                      { value: 'today',  label: 'Today' },
-                      { value: 'week',   label: 'This Week' },
-                      { value: 'month',  label: 'This Month' },
-                      { value: 'lm',     label: 'Last Month' },
-                      { value: 'year',   label: 'This Year' },
-                      { value: 'custom', label: 'Custom' },
-                    ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
-                      <button key={value} onClick={() => setStatPeriod(value)}
-                        className={`text-[13.5px] whitespace-nowrap cursor-pointer transition-colors ${
-                          statPeriod === value ? 'text-brand font-bold' : 'text-faint font-medium hover:text-subtle'
-                        }`}>
-                        {label}
-                      </button>
+              {/* ── Pull-to-expand header (compact by default, design) ── */}
+              <div data-anim className="flex items-center justify-between gap-3.5 flex-wrap">
+                <button onClick={togglePerf} title={perfOpen ? 'Minimize performance' : 'Show performance'}
+                  className="flex items-center gap-2.5 cursor-pointer group flex-shrink-0">
+                  <ChevronRight className={`w-[15px] h-[15px] text-faint transition-transform duration-200 ${perfOpen ? 'rotate-90' : ''}`} strokeWidth={2.6} />
+                  <span className="text-base sm:text-lg font-bold text-ink tracking-tight group-hover:opacity-70 transition-opacity">Network performance</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-soft text-brand-dark ring-1 ring-brand/30 align-middle tracking-normal">
+                    {STAT_PERIOD_SHORT[statPeriod]}
+                  </span>
+                </button>
+
+                {/* Collapsed: compact swipeable KPI summary */}
+                {!perfOpen && (
+                  <div className="flex items-center gap-4 overflow-x-auto ds-chips min-w-0">
+                    {statRows.map(({ label, raw, fmt }) => (
+                      <span key={label} className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
+                        <span className="text-[15px] font-bold text-ink tracking-[-0.01em] tabular-nums">{fmt(raw)}</span>
+                        <span className="text-[12px] font-medium text-faint">{label}</span>
+                      </span>
                     ))}
                   </div>
-                  {/* Custom date inputs */}
-                  {statPeriod === 'custom' && (
-                    <div className="flex items-center gap-1.5">
-                      <input type="date" value={statCustomFrom} onChange={e => setStatCustomFrom(e.target.value)}
-                        className="text-xs border border-hair rounded-lg px-2 py-1.5 text-subtle bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
-                      <span className="text-xs text-faint">→</span>
-                      <input type="date" value={statCustomTo} onChange={e => setStatCustomTo(e.target.value)}
-                        className="text-xs border border-hair rounded-lg px-2 py-1.5 text-subtle bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
+                )}
+
+                {/* Expanded: period selector */}
+                {perfOpen && (
+                  <div className="flex items-center gap-2 min-w-0 max-w-full">
+                    <div className="flex items-center gap-4 sm:gap-5 overflow-x-auto ds-chips -mx-1 px-1">
+                      {([
+                        { value: 'today',  label: 'Today' },
+                        { value: 'week',   label: 'This Week' },
+                        { value: 'month',  label: 'This Month' },
+                        { value: 'lm',     label: 'Last Month' },
+                        { value: 'year',   label: 'This Year' },
+                        { value: 'custom', label: 'Custom' },
+                      ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
+                        <button key={value} onClick={() => setStatPeriod(value)}
+                          className={`text-[13.5px] whitespace-nowrap cursor-pointer transition-colors ${
+                            statPeriod === value ? 'text-brand font-bold' : 'text-faint font-medium hover:text-subtle'
+                          }`}>
+                          {label}
+                        </button>
+                      ))}
                     </div>
-                  )}
-                </div>
+                    {/* Custom date inputs */}
+                    {statPeriod === 'custom' && (
+                      <div className="flex items-center gap-1.5">
+                        <input type="date" value={statCustomFrom} onChange={e => setStatCustomFrom(e.target.value)}
+                          className="text-xs border border-hair rounded-lg px-2 py-1.5 text-subtle bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
+                        <span className="text-xs text-faint">→</span>
+                        <input type="date" value={statCustomTo} onChange={e => setStatCustomTo(e.target.value)}
+                          className="text-xs border border-hair rounded-lg px-2 py-1.5 text-subtle bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
+              <div ref={perfBodyRef} className="overflow-hidden">
+              <p className="text-xs sm:text-sm text-faint mt-3.5">
+                {STAT_PERIOD_LABELS[statPeriod]}
+                <span className="text-faint2 mx-1.5">•</span>
+                {users.length.toLocaleString()} affiliate{users.length === 1 ? '' : 's'}
+              </p>
+
               {isEmptyPeriod && (
-                <div className="mb-3 flex items-center gap-1.5 text-xs text-faint font-medium">
+                <div className="mt-3 flex items-center gap-1.5 text-xs text-faint font-medium">
                   <RefreshCw className="w-3 h-3" /> No activity recorded for {STAT_PERIOD_LABELS[statPeriod].split(' vs ')[0].toLowerCase()}
                 </div>
               )}
@@ -1567,6 +1610,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   </div>
                 </div>
               )}
+              </div>
             </div>
           );
         })()}
