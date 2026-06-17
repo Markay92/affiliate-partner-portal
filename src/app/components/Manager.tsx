@@ -429,7 +429,25 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [insightsTab, setInsightsTab] = useState<'charts' | 'topCards'>('charts');
   const [rowMenu, setRowMenu] = useState<string | null>(null);
   const [insightsOpen, setInsightsOpen] = useState(true);
+  const insBodyRef = useRef<HTMLDivElement>(null);
   const [scrolled, setScrolled] = useState(false);
+
+  // Smoothly tween the Insights body open/closed (GSAP, from the design file)
+  const toggleInsights = () => {
+    const willOpen = !insightsOpen;
+    const el = insBodyRef.current;
+    if (el) {
+      gsap.killTweensOf(el);
+      if (willOpen) {
+        gsap.set(el, { height: 'auto' });
+        const h = el.offsetHeight;
+        gsap.fromTo(el, { height: 0, opacity: 0 }, { height: h, opacity: 1, duration: 0.42, ease: 'power3.out', onComplete: () => gsap.set(el, { height: 'auto' }) });
+      } else {
+        gsap.to(el, { height: 0, opacity: 0, duration: 0.34, ease: 'power3.inOut' });
+      }
+    }
+    setInsightsOpen(willOpen);
+  };
 
   // Sticky tab bar shrinks its labels to icons once scrolled (mock behavior).
   // Hysteresis (collapse >72, expand <24) + rAF throttle avoids flicker near
@@ -1252,6 +1270,13 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     );
   }
 
+  const navItems = [
+    { key: 'affiliates', label: 'Affiliates', Icon: Users,    badge: 0 },
+    { key: 'tracking',   label: 'Activity',   Icon: Activity, badge: 0 },
+    { key: 'cpa-rates',  label: 'CPA Rates',  Icon: Layers,   badge: 0 },
+    { key: 'invoices',   label: 'Invoices',   Icon: FileText, badge: invoices.length },
+  ] as const;
+
   return (
     <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="min-h-screen bg-canvas">
       {/* Header */}
@@ -1278,29 +1303,24 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 </svg>
               </div>
               <div className="flex items-center gap-2.5 flex-shrink-0">
-                <h1 className="text-ink font-bold text-[16px] tracking-tight leading-none whitespace-nowrap">Affiliate Portal</h1>
+                <h1 className="hidden sm:block text-ink font-bold text-[16px] tracking-tight leading-none whitespace-nowrap">Affiliate Portal</h1>
                 <span className="text-[10.5px] font-bold text-brand bg-brand-soft px-2 py-[3px] rounded-full tracking-[0.04em] leading-none whitespace-nowrap">MANAGER</span>
                 <p className="text-faint text-xs hidden xl:block ml-1 whitespace-nowrap">Welcome, {managerName}</p>
               </div>
             </div>
-            {/* Tabs live in the header (mock layout); labels collapse to icons on scroll */}
+            {/* Tabs live in the header (mock layout); labels are icon-only on mobile, collapse to icons on scroll */}
             <Tabs.List className="flex items-center gap-1 mx-2 sm:mx-4 min-w-0 overflow-x-auto">
-              {([
-                { key: 'affiliates', label: 'Affiliates', Icon: Users,      badge: undefined as number | undefined },
-                { key: 'tracking',   label: 'Activity',   Icon: Activity,   badge: undefined },
-                { key: 'cpa-rates',  label: 'CPA Rates',  Icon: Layers,     badge: undefined },
-                { key: 'invoices',   label: 'Invoices',   Icon: FileText,   badge: invoices.length || undefined },
-              ] as const).map(({ key, label, Icon, badge }) => (
+              {navItems.map(({ key, label, Icon, badge }) => (
                 <Tabs.Trigger
                   key={key}
                   value={key}
                   className="group relative flex items-center gap-2 px-2.5 h-9 rounded-lg text-sm font-medium text-faint data-[state=active]:text-ink data-[state=active]:font-bold hover:text-ink transition-colors whitespace-nowrap cursor-pointer"
                 >
                   <Icon className="w-4 h-4 flex-shrink-0 text-faint2 group-data-[state=active]:text-brand transition-colors" />
-                  <span className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
+                  <span className={`hidden sm:inline-block overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
                     <span className="flex items-center gap-1.5">
                       {label}
-                      {badge && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{badge}</span>}
+                      {badge > 0 && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{badge}</span>}
                     </span>
                   </span>
                 </Tabs.Trigger>
@@ -1314,13 +1334,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   <div className="relative">
                     <button
                       onClick={() => setActionsOpen(o => !o)}
-                      className="flex items-center gap-2 px-3 h-9 bg-white border border-line text-subtle rounded-lg hover:bg-surface hover:text-ink transition-colors text-sm font-medium"
+                      aria-label="Menu"
+                      className="flex items-center justify-center sm:justify-start gap-2 w-10 sm:w-auto px-0 sm:px-3 h-9 sm:bg-white sm:border sm:border-line text-subtle rounded-lg hover:bg-surface hover:text-ink transition-colors text-sm font-medium"
                     >
                       {anyBusy
-                        ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-brand" />
-                        : <RefreshCw className="w-3.5 h-3.5" />}
-                      Actions
-                      <ChevronDown className={`w-3.5 h-3.5 transition-transform ${actionsOpen ? 'rotate-180' : ''}`} />
+                        ? <RefreshCw className="w-4 h-4 sm:w-3.5 sm:h-3.5 animate-spin text-brand" />
+                        : <>
+                            <MoreHorizontal className="w-5 h-5 sm:hidden" />
+                            <RefreshCw className="hidden sm:block w-3.5 h-3.5" />
+                          </>}
+                      <span className="hidden sm:inline">Actions</span>
+                      <ChevronDown className={`hidden sm:block w-3.5 h-3.5 transition-transform ${actionsOpen ? 'rotate-180' : ''}`} />
                     </button>
                     {actionsOpen && (
                       <>
@@ -1360,6 +1384,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               <RefreshCw className={`w-4 h-4 text-brand ${syncingCardRating ? 'animate-spin' : ''}`} />
                               {syncingCardRating ? 'Syncing…' : 'Sync Card Rating API'}
                             </button>
+                            {/* Mobile only: logout lives in this ellipsis menu */}
+                            <div className="sm:hidden border-t border-hair mt-1 pt-1">
+                              <button
+                                onClick={() => { setActionsOpen(false); onLogout(); }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neg font-medium hover:bg-surface transition-colors"
+                              >
+                                <LogOut className="w-4 h-4" /> Logout
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </>
@@ -1369,10 +1402,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               })()}
               <button
                 onClick={onLogout}
-                className="flex items-center gap-2 px-3 h-9 text-faint hover:text-neg rounded-lg transition-colors text-sm font-medium"
+                className="hidden sm:flex items-center gap-2 px-3 h-9 text-faint hover:text-neg rounded-lg transition-colors text-sm font-medium"
               >
                 <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Logout</span>
+                <span>Logout</span>
               </button>
             </div>
           </div>
@@ -1441,26 +1474,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     {users.length.toLocaleString()} affiliate{users.length === 1 ? '' : 's'}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  {/* Mobile: dropdown */}
-                  <select
-                    value={statPeriod}
-                    onChange={e => setStatPeriod(e.target.value as StatPeriod)}
-                    className="sm:hidden text-xs font-medium bg-white border border-hair rounded-lg px-2.5 py-2 text-subtle shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30 cursor-pointer"
-                  >
-                    {([
-                      { value: 'today',  label: 'Today' },
-                      { value: 'week',   label: 'This Week' },
-                      { value: 'month',  label: 'This Month' },
-                      { value: 'lm',     label: 'Last Month' },
-                      { value: 'year',   label: 'This Year' },
-                      { value: 'custom', label: 'Custom' },
-                    ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
-                  {/* Desktop: plain text toggles (mock style) */}
-                  <div className="hidden sm:flex items-center gap-5 overflow-x-auto">
+                <div className="flex items-center gap-2 min-w-0 max-w-full">
+                  {/* Period toggles — same colored tab-menu style at every size (mock style) */}
+                  <div className="flex items-center gap-4 sm:gap-5 overflow-x-auto ds-chips -mx-1 px-1">
                     {([
                       { value: 'today',  label: 'Today' },
                       { value: 'week',   label: 'This Week' },
@@ -1514,17 +1530,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
               {/* ── Insights: top affiliates by earnings + top approved cards (design file) ── */}
               {(showAffiliates || showTopCards) && (
-                <div data-anim className={`border-b border-hair ${insightsOpen ? 'pt-4 pb-7 mb-2' : 'py-3'}`}>
-                  <div className={`flex items-center justify-between gap-3 ${insightsOpen ? 'mb-4' : 'mb-0'}`}>
-                    <button onClick={() => setInsightsOpen(o => !o)} title={insightsOpen ? 'Minimize insights' : 'Show insights'}
+                <div data-anim className="border-b border-hair py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <button onClick={toggleInsights} title={insightsOpen ? 'Minimize insights' : 'Show insights'}
                       className="flex items-center gap-2 cursor-pointer group">
                       <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${insightsOpen ? 'rotate-90' : ''}`} strokeWidth={2.6} />
                       <span className="text-[15px] font-bold text-ink group-hover:opacity-70 transition-opacity">Insights</span>
                     </button>
                     {!insightsOpen && <span className="text-[12.5px] text-faint font-medium">Top affiliates &amp; cards hidden</span>}
                   </div>
-                  {insightsOpen && (
-                  <div className={`grid gap-0 ${showAffiliates && showTopCards ? 'lg:grid-cols-[1.7fr_1fr]' : 'grid-cols-1'}`}>
+                  <div ref={insBodyRef} className="overflow-hidden">
+                  <div className={`pt-5 grid gap-0 ${showAffiliates && showTopCards ? 'lg:grid-cols-[1.7fr_1fr]' : 'grid-cols-1'}`}>
                     {/* Top affiliates by earnings */}
                     {showAffiliates && (
                     <div className={showTopCards ? 'lg:pr-9' : ''}>
@@ -1557,7 +1573,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </div>
                     )}
                   </div>
-                  )}
+                  </div>
                 </div>
               )}
             </div>

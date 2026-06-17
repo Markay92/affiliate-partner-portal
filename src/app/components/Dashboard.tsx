@@ -26,6 +26,7 @@ import {
   X,
   Plus,
   Check,
+  MoreHorizontal,
 } from 'lucide-react';
 import React from 'react';
 import { ComposedChart, LineChart, Line, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } from 'recharts';
@@ -367,6 +368,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [linkBuilderIds, setLinkBuilderIds] = useState<string[]>([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState('');
+  const [activeTab, setActiveTab]   = useState('cards');   // controlled tabs (drives nav menu)
+  const [navOpen,   setNavOpen]     = useState(false);     // mobile ellipsis nav menu
 
   // Activity tab (Airtable API Output)
   const [trackingFilter,       setTrackingFilter]       = useState<DateFilter>('week');
@@ -405,8 +408,26 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   });
   const [insightsTab, setInsightsTab] = useState<'charts' | 'topCards'>('charts');
   const [insightsOpen, setInsightsOpen] = useState(true);
+  const insBodyRef = useRef<HTMLDivElement>(null);
   const [chartMetric, setChartMetric] = useState<'approvals' | 'clicks' | 'earnings'>('approvals');
   const [scrolled, setScrolled] = useState(false);
+
+  // Smoothly tween the Insights body open/closed (GSAP, from the design file)
+  const toggleInsights = () => {
+    const willOpen = !insightsOpen;
+    const el = insBodyRef.current;
+    if (el) {
+      gsap.killTweensOf(el);
+      if (willOpen) {
+        gsap.set(el, { height: 'auto' });
+        const h = el.offsetHeight;
+        gsap.fromTo(el, { height: 0, opacity: 0 }, { height: h, opacity: 1, duration: 0.42, ease: 'power3.out', onComplete: () => gsap.set(el, { height: 'auto' }) });
+      } else {
+        gsap.to(el, { height: 0, opacity: 0, duration: 0.34, ease: 'power3.inOut' });
+      }
+    }
+    setInsightsOpen(willOpen);
+  };
 
   // Sticky chrome shrinks once the page is scrolled (mock behavior).
   // Hysteresis (collapse >72, expand <24) + rAF throttle avoids flicker when
@@ -766,10 +787,18 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     );
   }
 
+  const navItems = [
+    { key: 'cards',    label: 'Cards',       Icon: CreditCard, badge: 0 },
+    { key: 'create',   label: 'Create Link', Icon: Link2,      badge: linkBuilderIds.length },
+    { key: 'activity', label: 'Activity',    Icon: Activity,   badge: 0 },
+    { key: 'invoices', label: 'Invoices',    Icon: FileText,   badge: invoices.length },
+    { key: 'profile',  label: 'Profile',     Icon: User,       badge: 0 },
+  ] as const;
+
   return (
-    <Tabs.Root defaultValue="cards" className="min-h-screen bg-canvas">
+    <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="min-h-screen bg-canvas">
       {/* Header */}
-      <header className="bg-white/90 backdrop-blur-md sticky top-0 z-10 border-b border-hair">
+      <header className="bg-white/90 backdrop-blur-md sticky top-0 z-30 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-[60px]">
             <div className="flex items-center gap-2.5">
@@ -793,22 +822,16 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
               <h1 className="hidden sm:block text-ink font-bold text-[16px] tracking-tight">Affiliate Portal</h1>
             </div>
-            {/* Tabs live in the header (mock layout); labels collapse to icons on scroll */}
+            {/* Tabs live in the header (mock layout); labels are icon-only on mobile, collapse to icons on scroll */}
             <Tabs.List className="flex items-center gap-1 mx-2 sm:mx-4 min-w-0 overflow-x-auto">
-              {([
-                { key: 'cards',    label: 'Cards',       Icon: CreditCard, badge: 0 },
-                { key: 'create',   label: 'Create Link', Icon: Link2,      badge: linkBuilderIds.length },
-                { key: 'activity', label: 'Activity',    Icon: Activity,   badge: 0 },
-                { key: 'invoices', label: 'Invoices',    Icon: FileText,   badge: invoices.length },
-                { key: 'profile',  label: 'Profile',     Icon: User,       badge: 0 },
-              ] as const).map(({ key, label, Icon, badge }) => (
+              {navItems.map(({ key, label, Icon, badge }) => (
                 <Tabs.Trigger
                   key={key}
                   value={key}
                   className="group relative flex items-center gap-2 px-2.5 h-9 rounded-lg text-sm font-medium text-faint data-[state=active]:text-ink data-[state=active]:font-bold hover:text-ink transition-colors whitespace-nowrap cursor-pointer"
                 >
                   <Icon className="w-4 h-4 flex-shrink-0 text-faint2 group-data-[state=active]:text-brand transition-colors" />
-                  <span className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
+                  <span className={`hidden sm:inline-block overflow-hidden transition-all duration-300 ${scrolled ? 'max-w-0 opacity-0' : 'max-w-[120px] opacity-100'}`}>
                     <span className="flex items-center gap-1.5">
                       {label}
                       {badge > 0 && <span className="bg-brand-soft text-brand-dark text-xs font-semibold px-1.5 py-0.5 rounded-full">{badge}</span>}
@@ -818,9 +841,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               ))}
             </Tabs.List>
             <div className="flex items-center gap-2 ml-auto">
+              {/* Desktop: inline utility actions */}
               <button
                 onClick={fetchData}
-                className="p-2 text-faint hover:text-brand hover:bg-surface active:scale-95 rounded-lg transition-all duration-150 cursor-pointer"
+                className="hidden sm:block p-2 text-faint hover:text-brand hover:bg-surface active:scale-95 rounded-lg transition-all duration-150 cursor-pointer"
                 title="Refresh data"
               >
                 <RefreshCw className="w-4 h-4" />
@@ -835,11 +859,49 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               )}
               <button
                 onClick={onLogout}
-                className="flex items-center gap-2 px-3 py-1.5 text-faint hover:text-neg active:scale-95 rounded-lg transition-all duration-150 text-sm font-medium cursor-pointer"
+                className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-faint hover:text-neg active:scale-95 rounded-lg transition-all duration-150 text-sm font-medium cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Logout</span>
+                <span>Logout</span>
               </button>
+
+              {/* Mobile: ellipsis menu — refresh & logout collapse in here */}
+              <div className="relative sm:hidden">
+                <button
+                  onClick={() => setNavOpen(o => !o)}
+                  aria-label="Menu"
+                  className="flex items-center justify-center w-10 h-10 -mr-2 rounded-lg text-subtle hover:text-ink hover:bg-surface active:scale-95 transition-all cursor-pointer"
+                >
+                  <MoreHorizontal className="w-5 h-5" />
+                </button>
+                {navOpen && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setNavOpen(false)} />
+                    <div className="absolute right-0 mt-1 w-52 bg-white rounded-2xl shadow-lg ring-1 ring-ink/10 z-30 overflow-hidden py-1.5 ds-rise">
+                      {(firstName || userEmail) && (
+                        <div className="flex items-center gap-2.5 px-4 py-2.5 mb-1 border-b border-hair">
+                          <span className="w-7 h-7 rounded-full bg-brand text-white text-[12px] font-bold flex items-center justify-center flex-shrink-0">
+                            {(firstName || userEmail).charAt(0).toUpperCase()}
+                          </span>
+                          <span className="text-sm font-semibold text-ink truncate">{firstName ? `Hi, ${firstName}` : userEmail}</span>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => { setNavOpen(false); fetchData(); }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-subtle font-medium hover:bg-surface transition-colors"
+                      >
+                        <RefreshCw className="w-4 h-4 text-faint2" /> Refresh data
+                      </button>
+                      <button
+                        onClick={() => { setNavOpen(false); onLogout(); }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neg font-medium hover:bg-surface transition-colors"
+                      >
+                        <LogOut className="w-4 h-4" /> Logout
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -888,7 +950,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   </button>
                 )}
               </div>
-              <div className={`font-mono-ds font-medium text-ink break-all transition-all duration-300 ${scrolled ? 'text-[13.5px]' : 'text-[15.5px]'}`}>
+              <div className={`font-mono-ds font-medium text-ink break-all line-clamp-2 sm:line-clamp-none transition-all duration-300 ${scrolled ? 'text-[13.5px]' : 'text-[15.5px]'}`}>
                 {displayLink}
               </div>
               <div className={`overflow-hidden transition-all duration-300 ${scrolled ? 'max-h-0 opacity-0 mt-0' : 'max-h-5 opacity-100 mt-1'}`}>
@@ -974,26 +1036,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   <h2 className="text-lg font-bold text-ink tracking-[-0.02em]">Performance</h2>
                   <p className="text-[13px] text-faint">Showing {STAT_PERIOD_LABELS[statPeriod].toLowerCase()}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  {/* Mobile: dropdown */}
-                  <select
-                    value={statPeriod}
-                    onChange={e => setStatPeriod(e.target.value as StatPeriod)}
-                    className="sm:hidden text-xs font-medium bg-white border border-hair rounded-lg px-2.5 py-2 text-subtle shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30"
-                  >
-                    {([
-                      { value: 'today',  label: 'Today' },
-                      { value: 'week',   label: 'This Week' },
-                      { value: 'month',  label: 'This Month' },
-                      { value: 'lm',     label: 'Last Month' },
-                      { value: 'year',   label: 'This Year' },
-                      { value: 'custom', label: 'Custom' },
-                    ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
-                  {/* Desktop: plain text toggles (mock style) */}
-                  <div className="hidden sm:flex items-center gap-5 overflow-x-auto">
+                <div className="flex items-center gap-2 min-w-0 max-w-full">
+                  {/* Period toggles — same colored tab-menu style at every size (mock style) */}
+                  <div className="flex items-center gap-4 sm:gap-5 overflow-x-auto ds-chips -mx-1 px-1">
                     {([
                       { value: 'today',  label: 'Today' },
                       { value: 'week',   label: 'Week' },
@@ -1047,17 +1092,17 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
               {/* ── Insights: tabbed chart / top cards ── */}
               {(showCharts || showTopCards) && (
-                <div data-anim className={`border-b border-hair ${insightsOpen ? 'pt-4 pb-6 mb-1' : 'py-3'}`}>
-                  <div className={`flex items-center justify-between gap-3 ${insightsOpen ? 'mb-4' : 'mb-0'}`}>
-                    <button onClick={() => setInsightsOpen(o => !o)} title={insightsOpen ? 'Minimize insights' : 'Show insights'}
+                <div data-anim className="border-b border-hair py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <button onClick={toggleInsights} title={insightsOpen ? 'Minimize insights' : 'Show insights'}
                       className="flex items-center gap-2 cursor-pointer group">
                       <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${insightsOpen ? 'rotate-90' : ''}`} strokeWidth={2.6} />
                       <span className="text-[15px] font-bold text-ink group-hover:opacity-70 transition-opacity">Insights</span>
                     </button>
                     {!insightsOpen && <span className="text-[12.5px] text-faint font-medium">Trends &amp; top cards hidden</span>}
                   </div>
-                  {insightsOpen && (
-                  <div className={`mt-1 grid gap-0 ${showCharts && showTopCards ? 'lg:grid-cols-[1.7fr_1fr]' : 'grid-cols-1'}`}>
+                  <div ref={insBodyRef} className="overflow-hidden">
+                  <div className={`pt-5 grid gap-0 ${showCharts && showTopCards ? 'lg:grid-cols-[1.7fr_1fr]' : 'grid-cols-1'}`}>
                     {/* Chart */}
                     {showCharts && (
                     <div className={showTopCards ? 'lg:pr-9' : ''}>
@@ -1106,7 +1151,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </div>
                     )}
                   </div>
-                  )}
+                  </div>
                 </div>
               )}
             </div>
