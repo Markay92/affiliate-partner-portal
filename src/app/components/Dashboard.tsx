@@ -33,6 +33,7 @@ import { ComposedChart, LineChart, Line, Area, BarChart, Bar, XAxis, YAxis, Tool
 import * as Tabs from '@radix-ui/react-tabs';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { Profile } from './Profile';
+import { useSwipeTabs } from './ui/use-swipe-tabs';
 
 interface DashboardProps {
   userEmail: string;
@@ -374,6 +375,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [error, setError]           = useState('');
   const [activeTab, setActiveTab]   = useState('cards');   // controlled tabs (drives nav menu)
   const [navOpen,   setNavOpen]     = useState(false);     // mobile ellipsis nav menu
+  // Mobile: swipe the page left/right to move between tabs
+  const swipeTabs = useSwipeTabs(['cards', 'create', 'activity', 'invoices', 'profile'], activeTab, setActiveTab);
 
   // Activity tab (Airtable API Output)
   const [trackingFilter,       setTrackingFilter]       = useState<DateFilter>('week');
@@ -861,7 +864,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   ] as const;
 
   return (
-    <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="min-h-screen bg-canvas">
+    <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="min-h-screen bg-canvas" onTouchStart={swipeTabs.onTouchStart} onTouchEnd={swipeTabs.onTouchEnd}>
       {/* Header */}
       <header className="bg-white/90 backdrop-blur-md sticky top-0 z-30 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
