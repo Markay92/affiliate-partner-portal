@@ -46,15 +46,7 @@ interface ManagerProps {
 type DateFilter = 'all' | 'today' | 'week' | 'month' | 'lm' | 'custom';
 type SortState  = { field: string; dir: 'asc' | 'desc' };
 
-// Records default to showing only the current year — older years are hidden
-// behind a "Load more" toggle to keep long-running tables manageable.
-const CURRENT_YEAR = new Date().getFullYear();
 const PAGE_SIZE = 25;
-function yearOf(dateStr: string | undefined): number | null {
-  if (!dateStr) return null;
-  const d = parseLocalDate(dateStr);
-  return isNaN(d.getTime()) ? null : d.getFullYear();
-}
 
 // Smoothly counts a number up to its target on mount / when it changes (GSAP)
 function CountUp({ value, format }: { value: number; format: (n: number) => string }) {
@@ -72,39 +64,6 @@ function CountUp({ value, format }: { value: number; format: (n: number) => stri
     return () => tween.kill();
   }, [value]);
   return <span ref={ref}>{format(value)}</span>;
-}
-
-/** Bottom pagination-style button to reveal/hide records from prior years. */
-function LoadMoreYears({
-  showAll, setShowAll, hiddenCount,
-}: { showAll: boolean; setShowAll: (v: boolean) => void; hiddenCount: number }) {
-  if (hiddenCount === 0 && !showAll) return null;
-  return !showAll ? (
-    <button
-      onClick={() => setShowAll(true)}
-      className="px-4 py-2 text-xs font-medium text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors duration-150 cursor-pointer"
-    >
-      Load {hiddenCount} older record{hiddenCount === 1 ? '' : 's'}
-      <span className="text-faint ml-1">(prior years)</span>
-    </button>
-  ) : (
-    <button
-      onClick={() => setShowAll(false)}
-      className="px-4 py-2 text-xs font-medium text-faint border border-hair rounded-lg hover:bg-surface transition-colors duration-150 cursor-pointer"
-    >
-      Show {CURRENT_YEAR} only
-    </button>
-  );
-}
-
-/** Small pill marking a count as scoped to the current year by default (vs. an all-time/period figure). */
-function CurrentYearBadge({ active }: { active: boolean }) {
-  if (!active) return null;
-  return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 ring-1 ring-amber-200/70 ml-2">
-      {CURRENT_YEAR} only
-    </span>
-  );
 }
 
 function formatLastUpdated(ts?: number): string {
@@ -534,14 +493,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
   // ── Pagination (load-more) ──────────────────────────────────────────────────
   const [affiliatesVisible, setAffiliatesVisible] = useState(PAGE_SIZE);
+  const [affiliatesPageSize, setAffiliatesPageSize] = useState<number>(PAGE_SIZE);
   const [cpaVisible,        setCpaVisible]        = useState(PAGE_SIZE);
   const [cpaPageSize,       setCpaPageSize]       = useState<number>(PAGE_SIZE);
   const [invoicesVisible,   setInvoicesVisible]   = useState(PAGE_SIZE);
+  const [invoicesPageSize,  setInvoicesPageSize]  = useState<number>(PAGE_SIZE);
   const [trackingVisible,   setTrackingVisible]   = useState(PAGE_SIZE);
   const [trackingPageSize,  setTrackingPageSize]  = useState<number>(PAGE_SIZE);
 
-  // ── Year-limited views: default to current year, "Load more" reveals older ──
-  const [trackingShowAllYears, setTrackingShowAllYears] = useState(false);
 
   // ── Tracking Activity filter / sort ────────────────────────────────────────
   const [mgTrackingFilter,           setMgTrackingFilter]           = useState<DateFilter>('all');
@@ -599,13 +558,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     ).values()
   ).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
 
-  // How many tracking records fall outside the current year (hidden by default)
-  const trackingHiddenOlderCount = (trackingActivity as any[])
-    .filter((a) => { const y = yearOf(a.clickDate); return y !== null && y !== CURRENT_YEAR; }).length;
-
   const displayTrackingActivity = applySort(
     (trackingActivity as any[]).filter((a) =>
-      (trackingShowAllYears || yearOf(a.clickDate) === null || yearOf(a.clickDate) === CURRENT_YEAR) &&
       inDateRange(a.clickDate, mgTrackingFilter, mgTrackingCustomFrom, mgTrackingCustomTo) &&
       (mgTrackingStatusFilter === 'all' || a.status === mgTrackingStatusFilter) &&
       (mgTrackingAffiliateFilter === 'all' || a.affiliateId === mgTrackingAffiliateFilter)
@@ -1703,12 +1657,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
             {/* Affiliates Table */}
             <div className="mt-1">
-              <div className="flex items-center justify-between gap-3 px-5 pt-4">
-                <p className="text-xs text-faint">
-                  Showing {Math.min(affiliatesVisible, displayUsers.length)} of {displayUsers.length} affiliates
-                </p>
-                <LastUpdated ts={lastUpdated.affiliates} />
-              </div>
+              <div className="px-5 pt-4"><LastUpdated ts={lastUpdated.affiliates} /></div>
               <div>
                 {(() => {
                   const pagedUsers = displayUsers.slice(0, affiliatesVisible);
@@ -1744,17 +1693,45 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   return pagedUsers.map((user: any) => renderUserRow(user));
                 })()}
               </div>
-              {affiliatesVisible < displayUsers.length && (
-                <div className="py-4 text-center">
+              {/* Page-size selector — bottom of the list. Numeric options enable only when enough affiliates exist; otherwise All. */}
+              <div className="flex items-center justify-between flex-wrap gap-2 px-5 py-3 mt-2 border-t border-hair2">
+                <p className="text-xs text-faint">
+                  Showing {Math.min(affiliatesVisible, displayUsers.length)} of {displayUsers.length} affiliates
+                </p>
+                <div className="flex items-center gap-1.5 text-xs text-faint">
+                  <span>Show</span>
+                  {[25, 50, 100].map(n => {
+                    const disabled = displayUsers.length <= n;
+                    const active = !disabled && affiliatesPageSize === n;
+                    return (
+                      <button
+                        key={n}
+                        disabled={disabled}
+                        onClick={() => { setAffiliatesPageSize(n); setAffiliatesVisible(n); }}
+                        className={`px-2 py-0.5 rounded-md border transition-colors duration-150 ${
+                          disabled
+                            ? 'border-hair text-faint2/50 cursor-not-allowed'
+                            : active
+                              ? 'border-brand/30 bg-brand-soft text-brand font-medium cursor-pointer'
+                              : 'border-hair text-faint hover:bg-surface cursor-pointer'
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    );
+                  })}
                   <button
-                    onClick={() => setAffiliatesVisible(n => n + PAGE_SIZE)}
-                    className="px-4 py-2 text-xs font-medium text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors duration-150 cursor-pointer"
+                    onClick={() => { setAffiliatesPageSize(Infinity); setAffiliatesVisible(Infinity); }}
+                    className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
+                      (affiliatesPageSize === Infinity || affiliatesPageSize >= displayUsers.length)
+                        ? 'border-brand/30 bg-brand-soft text-brand font-medium'
+                        : 'border-hair text-faint hover:bg-surface'
+                    }`}
                   >
-                    Show {Math.min(PAGE_SIZE, displayUsers.length - affiliatesVisible)} more
-                    <span className="text-faint ml-1">({displayUsers.length - affiliatesVisible} remaining)</span>
+                    All
                   </button>
                 </div>
-              )}
+              </div>
             </div>
           </Slide>
 
@@ -1769,7 +1746,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       {displayTrackingActivity.length}
                       {(mgTrackingFilter !== 'all' || mgTrackingStatusFilter !== 'all' || mgTrackingAffiliateFilter !== 'all')
                         ? ` of ${trackingActivity.length}` : ''} records
-                      <CurrentYearBadge active={!trackingShowAllYears} />
                     </p>
                     <div className="mt-1"><LastUpdated ts={lastUpdated.tracking} /></div>
                   </div>
@@ -1880,37 +1856,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 const pagedTracking = displayTrackingActivity.slice(0, trackingVisible);
                 return (
                   <>
-                    <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-                      <p className="text-xs text-faint">
-                        Showing {pagedTracking.length} of {displayTrackingActivity.length} records
-                      </p>
-                      <div className="flex items-center gap-1.5 text-xs text-faint">
-                        <span>Show</span>
-                        {[25, 50, 100].map(n => (
-                          <button
-                            key={n}
-                            onClick={() => { setTrackingPageSize(n); setTrackingVisible(n); }}
-                            className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
-                              trackingPageSize === n
-                                ? 'border-brand/30 bg-brand-soft text-brand font-medium'
-                                : 'border-hair text-faint hover:bg-surface'
-                            }`}
-                          >
-                            {n}
-                          </button>
-                        ))}
-                        <button
-                          onClick={() => { setTrackingPageSize(Infinity); setTrackingVisible(Infinity); }}
-                          className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
-                            trackingPageSize === Infinity
-                              ? 'border-brand/30 bg-brand-soft text-brand font-medium'
-                              : 'border-hair text-faint hover:bg-surface'
-                          }`}
-                        >
-                          All
-                        </button>
-                      </div>
-                    </div>
                     <div>
                       {(() => {
                             const dotColor = (s: string) => s === 'approval' ? 'var(--ds-pos)' : s === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
@@ -1999,20 +1944,45 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             });
                           })()}
                     </div>
-                    {(trackingVisible < displayTrackingActivity.length || trackingHiddenOlderCount > 0 || trackingShowAllYears) && (
-                      <div className="pt-4 flex flex-wrap items-center justify-center gap-2">
-                        {trackingVisible < displayTrackingActivity.length && (
-                          <button
-                            onClick={() => setTrackingVisible(n => n + trackingPageSize)}
-                            className="px-4 py-2 text-xs font-medium text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors duration-150 cursor-pointer"
-                          >
-                            Show {Math.min(trackingPageSize, displayTrackingActivity.length - trackingVisible)} more
-                            <span className="text-faint ml-1">({displayTrackingActivity.length - trackingVisible} remaining)</span>
-                          </button>
-                        )}
-                        <LoadMoreYears showAll={trackingShowAllYears} setShowAll={v => { setTrackingShowAllYears(v); setTrackingVisible(trackingPageSize); }} hiddenCount={trackingHiddenOlderCount} />
+                    {/* Page-size selector — bottom of the list. Numeric options enable only when enough records exist; otherwise All. */}
+                    <div className="flex items-center justify-between flex-wrap gap-2 pt-4 mt-2 border-t border-hair2">
+                      <p className="text-xs text-faint">
+                        Showing {pagedTracking.length} of {displayTrackingActivity.length} records
+                      </p>
+                      <div className="flex items-center gap-1.5 text-xs text-faint">
+                        <span>Show</span>
+                        {[25, 50, 100].map(n => {
+                          const disabled = displayTrackingActivity.length <= n;
+                          const active = !disabled && trackingPageSize === n;
+                          return (
+                            <button
+                              key={n}
+                              disabled={disabled}
+                              onClick={() => { setTrackingPageSize(n); setTrackingVisible(n); }}
+                              className={`px-2 py-0.5 rounded-md border transition-colors duration-150 ${
+                                disabled
+                                  ? 'border-hair text-faint2/50 cursor-not-allowed'
+                                  : active
+                                    ? 'border-brand/30 bg-brand-soft text-brand font-medium cursor-pointer'
+                                    : 'border-hair text-faint hover:bg-surface cursor-pointer'
+                              }`}
+                            >
+                              {n}
+                            </button>
+                          );
+                        })}
+                        <button
+                          onClick={() => { setTrackingPageSize(Infinity); setTrackingVisible(Infinity); }}
+                          className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
+                            (trackingPageSize === Infinity || trackingPageSize >= displayTrackingActivity.length)
+                              ? 'border-brand/30 bg-brand-soft text-brand font-medium'
+                              : 'border-hair text-faint hover:bg-surface'
+                          }`}
+                        >
+                          All
+                        </button>
                       </div>
-                    )}
+                    </div>
                   </>
                 );
               })()}
@@ -2212,40 +2182,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
                 return (
                   <div className="overflow-x-auto">
-                    <div className="flex items-center justify-between px-5 py-2 flex-wrap gap-2">
-                      <p className="text-xs text-faint">
-                        Showing {pagedFiltered.length} of {filtered.length} cards
-                        {filtered.length !== cpaRates.length ? ` (${cpaRates.length} total)` : ''}
-                        {cpaAffiliateLabel ? ` · ${cpaAffiliateLabel}` : ''}
-                      </p>
-                      <LastUpdated ts={lastUpdated.cpa} />
-                      <div className="flex items-center gap-1.5 text-xs text-faint">
-                        <span>Show</span>
-                        {[25, 50, 100].map(n => (
-                          <button
-                            key={n}
-                            onClick={() => { setCpaPageSize(n); setCpaVisible(n); }}
-                            className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
-                              cpaPageSize === n
-                                ? 'border-brand/30 bg-brand-soft text-brand font-medium'
-                                : 'border-hair text-faint hover:bg-surface'
-                            }`}
-                          >
-                            {n}
-                          </button>
-                        ))}
-                        <button
-                          onClick={() => { setCpaPageSize(Infinity); setCpaVisible(Infinity); }}
-                          className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
-                            cpaPageSize === Infinity
-                              ? 'border-brand/30 bg-brand-soft text-brand font-medium'
-                              : 'border-hair text-faint hover:bg-surface'
-                          }`}
-                        >
-                          All
-                        </button>
-                      </div>
-                    </div>
+                    <div className="px-5 py-2"><LastUpdated ts={lastUpdated.cpa} /></div>
                     <div>
                         {cpaGroupBy ? (
                           // Grouped by issuer with collapse/expand
@@ -2279,17 +2216,47 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                           pagedFiltered.map(r => <CpaRow key={r.id} rate={r} />)
                         )}
                     </div>
-                    {!cpaGroupBy && cpaVisible < filtered.length && (
-                      <div className="py-4 flex flex-wrap items-center justify-center gap-2">
+                    {/* Page-size selector — bottom of the list. Numeric options enable only when enough records exist; otherwise All. */}
+                    <div className="flex items-center justify-between flex-wrap gap-2 px-5 py-3 mt-2 border-t border-hair2">
+                      <p className="text-xs text-faint">
+                        Showing {pagedFiltered.length} of {filtered.length} cards
+                        {filtered.length !== cpaRates.length ? ` (${cpaRates.length} total)` : ''}
+                        {cpaAffiliateLabel ? ` · ${cpaAffiliateLabel}` : ''}
+                      </p>
+                      <div className="flex items-center gap-1.5 text-xs text-faint">
+                        <span>Show</span>
+                        {[25, 50, 100].map(n => {
+                          const disabled = filtered.length <= n;
+                          const active = !disabled && cpaPageSize === n;
+                          return (
+                            <button
+                              key={n}
+                              disabled={disabled}
+                              onClick={() => { setCpaPageSize(n); setCpaVisible(n); }}
+                              className={`px-2 py-0.5 rounded-md border transition-colors duration-150 ${
+                                disabled
+                                  ? 'border-hair text-faint2/50 cursor-not-allowed'
+                                  : active
+                                    ? 'border-brand/30 bg-brand-soft text-brand font-medium cursor-pointer'
+                                    : 'border-hair text-faint hover:bg-surface cursor-pointer'
+                              }`}
+                            >
+                              {n}
+                            </button>
+                          );
+                        })}
                         <button
-                          onClick={() => setCpaVisible(n => n + cpaPageSize)}
-                          className="px-4 py-2 text-xs font-medium text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors duration-150 cursor-pointer"
+                          onClick={() => { setCpaPageSize(Infinity); setCpaVisible(Infinity); }}
+                          className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
+                            (cpaPageSize === Infinity || cpaPageSize >= filtered.length)
+                              ? 'border-brand/30 bg-brand-soft text-brand font-medium'
+                              : 'border-hair text-faint hover:bg-surface'
+                          }`}
                         >
-                          Show {Math.min(cpaPageSize, filtered.length - cpaVisible)} more
-                          <span className="text-faint ml-1">({filtered.length - cpaVisible} remaining)</span>
+                          All
                         </button>
                       </div>
-                    )}
+                    </div>
                   </div>
                 );
               })()}
@@ -2425,13 +2392,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 const pagedFiltered = filtered.slice(0, invoicesVisible);
                 return (
                   <div className="overflow-x-auto">
-                    <div className="flex items-center justify-between px-5 py-2 flex-wrap gap-2">
-                      <p className="text-xs text-faint">
-                        Showing {pagedFiltered.length} of {filtered.length} invoices
-                        {invoices.length !== filtered.length ? ` (${invoices.length} total)` : ''}
-                      </p>
-                      <LastUpdated ts={lastUpdated.invoices} />
-                    </div>
+                    <div className="px-5 py-2"><LastUpdated ts={lastUpdated.invoices} /></div>
                     <div>
                         {(() => {
                           const InvRow = ({ inv, indent }: { inv: any; indent?: boolean }) => {
@@ -2565,17 +2526,46 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                           });
                         })()}
                     </div>
-                    {invoicesVisible < filtered.length && (
-                      <div className="py-4 flex flex-wrap items-center justify-center gap-2">
+                    {/* Page-size selector — bottom of the list. Numeric options enable only when enough invoices exist; otherwise All. */}
+                    <div className="flex items-center justify-between flex-wrap gap-2 px-5 py-3 mt-2 border-t border-hair2">
+                      <p className="text-xs text-faint">
+                        Showing {pagedFiltered.length} of {filtered.length} invoices
+                        {invoices.length !== filtered.length ? ` (${invoices.length} total)` : ''}
+                      </p>
+                      <div className="flex items-center gap-1.5 text-xs text-faint">
+                        <span>Show</span>
+                        {[25, 50, 100].map(n => {
+                          const disabled = filtered.length <= n;
+                          const active = !disabled && invoicesPageSize === n;
+                          return (
+                            <button
+                              key={n}
+                              disabled={disabled}
+                              onClick={() => { setInvoicesPageSize(n); setInvoicesVisible(n); }}
+                              className={`px-2 py-0.5 rounded-md border transition-colors duration-150 ${
+                                disabled
+                                  ? 'border-hair text-faint2/50 cursor-not-allowed'
+                                  : active
+                                    ? 'border-brand/30 bg-brand-soft text-brand font-medium cursor-pointer'
+                                    : 'border-hair text-faint hover:bg-surface cursor-pointer'
+                              }`}
+                            >
+                              {n}
+                            </button>
+                          );
+                        })}
                         <button
-                          onClick={() => setInvoicesVisible(n => n + PAGE_SIZE)}
-                          className="px-4 py-2 text-xs font-medium text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors duration-150 cursor-pointer"
+                          onClick={() => { setInvoicesPageSize(Infinity); setInvoicesVisible(Infinity); }}
+                          className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
+                            (invoicesPageSize === Infinity || invoicesPageSize >= filtered.length)
+                              ? 'border-brand/30 bg-brand-soft text-brand font-medium'
+                              : 'border-hair text-faint hover:bg-surface'
+                          }`}
                         >
-                          Show {Math.min(PAGE_SIZE, filtered.length - invoicesVisible)} more
-                          <span className="text-faint ml-1">({filtered.length - invoicesVisible} remaining)</span>
+                          All
                         </button>
                       </div>
-                    )}
+                    </div>
                   </div>
                 );
               })()}
