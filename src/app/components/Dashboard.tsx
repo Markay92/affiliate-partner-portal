@@ -27,6 +27,7 @@ import {
   Plus,
   Check,
   MoreHorizontal,
+  Gift,
 } from 'lucide-react';
 import React from 'react';
 import { ComposedChart, LineChart, Line, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } from 'recharts';
@@ -597,6 +598,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       cardType: cpa?.cardType ?? '',
       cardUse:  cpa?.cardUse  ?? '',
       imageUrl: cpa?.imageUrl ?? '',
+      annualFee:        cpa?.annualFee        ?? '',
+      introBonus:       cpa?.introBonus       ?? '',
+      introAprRate:     cpa?.introAprRate     ?? '',
+      introAprDuration: cpa?.introAprDuration ?? '',
+      bonusMilesFull:   cpa?.bonusMilesFull   ?? '',
     };
   });
   const cardIssuers = Array.from(new Set(allCards.map(c => c.issuer).filter(Boolean))).sort() as string[];
@@ -1302,16 +1308,45 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
             {/* Card list */}
             {(() => {
+              const fmtAnnualFee = (v: string) => {
+                const t = (v || '').trim();
+                if (!t) return '';
+                if (/^\$?0(\.0+)?$/.test(t)) return 'No annual fee';
+                const amt = t.startsWith('$') ? t : `$${t}`;
+                return `${amt.replace(/\.00$/, '')} annual fee`;
+              };
               const CardRow = ({ card, indent }: { card: any; indent?: boolean }) => {
                 const isAdded = card.cardId && linkBuilderIds.includes(card.cardId);
+                const af = fmtAnnualFee(card.annualFee);
+                const hasDetails = card.introBonus || card.bonusMilesFull || af || card.introAprRate;
                 return (
                   <div className="flex items-center gap-[18px] py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150"
                     style={{ paddingLeft: indent ? 24 : 0 }}>
                     <div className="flex items-center gap-2.5 flex-1 min-w-0">
                       <span className="text-[14.5px] font-semibold text-ink tracking-[-0.01em] truncate">{card.name}</span>
-                      <span className="hidden sm:inline text-[13px] font-medium text-subtle whitespace-nowrap flex-shrink-0">{card.issuer || '—'}</span>
+                      {hasDetails && (
+                        <span className="relative group/bn flex-shrink-0 leading-none">
+                          <Gift className="w-[15px] h-[15px] text-brand cursor-help" strokeWidth={2} />
+                          <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-2 z-30 hidden group-hover/bn:block w-[264px] p-3.5 rounded-xl bg-white shadow-lg ring-1 ring-ink/10 text-left whitespace-normal">
+                            {(card.introBonus || card.bonusMilesFull) && <span className="block text-[10.5px] font-bold uppercase tracking-[0.05em] text-faint2 mb-1">Intro bonus</span>}
+                            {card.introBonus && <span className="block text-[12.5px] text-ink leading-snug">{card.introBonus}</span>}
+                            {card.bonusMilesFull && <span className="block text-[12px] text-faint leading-snug mt-1.5">{card.bonusMilesFull}</span>}
+                            {(af || card.introAprRate || card.cardType) && (
+                              <span className={`block text-[11.5px] text-subtle leading-relaxed ${(card.introBonus || card.bonusMilesFull) ? 'mt-2.5 pt-2.5 border-t border-hair2' : ''}`}>
+                                {af && <span className="flex justify-between gap-3"><span className="text-faint">Annual fee</span><span className="text-ink font-medium text-right">{af.replace(' annual fee', '')}</span></span>}
+                                {card.introAprRate && <span className="flex justify-between gap-3"><span className="text-faint">Intro APR</span><span className="text-ink font-medium text-right">{card.introAprRate}{card.introAprDuration ? ` · ${card.introAprDuration}` : ''}</span></span>}
+                                {card.cardType && <span className="flex justify-between gap-3"><span className="text-faint">Type</span><span className="text-ink font-medium text-right">{card.cardType}</span></span>}
+                              </span>
+                            )}
+                          </span>
+                        </span>
+                      )}
+                      <span className="hidden sm:flex items-center gap-2 text-[13px] font-medium whitespace-nowrap flex-shrink-0 min-w-0">
+                        <span className="text-subtle truncate">{card.issuer || '—'}</span>
+                        {af && <><span className="hidden lg:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="hidden lg:inline text-faint">{af}</span></>}
+                      </span>
                       {card.earned > 0 && (
-                        <span className="hidden md:inline-flex items-center gap-2.5 flex-shrink-0">
+                        <span className="hidden xl:inline-flex items-center gap-2.5 flex-shrink-0">
                           <span className="w-[3px] h-[3px] rounded-full bg-faint2" />
                           <span className="text-[13px] font-medium text-faint tabular-nums whitespace-nowrap">${Math.round(card.earned).toLocaleString()} earned</span>
                         </span>
