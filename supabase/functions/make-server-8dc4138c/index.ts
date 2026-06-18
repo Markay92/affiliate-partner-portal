@@ -659,10 +659,14 @@ app.get("/make-server-8dc4138c/tracking", async (c) => {
     const ezrxVal = ezrxRefRaw
       ? (ezrxRefRaw.toLowerCase().startsWith('ezrxref-') ? ezrxRefRaw : `ezrxref-${ezrxRefRaw}`)
       : '';
-    const ownIds = new Set([affiliateId, ezrxVal].filter(Boolean));
+    // Match Var2 case-insensitively — a click's Var2 and the affiliate's stored
+    // code can differ in letter case (e.g. "afwcrxq" vs "AFWCRXQ").
+    const ownIds = new Set(
+      [affiliateId, ezrxVal].filter(Boolean).map(s => s.toString().trim().toLowerCase()),
+    );
     const matchesAffiliate = (value: unknown) => {
       const arr = Array.isArray(value) ? value : [value];
-      return arr.some(v => ownIds.has(v as string));
+      return arr.some(v => v != null && ownIds.has(v.toString().trim().toLowerCase()));
     };
 
     const ownRecords = records.filter(record => matchesAffiliate(record.fields['affiliate-id']));
@@ -1387,11 +1391,11 @@ app.post("/make-server-8dc4138c/manager/sync-tracking", async (c) => {
     // A click's Var2 (the API Output `affiliate-id`) may identify the affiliate
     // by EITHER their code (Affiliate-ID, e.g. "ai-p2Ce") OR their ezrxref- link
     // value (e.g. "ezrxref-14"). Build a map from both identifiers to the user.
-    const norm = (v) => (v || '').toString().trim();
+    const norm = (v) => (v || '').toString().trim().toLowerCase();
     const ezrxKey = (v) => {
       const t = norm(v);
       if (!t) return '';
-      return t.toLowerCase().startsWith('ezrxref-') ? t : `ezrxref-${t}`;
+      return t.startsWith('ezrxref-') ? t : `ezrxref-${t}`;
     };
     const idToUser = {};
     for (const user of (existingUsers?.users || [])) {
@@ -1513,11 +1517,11 @@ app.get("/make-server-8dc4138c/manager/tracking-activity", async (c) => {
     // Aggregate per-affiliate stats and write to KV so the Affiliates tab
     // shows correct Earned / Clicks / Conversions without a separate sync.
     try {
-      const norm = (v: any) => (v || '').toString().trim();
+      const norm = (v: any) => (v || '').toString().trim().toLowerCase();
       const ezrxKey = (v: any) => {
         const t = norm(v);
         if (!t) return '';
-        return t.toLowerCase().startsWith('ezrxref-') ? t : `ezrxref-${t}`;
+        return t.startsWith('ezrxref-') ? t : `ezrxref-${t}`;
       };
 
       // Build identifier → userId map. A click's Var2 may be the affiliate's
@@ -1623,8 +1627,11 @@ app.get("/make-server-8dc4138c/manager/user/:userId/debug", async (c) => {
         '',
       );
 
-      const matchesAffiliate = (value: unknown) =>
-        Array.isArray(value) ? value.includes(userData.affiliateId) : value === userData.affiliateId;
+      const wanted = (userData.affiliateId || '').toString().trim().toLowerCase();
+      const matchesAffiliate = (value: unknown) => {
+        const arr = Array.isArray(value) ? value : [value];
+        return arr.some(v => v != null && v.toString().trim().toLowerCase() === wanted);
+      };
 
       airtableRecords = allRecords.filter(record => matchesAffiliate(record.fields['affiliate-id'])).slice(0, 10);
     }
