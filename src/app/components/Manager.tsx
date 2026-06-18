@@ -1210,7 +1210,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       <div key={user.id} className="flex items-center gap-3 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
         <span className="w-8 h-8 rounded-full bg-brand-soft text-brand text-xs font-bold flex items-center justify-center flex-shrink-0">{initials}</span>
         <div className="flex items-center gap-2.5 flex-1 min-w-0">
-          <span className="text-[14.5px] font-semibold text-ink tracking-[-0.01em] whitespace-nowrap flex-shrink-0">{user.name || 'N/A'}</span>
+          <span className="text-[13px] font-semibold text-ink tracking-[-0.01em] whitespace-nowrap flex-shrink-0">{user.name || 'N/A'}</span>
           <span className="flex items-center gap-2 text-[13px] font-medium text-faint min-w-0">
             <span className="truncate">{user.email}</span>
             <span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
@@ -1230,8 +1230,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         ) : (
           <>
             <div className="text-right flex-shrink-0">
-              <div className="text-[16px] font-bold text-ink tabular-nums">${Math.round(user.stats?.totalCommissions || 0).toLocaleString()}</div>
-              <div className="text-[12px] text-faint tabular-nums">{user.commissionRate || 100}% split</div>
+              <div className="text-[13px] font-semibold text-ink tabular-nums">${Math.round(user.stats?.totalCommissions || 0).toLocaleString()}</div>
+              <div className="text-[13px] font-medium text-faint tabular-nums">{user.commissionRate || 100}% split</div>
             </div>
             <div className="relative flex-shrink-0">
               <button onClick={() => setRowMenu(menuOpen ? null : user.id)} title="Actions"
@@ -1575,7 +1575,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       {topAffiliates.map(a => (
                         <div key={a.name} className="mb-3.5">
                           <div className="flex items-baseline justify-between mb-1.5">
-                            <span className="text-[13.5px] font-semibold text-ink truncate pr-3">{a.name}</span>
+                            <span className="text-[13px] font-semibold text-ink truncate pr-3">{a.name}</span>
                             <span className="text-[13px] font-bold text-ink tabular-nums flex-shrink-0">${a.earned.toLocaleString()}</span>
                           </div>
                           <div className="h-[7px] rounded-md bg-hair2 overflow-hidden">
@@ -1593,7 +1593,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       {mostApprovedCards.map((c, idx) => (
                         <div key={c.name} className="flex items-center gap-3.5 py-2.5 border-b border-hair2">
                           <span className="text-[13px] font-bold text-faint2 w-3.5 flex-shrink-0 tabular-nums">{idx + 1}</span>
-                          <span className="text-[13.5px] font-semibold text-ink truncate flex-1 min-w-0">{c.name}</span>
+                          <span className="text-[13px] font-semibold text-ink truncate flex-1 min-w-0">{c.name}</span>
                           <span className="text-sm font-bold text-ink flex-shrink-0 tabular-nums">{c.approvals}</span>
                         </div>
                       ))}
@@ -1900,7 +1900,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             const TrackRow = ({ a, indent }: { a: any; indent?: boolean }) => (
                               <div key={a.id} className="flex items-center gap-3 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
                                 <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                                  <span className="text-[14.5px] font-semibold text-ink tracking-[-0.01em] truncate">{a.cardName || '—'}</span>
+                                  <span className="text-[13px] font-semibold text-ink tracking-[-0.01em] truncate">{a.cardName || '—'}</span>
                                   <span className="flex items-center gap-2 text-[13px] font-medium text-faint flex-shrink-0 whitespace-nowrap">
                                     <span className="inline-flex items-center gap-1.5 capitalize"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dotColor(a.status) }} />{a.status}</span>
                                     <span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
@@ -1910,7 +1910,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                     {a.state && <><span className="hidden lg:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="hidden lg:inline">{a.deviceType || '—'} · {a.state}</span></>}
                                   </span>
                                 </div>
-                                <div className={`text-[16px] font-bold tabular-nums flex-shrink-0 ${a.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>
+                                <div className={`text-[13px] font-semibold tabular-nums flex-shrink-0 ${a.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>
                                   {a.totalEarnings > 0 ? `$${a.totalEarnings.toFixed(2)}` : '—'}
                                 </div>
                               </div>
@@ -2188,7 +2188,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 const CpaRow = ({ rate, indent }: { rate: any; indent?: boolean }) => (
                   <div className="flex items-center gap-3 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
                     <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                      <span className="text-[14.5px] font-semibold text-ink tracking-[-0.01em] truncate">{rate.card}</span>
+                      <span className="text-[13px] font-semibold text-ink tracking-[-0.01em] truncate">{rate.card}</span>
                       <span className="flex items-center gap-2 text-[13px] font-medium text-faint flex-shrink-0 whitespace-nowrap">
                         <span className="hidden sm:inline text-subtle">{rate.issuer || '—'}</span>
                         {rate.date && <><span className="hidden sm:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span>{formatDate(rate.date)}</span></>}
@@ -2197,11 +2197,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </div>
                     <div className="flex items-baseline gap-3 flex-shrink-0">
                       {cpaAffiliateFilter !== 'all' && (
-                        <span className="text-[12.5px] font-semibold text-brand tabular-nums whitespace-nowrap">
+                        <span className="text-[13px] font-medium text-brand tabular-nums whitespace-nowrap">
                           {rate.affiliatePayout != null && rate.affiliatePayout > 0 ? `$${rate.affiliatePayout.toLocaleString()} payout` : '—'}
                         </span>
                       )}
-                      <span className="inline-block min-w-[64px] text-right text-[16px] font-bold text-pos tabular-nums">{rate.bankCpa > 0 ? `$${rate.bankCpa.toLocaleString()}` : <span className="text-faint2 font-normal">—</span>}</span>
+                      <span className="inline-block min-w-[64px] text-right text-[13px] font-semibold text-pos tabular-nums">{rate.bankCpa > 0 ? `$${rate.bankCpa.toLocaleString()}` : <span className="text-faint2 font-normal">—</span>}</span>
                     </div>
                   </div>
                 );
@@ -2449,7 +2449,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                 <div className="flex items-center gap-3 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
                                   <button onClick={toggleOpen} className="flex items-center gap-2.5 flex-1 min-w-0 text-left cursor-pointer">
                                     <ChevronRight className={`w-3.5 h-3.5 text-faint flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} strokeWidth={2.6} />
-                                    <span className="text-[14.5px] font-semibold text-ink tracking-[-0.01em] truncate">{inv.name}</span>
+                                    <span className="text-[13px] font-semibold text-ink tracking-[-0.01em] truncate">{inv.name}</span>
                                     <span className="flex items-center gap-2 text-[13px] font-medium text-faint flex-shrink-0 whitespace-nowrap">
                                       <span>{inv.month}</span>
                                       <span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
@@ -2458,7 +2458,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                       {(inv.sent || inv.sentZelle) && <><span className="hidden sm:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="hidden sm:inline text-pos font-semibold">{inv.sentZelle ? 'Zelle sent' : 'Sent'}</span></>}
                                     </span>
                                   </button>
-                                  <div className={`text-[16px] font-bold tabular-nums flex-shrink-0 ${inv.amount > 0 ? 'text-ink' : 'text-faint2'}`}>
+                                  <div className={`text-[13px] font-semibold tabular-nums flex-shrink-0 ${inv.amount > 0 ? 'text-ink' : 'text-faint2'}`}>
                                     {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}` : '—'}
                                   </div>
                                   {busy ? <Spinner className="w-4 h-4 flex-shrink-0" strokeWidth={4} /> : (

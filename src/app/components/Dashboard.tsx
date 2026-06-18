@@ -1206,7 +1206,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       {mostApprovedCards.map((c, idx) => (
                         <div key={c.name} className="flex items-center gap-3.5 py-2.5 border-b border-hair2">
                           <span className="text-[13px] font-bold text-faint2 w-3.5 flex-shrink-0 tabular-nums">{idx+1}</span>
-                          <span className="text-[13.5px] font-semibold text-ink truncate flex-1 min-w-0">{decodeHtml(c.name)}</span>
+                          <span className="text-[13px] font-semibold text-ink truncate flex-1 min-w-0">{decodeHtml(c.name)}</span>
                           <span className="text-sm font-bold text-ink flex-shrink-0 tabular-nums">{c.approvals}</span>
                         </div>
                       ))}
@@ -1341,7 +1341,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   <div className="flex items-center gap-[18px] py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150"
                     style={{ paddingLeft: indent ? 24 : 0 }}>
                     <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                      <span className="text-[14.5px] font-semibold text-ink tracking-[-0.01em] truncate">{card.name}</span>
+                      <span className="text-[13px] font-semibold text-ink tracking-[-0.01em] truncate">{card.name}</span>
                       {hasDetails && (
                         <span className="relative group/bn flex-shrink-0 leading-none">
                           <button
@@ -1385,8 +1385,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       )}
                     </div>
                     <div className="flex items-baseline gap-3 sm:gap-4 flex-shrink-0">
-                      <span className={`hidden sm:inline-block sm:min-w-[74px] text-right text-[12.5px] font-semibold tabular-nums whitespace-nowrap ${card.conv >= 3 ? 'text-brand' : 'text-faint'}`}>{card.conv.toFixed(1)}% conv</span>
-                      <span className="inline-block sm:min-w-[72px] text-right text-[16px] font-bold text-ink tracking-[-0.02em] tabular-nums whitespace-nowrap">
+                      <span className={`hidden sm:inline-block sm:min-w-[74px] text-right text-[13px] font-medium tabular-nums whitespace-nowrap ${card.conv >= 3 ? 'text-brand' : 'text-faint'}`}>{card.conv.toFixed(1)}% conv</span>
+                      <span className="inline-block sm:min-w-[72px] text-right text-[13px] font-semibold text-ink tracking-[-0.02em] tabular-nums whitespace-nowrap">
                         {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : '—'}
                       </span>
                     </div>
@@ -1625,7 +1625,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     return (
                       <div key={item.id} className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150">
                         {/* Card name — flexible left column */}
-                        <span className="text-[14.5px] font-semibold text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{item.cardName || '—'}</span>
+                        <span className="text-[13px] font-semibold text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{item.cardName || '—'}</span>
                         {/* Status */}
                         <span className="hidden sm:inline-flex items-center gap-1.5 w-[100px] flex-shrink-0 text-[13px] font-medium text-faint capitalize">
                           <span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dot }} />{item.status}
@@ -1635,7 +1635,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         {/* Source (device · state) */}
                         <span className="hidden lg:block w-[160px] flex-shrink-0 text-right text-[13px] font-medium text-faint truncate">{item.state ? `${item.deviceType || '—'} · ${item.state}` : ''}</span>
                         {/* Earnings */}
-                        <span className={`w-[76px] flex-shrink-0 text-right text-[15px] font-bold tabular-nums ${item.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>
+                        <span className={`w-[76px] flex-shrink-0 text-right text-[13px] font-semibold tabular-nums ${item.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>
                           {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : '—'}
                         </span>
                       </div>
@@ -1714,7 +1714,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       >
                         <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`} strokeWidth={2.6} />
                         <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                          <span className="text-[14.5px] font-semibold text-ink tracking-[-0.01em] truncate">{inv.month}</span>
+                          <span className="text-[13px] font-semibold text-ink tracking-[-0.01em] truncate">{inv.month}</span>
                           <span className="flex items-center gap-2 text-[13px] font-medium text-faint flex-shrink-0 whitespace-nowrap">
                             {inv.date && <><span className="hidden sm:inline">{formatDate(inv.date)}</span><span className="hidden sm:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /></>}
                             <span className="tabular-nums">{approvalsCount} approvals</span>
@@ -1722,7 +1722,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                             {(inv.sent || inv.sentZelle) && <><span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="text-pos font-semibold">{inv.sentZelle ? 'Zelle sent' : 'Sent'}</span></>}
                           </span>
                         </div>
-                        <div className={`text-[16px] font-bold tabular-nums flex-shrink-0 ${inv.amount > 0 ? 'text-ink' : 'text-faint2'}`}>
+                        <div className={`text-[13px] font-semibold tabular-nums flex-shrink-0 ${inv.amount > 0 ? 'text-ink' : 'text-faint2'}`}>
                           {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
                         </div>
                       </div>
