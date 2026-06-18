@@ -1434,7 +1434,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 <button onClick={togglePerf} title={perfOpen ? 'Minimize performance' : 'Show performance'}
                   className="flex items-center gap-2.5 cursor-pointer group flex-shrink-0">
                   <ChevronRight className={`w-[15px] h-[15px] text-faint transition-transform duration-200 ${perfOpen ? 'rotate-90' : ''}`} strokeWidth={2.6} />
-                  <span className="text-base sm:text-lg font-bold text-ink tracking-tight group-hover:opacity-70 transition-opacity">Network performance</span>
+                  <span className="text-[19px] font-bold text-ink tracking-[-0.02em] group-hover:opacity-70 transition-opacity">Network performance</span>
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-soft text-brand-dark ring-1 ring-brand/30 align-middle tracking-normal">
                     {STAT_PERIOD_SHORT[statPeriod]}
                   </span>
@@ -1682,7 +1682,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                           <React.Fragment key={`group-${rate}`}>
                             <div onClick={toggle} className="flex items-center gap-[11px] pt-5 pb-3 border-t border-hair2 cursor-pointer hover:opacity-70 transition-opacity select-none">
                               <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`} strokeWidth={2.6} />
-                              <span className="text-[15px] font-bold text-ink tracking-[-0.01em]">{rate} commission</span>
+                              <span className="text-[12.5px] font-bold text-ink tracking-[0.03em] uppercase">{rate} commission</span>
                               <span className="text-[13px] font-semibold text-faint2 tabular-nums">{members.length}</span>
                             </div>
                             {!isCollapsed && members.map((user: any) => renderUserRow(user, true))}
@@ -1929,7 +1929,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                 <React.Fragment key={key}>
                                   <div onClick={toggle} className="flex items-center gap-3 flex-wrap pt-5 pb-3 border-t border-hair2 cursor-pointer hover:opacity-70 transition-opacity select-none">
                                     <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 flex-shrink-0 ${isCollapsed ? '' : 'rotate-90'}`} strokeWidth={2.6} />
-                                    <span className="text-[15px] font-bold text-ink tracking-[-0.01em]">{label}</span>
+                                    <span className="text-[12.5px] font-bold text-ink tracking-[0.03em] uppercase">{label}</span>
                                     {sublabel && <span className="text-[12px] text-faint font-mono-ds">{sublabel}</span>}
                                     <span className="text-[13px] font-semibold text-faint2 tabular-nums">{rows.length}</span>
                                     <div className="ml-auto flex items-center gap-3 text-[12.5px] text-faint">
@@ -2204,7 +2204,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                 <React.Fragment key={`group-${issuer}`}>
                                   <div onClick={toggle} className="flex items-center gap-[11px] pt-5 pb-3 border-t border-hair2 cursor-pointer hover:opacity-70 transition-opacity select-none">
                                     <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`} strokeWidth={2.6} />
-                                    <span className="text-[15px] font-bold text-ink tracking-[-0.01em]">{issuer}</span>
+                                    <span className="text-[12.5px] font-bold text-ink tracking-[0.03em] uppercase">{issuer}</span>
                                     <span className="text-[13px] font-semibold text-faint2 tabular-nums">{rates.length}</span>
                                   </div>
                                   {!isCollapsed && rates.map(r => <CpaRow key={r.id} rate={r} indent />)}
@@ -2511,7 +2511,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               <React.Fragment key={key}>
                                 <div onClick={toggle} className="flex items-center gap-3 flex-wrap pt-5 pb-3 border-t border-hair2 cursor-pointer hover:opacity-70 transition-opacity select-none">
                                   <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 flex-shrink-0 ${isCollapsed ? '' : 'rotate-90'}`} strokeWidth={2.6} />
-                                  <span className="text-[15px] font-bold text-ink tracking-[-0.01em]">{getLabel(key, rows)}</span>
+                                  <span className="text-[12.5px] font-bold text-ink tracking-[0.03em] uppercase">{getLabel(key, rows)}</span>
                                   {sublabel && <span className="text-[12px] text-faint font-mono-ds">{sublabel}</span>}
                                   <span className="text-[13px] font-semibold text-faint2 tabular-nums">{rows.length}</span>
                                   <div className="ml-auto flex items-center gap-3 text-[12.5px] text-faint">
