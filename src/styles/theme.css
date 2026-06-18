@@ -354,6 +354,25 @@ select {
   .bg-white\/90 { background-color: color-mix(in srgb, var(--ds-canvas) 86%, transparent); }
   .bg-white\/95 { background-color: color-mix(in srgb, var(--ds-canvas) 90%, transparent); }
 
+  /* Active nav pill uses a *variant* `bg-white` (data-[state=active]:bg-white)
+     that the plain .bg-white rule above can't reach — target the tab directly
+     so its light text sits on a raised dark surface instead of white.       */
+  [role="tab"][data-state="active"] { background-color: #2a3340; }
+
+  /* Manager "Actions" button is white only at >=sm (sm:bg-white) — same case. */
+  @media (min-width: 640px) {
+    button[aria-label="Menu"] { background-color: #151a23; }
+  }
+
+  /* Inverted dark pills (e.g. the floating "Exit to Admin" button) intentionally
+     use bg-ink as a *surface* with white text. The token flips light in dark,
+     which would hide the text — pin them to a raised dark surface instead.
+     (The 1.5px bg-ink dividers are left to flip → light hairline, which is right.) */
+  .bg-ink.text-white { background-color: #2a3340; }
+
+  /* Modal scrims (bg-ink/60) must darken — not lighten — the backdrop. */
+  .bg-ink\/60 { background-color: rgba(0, 0, 0, 0.55); }
+
   /* Shadows read as muddy halos on dark; the design's rings carry the edge. */
   .shadow-sm, .shadow, .shadow-md, .shadow-lg { box-shadow: none; }
 }
