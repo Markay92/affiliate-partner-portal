@@ -91,6 +91,7 @@ interface TrackingItem {
   totalEarnings: number;
   clickDate: string;
   clickTime: string;
+  processDate: string;
   clicks: number;
   applications: number;
   approvals: number;
@@ -398,7 +399,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [trackingFilter,       setTrackingFilter]       = useState<DateFilter>('week');
   const [trackingCustomFrom,   setTrackingCustomFrom]   = useState('');
   const [trackingCustomTo,     setTrackingCustomTo]     = useState('');
-  const [trackingSort,         setTrackingSort]         = useState<SortState>({ field: 'clickDate', dir: 'desc' });
+  const [trackingSort,         setTrackingSort]         = useState<SortState>({ field: 'processDate', dir: 'desc' });
   const [trackingStatusFilter, setTrackingStatusFilter] = useState('all');
 
   // Cards tab — sort + filters + search + group
@@ -544,9 +545,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [expandedInvoices, setExpandedInvoices] = useState<Set<string>>(new Set());
 
   // ── Derived display data ────────────────────────────────────────────────────
+  // Activity is organised by process date (when the lead was processed).
   const displayTracking = applySort(
     tracking.filter(t =>
-      inDateRange(t.clickDate, trackingFilter, trackingCustomFrom, trackingCustomTo) &&
+      inDateRange(t.processDate || t.clickDate, trackingFilter, trackingCustomFrom, trackingCustomTo) &&
       (trackingStatusFilter === 'all' || t.status === trackingStatusFilter)
     ),
     trackingSort,
@@ -1621,19 +1623,21 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   {displayTracking.slice(0, activityVisible).map((item) => {
                     const dot = item.status === 'approval' ? 'var(--ds-pos)' : item.status === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
                     return (
-                      <div key={item.id} className="flex items-center gap-3 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150">
-                        <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                          <span className="text-[14.5px] font-semibold text-ink tracking-[-0.01em] truncate">{item.cardName || '—'}</span>
-                          <span className="flex items-center gap-2 text-[13px] font-medium text-faint flex-shrink-0 whitespace-nowrap">
-                            <span className="inline-flex items-center gap-1.5 capitalize"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dot }} />{item.status}</span>
-                            <span className="hidden sm:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
-                            <span className="hidden sm:inline">{formatDate(item.clickDate)}</span>
-                            {item.state && <><span className="hidden md:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="hidden md:inline">{item.deviceType || '—'} · {item.state}</span></>}
-                          </span>
-                        </div>
-                        <div className={`text-[16px] font-bold tabular-nums flex-shrink-0 ${item.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>
+                      <div key={item.id} className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150">
+                        {/* Card name — flexible left column */}
+                        <span className="text-[14.5px] font-semibold text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{item.cardName || '—'}</span>
+                        {/* Status */}
+                        <span className="hidden sm:inline-flex items-center gap-1.5 w-[100px] flex-shrink-0 text-[13px] font-medium text-faint capitalize">
+                          <span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dot }} />{item.status}
+                        </span>
+                        {/* Process date */}
+                        <span className="w-[112px] flex-shrink-0 text-right text-[13px] font-medium text-faint tabular-nums whitespace-nowrap">{formatDate(item.processDate || item.clickDate)}</span>
+                        {/* Source (device · state) */}
+                        <span className="hidden lg:block w-[160px] flex-shrink-0 text-right text-[13px] font-medium text-faint truncate">{item.state ? `${item.deviceType || '—'} · ${item.state}` : ''}</span>
+                        {/* Earnings */}
+                        <span className={`w-[76px] flex-shrink-0 text-right text-[15px] font-bold tabular-nums ${item.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>
                           {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : '—'}
-                        </div>
+                        </span>
                       </div>
                     );
                   })}
