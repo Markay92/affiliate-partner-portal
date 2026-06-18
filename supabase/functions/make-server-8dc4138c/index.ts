@@ -653,8 +653,17 @@ app.get("/make-server-8dc4138c/tracking", async (c) => {
       'sort[0][field]=Click%20Date&sort[0][direction]=desc',
     );
 
-    const matchesAffiliate = (value: unknown) =>
-      Array.isArray(value) ? value.includes(affiliateId) : value === affiliateId;
+    // A row's Var2 (the `affiliate-id` field) may be this affiliate's code
+    // (Affiliate-ID) OR their ezrxref- link value — accept either.
+    const ezrxRefRaw = (userData.ezrxRef || '').toString().trim();
+    const ezrxVal = ezrxRefRaw
+      ? (ezrxRefRaw.toLowerCase().startsWith('ezrxref-') ? ezrxRefRaw : `ezrxref-${ezrxRefRaw}`)
+      : '';
+    const ownIds = new Set([affiliateId, ezrxVal].filter(Boolean));
+    const matchesAffiliate = (value: unknown) => {
+      const arr = Array.isArray(value) ? value : [value];
+      return arr.some(v => ownIds.has(v as string));
+    };
 
     const ownRecords = records.filter(record => matchesAffiliate(record.fields['affiliate-id']));
 
@@ -1375,74 +1384,66 @@ app.post("/make-server-8dc4138c/manager/sync-tracking", async (c) => {
     // Get all users
     const { data: existingUsers } = await supabase.auth.admin.listUsers();
 
-    // Aggregate stats by affiliate ID
-    const statsByAffiliate = {};
+    // A click's Var2 (the API Output `affiliate-id`) may identify the affiliate
+    // by EITHER their code (Affiliate-ID, e.g. "ai-p2Ce") OR their ezrxref- link
+    // value (e.g. "ezrxref-14"). Build a map from both identifiers to the user.
+    const norm = (v) => (v || '').toString().trim();
+    const ezrxKey = (v) => {
+      const t = norm(v);
+      if (!t) return '';
+      return t.toLowerCase().startsWith('ezrxref-') ? t : `ezrxref-${t}`;
+    };
+    const idToUser = {};
+    for (const user of (existingUsers?.users || [])) {
+      const userData = await kv.get(`user:${user.id}`);
+      if (userData?.affiliateId) idToUser[norm(userData.affiliateId)] = user.id;
+      const ez = ezrxKey(userData?.ezrxRef);
+      if (ez) idToUser[ez] = user.id;
+    }
 
+    // Aggregate stats per user. A user may receive clicks under more than one
+    // identifier (code links and ezrxref- links), so merge by userId.
+    const statsByUser = {};
     for (const record of records) {
       const fields = record.fields;
-      const affiliateId = fields['affiliate-id'];
+      const var2 = norm(fields['affiliate-id']);
+      if (!var2) continue;
+      const userId = idToUser[var2];
+      if (!userId) continue;
+
       const cardName = fields['Card Name'];
-      const status = fields['Status'];
       const earnings = parseFloat(fields['Total Earnings']) || 0;
       const clicks = parseInt(fields['Clicks']) || 0;
       const applications = parseInt(fields['Applications']) || 0;
       const approvals = parseInt(fields['Approvals']) || 0;
 
-      if (!affiliateId) continue;
-
-      if (!statsByAffiliate[affiliateId]) {
-        statsByAffiliate[affiliateId] = {
-          totalClicks: 0,
-          totalConversions: 0,
-          totalCommissions: 0,
-          cardStats: {}
-        };
+      if (!statsByUser[userId]) {
+        statsByUser[userId] = { totalClicks: 0, totalConversions: 0, totalCommissions: 0, cardStats: {} };
       }
+      const s = statsByUser[userId];
+      s.totalClicks += clicks;
+      s.totalConversions += (applications + approvals);
+      s.totalCommissions += earnings;
 
-      statsByAffiliate[affiliateId].totalClicks += clicks;
-      statsByAffiliate[affiliateId].totalConversions += (applications + approvals);
-      statsByAffiliate[affiliateId].totalCommissions += earnings;
-
-      // Track per-card stats
       if (cardName) {
-        if (!statsByAffiliate[affiliateId].cardStats[cardName]) {
-          statsByAffiliate[affiliateId].cardStats[cardName] = {
-            clicks: 0,
-            conversions: 0,
-            commissions: 0
-          };
+        if (!s.cardStats[cardName]) {
+          s.cardStats[cardName] = { clicks: 0, conversions: 0, commissions: 0 };
         }
-        statsByAffiliate[affiliateId].cardStats[cardName].clicks += clicks;
-        statsByAffiliate[affiliateId].cardStats[cardName].conversions += (applications + approvals);
-        statsByAffiliate[affiliateId].cardStats[cardName].commissions += earnings;
+        s.cardStats[cardName].clicks += clicks;
+        s.cardStats[cardName].conversions += (applications + approvals);
+        s.cardStats[cardName].commissions += earnings;
       }
     }
 
-    console.log('Aggregated stats for', Object.keys(statsByAffiliate).length, 'affiliates');
+    console.log('Aggregated stats for', Object.keys(statsByUser).length, 'users');
 
-    // Update user stats in KV store
+    // Write merged stats to each matched user.
     let updated = 0;
-
-    // First, build a map of affiliateId -> userId
-    const affiliateToUserMap = {};
-    for (const user of (existingUsers?.users || [])) {
-      const userData = await kv.get(`user:${user.id}`);
-      if (userData?.affiliateId) {
-        affiliateToUserMap[userData.affiliateId] = user.id;
-      }
-    }
-
-    // Now update stats for each affiliate
-    for (const [affiliateId, stats] of Object.entries(statsByAffiliate)) {
-      const userId = affiliateToUserMap[affiliateId];
-
-      if (userId) {
-        const userData = await kv.get(`user:${userId}`) || {};
-        userData.stats = stats;
-        await kv.set(`user:${userId}`, userData);
-        updated++;
-        console.log(`Updated stats for affiliate ${affiliateId}`);
-      }
+    for (const [userId, stats] of Object.entries(statsByUser)) {
+      const userData = await kv.get(`user:${userId}`) || {};
+      userData.stats = stats;
+      await kv.set(`user:${userId}`, userData);
+      updated++;
     }
 
     return c.json({
@@ -1512,20 +1513,18 @@ app.get("/make-server-8dc4138c/manager/tracking-activity", async (c) => {
     // Aggregate per-affiliate stats and write to KV so the Affiliates tab
     // shows correct Earned / Clicks / Conversions without a separate sync.
     try {
-      const statsByAffiliate: Record<string, { totalClicks: number; totalConversions: number; totalCommissions: number }> = {};
-      for (const row of activity) {
-        if (!row.affiliateId || row.affiliateId === 'N/A') continue;
-        if (!statsByAffiliate[row.affiliateId]) {
-          statsByAffiliate[row.affiliateId] = { totalClicks: 0, totalConversions: 0, totalCommissions: 0 };
-        }
-        statsByAffiliate[row.affiliateId].totalClicks      += row.clicks;
-        statsByAffiliate[row.affiliateId].totalConversions += (row.applications + row.approvals);
-        statsByAffiliate[row.affiliateId].totalCommissions += row.totalEarnings;
-      }
+      const norm = (v: any) => (v || '').toString().trim();
+      const ezrxKey = (v: any) => {
+        const t = norm(v);
+        if (!t) return '';
+        return t.toLowerCase().startsWith('ezrxref-') ? t : `ezrxref-${t}`;
+      };
 
-      // Build affiliateId → userId map
+      // Build identifier → userId map. A click's Var2 may be the affiliate's
+      // code (Affiliate-ID) OR their ezrxref- link value — map both.
       const supabaseUrl  = Deno.env.get('SUPABASE_URL')!;
       const serviceKey   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const idToUser: Record<string, string> = {};
       const usersRes = await fetch(`${supabaseUrl}/auth/v1/admin/users?per_page=200`, {
         headers: { 'Authorization': `Bearer ${serviceKey}`, 'apikey': serviceKey }
       });
@@ -1533,14 +1532,36 @@ app.get("/make-server-8dc4138c/manager/tracking-activity", async (c) => {
         const usersData = await usersRes.json();
         for (const user of (usersData.users || [])) {
           const userData = await kv.get(`user:${user.id}`);
-          if (userData?.affiliateId && statsByAffiliate[userData.affiliateId]) {
-            userData.stats = statsByAffiliate[userData.affiliateId];
-            userData.statsUpdatedAt = new Date().toISOString();
-            await kv.set(`user:${user.id}`, userData);
-          }
+          if (userData?.affiliateId) idToUser[norm(userData.affiliateId)] = user.id;
+          const ez = ezrxKey(userData?.ezrxRef);
+          if (ez) idToUser[ez] = user.id;
         }
-        console.log(`KV stats updated for ${Object.keys(statsByAffiliate).length} affiliates`);
       }
+
+      // Aggregate stats per user (a user may have clicks under both their code
+      // and their ezrxref- value, so merge by userId).
+      const statsByUser: Record<string, { totalClicks: number; totalConversions: number; totalCommissions: number }> = {};
+      for (const row of activity) {
+        const var2 = norm(row.affiliateId);
+        if (!var2 || var2 === 'N/A') continue;
+        const userId = idToUser[var2];
+        if (!userId) continue;
+        if (!statsByUser[userId]) {
+          statsByUser[userId] = { totalClicks: 0, totalConversions: 0, totalCommissions: 0 };
+        }
+        statsByUser[userId].totalClicks      += row.clicks;
+        statsByUser[userId].totalConversions += (row.applications + row.approvals);
+        statsByUser[userId].totalCommissions += row.totalEarnings;
+      }
+
+      // Write merged stats to each matched user.
+      for (const [userId, stats] of Object.entries(statsByUser)) {
+        const userData = await kv.get(`user:${userId}`) || {};
+        userData.stats = stats;
+        userData.statsUpdatedAt = new Date().toISOString();
+        await kv.set(`user:${userId}`, userData);
+      }
+      console.log(`KV stats updated for ${Object.keys(statsByUser).length} users`);
     } catch (kvErr: any) {
       // Non-fatal — stats update is best-effort
       console.log('KV stats update error (non-fatal):', kvErr.message);
