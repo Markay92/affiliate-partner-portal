@@ -407,8 +407,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
   // Pagination
   const [cardsVisible,    setCardsVisible]    = useState(PAGE_SIZE);
-  const [activityVisible, setActivityVisible] = useState(PAGE_SIZE);
-  const [activityPageSize, setActivityPageSize] = useState<number>(PAGE_SIZE);
+  const [activityVisible, setActivityVisible] = useState<number>(Infinity);
+  const [activityPageSize, setActivityPageSize] = useState<number>(Infinity); // default "All"; numeric limits enable only when enough records exist
   const [invoicesVisible, setInvoicesVisible] = useState(PAGE_SIZE);
 
   // Stats grid comparison period
@@ -1214,12 +1214,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           );
         })()}
 
+        {/* Last updated — one line, same spot above every tab */}
+        <div className="mt-5 px-0.5"><LastUpdated ts={lastUpdated} /></div>
+
         {/* Tab panels — the tab nav lives in the header. Real swipe carousel on mobile. */}
         <SwipeCarousel
           order={['cards', 'create', 'activity', 'invoices', 'profile']}
           active={activeTab}
           onChange={setActiveTab}
-          className="mt-5"
+          className="mt-2"
         >
 
           {/* ── Cards Tab (Robinhood-style filters + list) ── */}
@@ -1253,8 +1256,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
             {/* Bold divider */}
             <div className="h-[1.5px] bg-ink" />
-
-            <div className="pt-2"><LastUpdated ts={lastUpdated} /></div>
 
             {/* Group-by + count + sort tabs */}
             <div className="flex items-center justify-between gap-3.5 flex-wrap pt-[15px] pb-1.5">
@@ -1463,23 +1464,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           <Slide tabKey="activity">
             {/* Sticky controls */}
             <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas border-b border-hair py-3">
-            <div className="flex items-center justify-between mb-3 p-3.5 bg-surface rounded-xl border border-hair">
-              <div>
-                <p className="text-sm text-subtle">
-                  <span className="font-semibold text-ink tabular-nums">{displayTracking.length}</span>
-                  {trackingFilter !== 'all' ? <span className="text-faint"> of {tracking.length}</span> : ''} activity records
-                </p>
-                <div className="mt-1"><LastUpdated ts={lastUpdated} /></div>
-              </div>
-              <button
-                onClick={fetchData}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-subtle bg-white border border-hair rounded-lg hover:border-brand hover:text-brand active:scale-95 transition-all duration-150 cursor-pointer"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Refresh
-              </button>
-            </div>
-
             <div className="flex flex-wrap items-center gap-3 mb-3">
               <FilterBar
                 filter={trackingFilter}
@@ -1535,37 +1519,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
             ) : (
               <>
-                <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-                  <p className="text-xs text-faint">
-                    Showing {Math.min(activityVisible, displayTracking.length)} of {displayTracking.length} records
-                  </p>
-                  <div className="flex items-center gap-1.5 text-xs text-faint">
-                    <span>Show</span>
-                    {[25, 50, 100].map(n => (
-                      <button
-                        key={n}
-                        onClick={() => { setActivityPageSize(n); setActivityVisible(n); }}
-                        className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
-                          activityPageSize === n
-                            ? 'border-brand/30 bg-brand-soft text-brand font-medium'
-                            : 'border-hair text-faint hover:bg-surface'
-                        }`}
-                      >
-                        {n}
-                      </button>
-                    ))}
-                    <button
-                      onClick={() => { setActivityPageSize(Infinity); setActivityVisible(Infinity); }}
-                      className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
-                        activityPageSize === Infinity
-                          ? 'border-brand/30 bg-brand-soft text-brand font-medium'
-                          : 'border-hair text-faint hover:bg-surface'
-                      }`}
-                    >
-                      All
-                    </button>
-                  </div>
-                </div>
                 <div>
                   {displayTracking.slice(0, activityVisible).map((item) => {
                     const dot = item.status === 'approval' ? 'var(--ds-pos)' : item.status === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
@@ -1598,6 +1551,46 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </button>
                   </div>
                 )}
+
+                {/* Page-size selector — bottom of the list. Numeric options enable only when enough records exist; otherwise All. */}
+                <div className="flex items-center justify-between flex-wrap gap-2 pt-4 mt-2 border-t border-hair2">
+                  <p className="text-xs text-faint">
+                    Showing {Math.min(activityVisible, displayTracking.length)} of {displayTracking.length} records
+                  </p>
+                  <div className="flex items-center gap-1.5 text-xs text-faint">
+                    <span>Show</span>
+                    {[25, 50, 100].map(n => {
+                      const disabled = displayTracking.length <= n;
+                      const active = !disabled && activityPageSize === n;
+                      return (
+                        <button
+                          key={n}
+                          disabled={disabled}
+                          onClick={() => { setActivityPageSize(n); setActivityVisible(n); }}
+                          className={`px-2 py-0.5 rounded-md border transition-colors duration-150 ${
+                            disabled
+                              ? 'border-hair text-faint2/50 cursor-not-allowed'
+                              : active
+                                ? 'border-brand/30 bg-brand-soft text-brand font-medium cursor-pointer'
+                                : 'border-hair text-faint hover:bg-surface cursor-pointer'
+                          }`}
+                        >
+                          {n}
+                        </button>
+                      );
+                    })}
+                    <button
+                      onClick={() => { setActivityPageSize(Infinity); setActivityVisible(Infinity); }}
+                      className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
+                        (activityPageSize === Infinity || activityPageSize >= displayTracking.length)
+                          ? 'border-brand/30 bg-brand-soft text-brand font-medium'
+                          : 'border-hair text-faint hover:bg-surface'
+                      }`}
+                    >
+                      All
+                    </button>
+                  </div>
+                </div>
               </>
             )}
           </div>
@@ -1614,11 +1607,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
             ) : (
               <>
-              <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas py-3 border-b border-hair flex items-center justify-between gap-3">
+              <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas py-3 border-b border-hair">
                 <p className="text-xs text-faint">
                   Showing {Math.min(invoicesVisible, invoices.length)} of {invoices.length} invoices
                 </p>
-                <LastUpdated ts={lastUpdated} />
               </div>
               <div>
                 {invoices.slice(0, invoicesVisible).map(inv => {
