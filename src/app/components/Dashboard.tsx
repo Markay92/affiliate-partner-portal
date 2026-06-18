@@ -1284,7 +1284,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
               <div className="flex items-center gap-[18px]">
                 <span className="text-xs font-semibold tracking-[0.04em] uppercase text-faint2">{displayCards.length} cards</span>
-                {([['earned', 'Earned'], ['cpa', 'Payout'], ['conv', 'Conv']] as const).map(([key, label]) => {
+                {([['earned', 'Earned'], ['conv', 'Conv'], ['cpa', 'Payout']] as const).map(([key, label]) => {
                   const on = cardsSort.field === key;
                   return (
                     <button key={key}
@@ -1305,23 +1305,21 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 return (
                   <div className="flex items-center gap-[18px] py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150"
                     style={{ paddingLeft: indent ? 24 : 0 }}>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[15.5px] font-semibold text-ink tracking-[-0.01em] truncate">{card.name}</div>
-                      <div className="flex items-center gap-2.5 mt-0.5">
-                        <span className="text-[13px] font-medium text-faint">{card.issuer || '—'}</span>
-                        {card.earned > 0 && (
-                          <>
-                            <span className="w-[3px] h-[3px] rounded-full bg-faint2" />
-                            <span className="text-[13px] font-medium text-faint tabular-nums">${Math.round(card.earned).toLocaleString()} earned</span>
-                          </>
-                        )}
-                      </div>
+                    <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                      <span className="text-[14.5px] font-semibold text-ink tracking-[-0.01em] truncate">{card.name}</span>
+                      <span className="hidden sm:inline text-[13px] font-medium text-subtle whitespace-nowrap flex-shrink-0">{card.issuer || '—'}</span>
+                      {card.earned > 0 && (
+                        <span className="hidden md:inline-flex items-center gap-2.5 flex-shrink-0">
+                          <span className="w-[3px] h-[3px] rounded-full bg-faint2" />
+                          <span className="text-[13px] font-medium text-faint tabular-nums whitespace-nowrap">${Math.round(card.earned).toLocaleString()} earned</span>
+                        </span>
+                      )}
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <div className="text-[18px] font-bold text-ink tracking-[-0.02em] tabular-nums">
-                        {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : '—'}<span className="text-[12px] font-semibold text-faint2"> /appr</span>
-                      </div>
-                      <div className={`text-[12.5px] font-semibold mt-0.5 tabular-nums ${card.conv >= 3 ? 'text-brand' : 'text-faint'}`}>{card.conv.toFixed(1)}% conv</div>
+                    <div className="flex items-baseline gap-3 sm:gap-4 flex-shrink-0">
+                      <span className={`hidden sm:inline-block sm:min-w-[74px] text-right text-[12.5px] font-semibold tabular-nums whitespace-nowrap ${card.conv >= 3 ? 'text-brand' : 'text-faint'}`}>{card.conv.toFixed(1)}% conv</span>
+                      <span className="inline-block sm:min-w-[72px] text-right text-[16px] font-bold text-ink tracking-[-0.02em] tabular-nums whitespace-nowrap">
+                        {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : '—'}
+                      </span>
                     </div>
                     {card.cardId && (
                       <button
@@ -1337,6 +1335,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         {isAdded ? <Check className="w-[13px] h-[13px]" strokeWidth={3} /> : <Plus className="w-[13px] h-[13px]" strokeWidth={2.4} />}
                       </button>
                     )}
+                    {!card.cardId && <span className="w-[26px] flex-shrink-0" aria-hidden />}
                   </div>
                 );
               };
@@ -1555,15 +1554,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   {displayTracking.slice(0, activityVisible).map((item) => {
                     const dot = item.status === 'approval' ? 'var(--ds-pos)' : item.status === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
                     return (
-                      <div key={item.id} className="flex items-center gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150">
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[15px] font-semibold text-ink truncate">{item.cardName || '—'}</div>
-                          <div className="flex items-center gap-2 mt-0.5 text-[12.5px] text-faint flex-wrap">
+                      <div key={item.id} className="flex items-center gap-3 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150">
+                        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                          <span className="text-[14.5px] font-semibold text-ink tracking-[-0.01em] truncate">{item.cardName || '—'}</span>
+                          <span className="flex items-center gap-2 text-[13px] font-medium text-faint flex-shrink-0 whitespace-nowrap">
                             <span className="inline-flex items-center gap-1.5 capitalize"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dot }} />{item.status}</span>
-                            <span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
-                            <span className="whitespace-nowrap">{formatDate(item.clickDate)}</span>
-                            {item.state && <><span className="hidden sm:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="hidden sm:inline whitespace-nowrap">{item.deviceType || '—'} · {item.state}</span></>}
-                          </div>
+                            <span className="hidden sm:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
+                            <span className="hidden sm:inline">{formatDate(item.clickDate)}</span>
+                            {item.state && <><span className="hidden md:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="hidden md:inline">{item.deviceType || '—'} · {item.state}</span></>}
+                          </span>
                         </div>
                         <div className={`text-[16px] font-bold tabular-nums flex-shrink-0 ${item.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>
                           {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : '—'}
@@ -1639,18 +1638,18 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   return (
                     <div key={inv.id}>
                       <div
-                        className="flex items-center gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150 cursor-pointer"
+                        className="flex items-center gap-3 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150 cursor-pointer"
                         onClick={() => setExpandedInvoices(prev => { const next = new Set(prev); next.has(inv.id) ? next.delete(inv.id) : next.add(inv.id); return next; })}
                       >
                         <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`} strokeWidth={2.6} />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[15px] font-semibold text-ink truncate">{inv.month}</div>
-                          <div className="flex items-center gap-2 mt-0.5 text-[12.5px] text-faint flex-wrap">
-                            {inv.date && <><span className="whitespace-nowrap">{formatDate(inv.date)}</span><span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /></>}
+                        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                          <span className="text-[14.5px] font-semibold text-ink tracking-[-0.01em] truncate">{inv.month}</span>
+                          <span className="flex items-center gap-2 text-[13px] font-medium text-faint flex-shrink-0 whitespace-nowrap">
+                            {inv.date && <><span className="hidden sm:inline">{formatDate(inv.date)}</span><span className="hidden sm:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /></>}
                             <span className="tabular-nums">{approvalsCount} approvals</span>
                             {inv.status && <><span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="inline-flex items-center gap-1.5"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: statusDot }} />{inv.status}</span></>}
                             {(inv.sent || inv.sentZelle) && <><span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="text-pos font-semibold">{inv.sentZelle ? 'Zelle sent' : 'Sent'}</span></>}
-                          </div>
+                          </span>
                         </div>
                         <div className={`text-[16px] font-bold tabular-nums flex-shrink-0 ${inv.amount > 0 ? 'text-ink' : 'text-faint2'}`}>
                           {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
