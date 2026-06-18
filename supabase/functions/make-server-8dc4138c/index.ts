@@ -505,12 +505,17 @@ app.get("/make-server-8dc4138c/links", async (c) => {
     }
 
     // Build the single cardratings.com master link.
-    // The base URL (src + shnq) is the same for all affiliates —
-    // only var2=ezrxref-{number} changes per affiliate.
+    // The base URL (src + shnq) is the same for all affiliates — only the
+    // per-affiliate var2 changes. The ezrxref- field now stores the full value
+    // (prefix + number, e.g. "ezrxref-14"); legacy values may be just the
+    // number. Emit exactly one "ezrxref-" prefix either way.
     const MASTER_LINK_BASE = 'https://www.cardratings.com/bestcards/featured-credit-cards?src=693350&shnq=4028089,4048264,5048295,340040,4048084,4048251';
-    const ezrxRef = (userData.ezrxRef || '').trim();
-    const masterLink = ezrxRef
-      ? `${MASTER_LINK_BASE}&var2=ezrxref-${ezrxRef}`
+    const ezrxRefRaw = (userData.ezrxRef || '').trim();
+    const var2 = ezrxRefRaw
+      ? (ezrxRefRaw.toLowerCase().startsWith('ezrxref-') ? ezrxRefRaw : `ezrxref-${ezrxRefRaw}`)
+      : '';
+    const masterLink = var2
+      ? `${MASTER_LINK_BASE}&var2=${var2}`
       : '';
 
     return c.json({ links, masterLink });

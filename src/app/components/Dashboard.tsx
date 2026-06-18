@@ -105,6 +105,19 @@ const DATE_LABELS: Record<DateFilter, string> = {
   lm: 'Last Month', all: 'All Time', custom: 'Custom',
 };
 
+/**
+ * Build the `&var2=…` query param for a tracking link.
+ * The Airtable `ezrxref-` field now stores the full value (prefix + number,
+ * e.g. "ezrxref-14"); some legacy values may be just the number. Either way we
+ * emit exactly one `ezrxref-` prefix so the link never double-prefixes.
+ */
+function var2Param(ref: string): string {
+  const v = (ref || '').trim();
+  if (!v) return '';
+  const full = v.toLowerCase().startsWith('ezrxref-') ? v : `ezrxref-${v}`;
+  return `&var2=${full}`;
+}
+
 /** Decode common HTML entities in card names coming from external APIs */
 function decodeHtml(str: string): string {
   return str
@@ -959,7 +972,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         {/* ── Referral link — clean sticky bar at top, always visible (mock design) ── */}
         {masterLink ? (() => {
           const builtLink = linkBuilderIds.length > 0
-            ? `https://www.cardratings.com/bestcards/featured-credit-cards?src=693350&shnq=${linkBuilderIds.join(',')}${ezrxRef ? `&var2=ezrxref-${ezrxRef}` : ''}`
+            ? `https://www.cardratings.com/bestcards/featured-credit-cards?src=693350&shnq=${linkBuilderIds.join(',')}${var2Param(ezrxRef)}`
             : null;
           const displayLink = builtLink ?? masterLink;
           return (
@@ -1383,7 +1396,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               const selected = linkBuilderIds.map(id => allCards.find(c => c.cardId === id)).filter(Boolean) as any[];
               const maxPayout = selected.reduce((s, c) => s + (c.cpa || 0), 0);
               const shareLink = linkBuilderIds.length > 0
-                ? `https://www.cardratings.com/bestcards/featured-credit-cards?src=693350&shnq=${linkBuilderIds.join(',')}${ezrxRef ? `&var2=ezrxref-${ezrxRef}` : ''}`
+                ? `https://www.cardratings.com/bestcards/featured-credit-cards?src=693350&shnq=${linkBuilderIds.join(',')}${var2Param(ezrxRef)}`
                 : masterLink;
               return (
                 <div className="max-w-3xl">
