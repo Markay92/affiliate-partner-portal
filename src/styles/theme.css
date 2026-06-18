@@ -293,3 +293,67 @@ select {
     font-size: 16px;
   }
 }
+
+/* ── System dark mode (Robinhood-inspired) ───────────────────────────────
+   Driven purely by the OS `prefers-color-scheme` — no manual toggle. The app
+   is almost entirely token-driven (text-ink / bg-surface / border-hair …), so
+   dark mode is implemented by re-pointing the design tokens here; every
+   utility built on them flips automatically. The handful of literal white
+   surfaces (cards, dropdowns, inputs, sticky chrome) are remapped below.
+   Un-layered so these rules win over Tailwind's layered utilities.       */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Design-system palette → dark */
+    --ds-canvas: #0d0f14;       /* page background (near-black, blue-tinted)*/
+    --ds-ink: #f2f5f9;          /* primary text / big numbers              */
+    --ds-subtle: #98a2b3;       /* secondary text                          */
+    --ds-faint: #6b7484;        /* labels, muted captions                  */
+    --ds-faint2: #4a5160;       /* faintest text / inactive arrows         */
+    --ds-line: rgba(255, 255, 255, 0.13);  /* control borders             */
+    --ds-hair: rgba(255, 255, 255, 0.08);  /* section hairlines           */
+    --ds-hair2: rgba(255, 255, 255, 0.06); /* row hairlines               */
+    --ds-surface: #1c2230;      /* hover fill — a step up from card        */
+    --ds-brand: #4d9fff;        /* accent (brighter on dark)               */
+    --ds-brand-dark: #7ab6ff;   /* accent hover                            */
+    --ds-brand-soft: rgba(77, 159, 255, 0.15); /* accent tint             */
+    --ds-pos: #2ec27e;          /* positive / payout green                 */
+    --ds-neg: #ff5d52;          /* negative / destructive                  */
+    --ds-warn: #f0b440;         /* processing / pending amber              */
+
+    /* shadcn/ui tokens → dark (dialogs, selects, popovers, badges)        */
+    --background: #0d0f14;
+    --foreground: #f2f5f9;
+    --card: #151a23;
+    --card-foreground: #f2f5f9;
+    --popover: #151a23;
+    --popover-foreground: #f2f5f9;
+    --muted: #1c2230;
+    --muted-foreground: #98a2b3;
+    --secondary: #1c2230;
+    --secondary-foreground: #f2f5f9;
+    --accent: #1c2230;
+    --accent-foreground: #f2f5f9;
+    --border: rgba(255, 255, 255, 0.13);
+    --input: rgba(255, 255, 255, 0.13);
+    --input-background: #1a1f2b;
+    --switch-background: #3a4252;
+    --ring: #4d9fff;
+  }
+
+  /* Page chrome behind the app matches the canvas */
+  html,
+  body {
+    background-color: var(--ds-canvas);
+    color: var(--ds-ink);
+  }
+
+  /* Literal white surfaces → elevated dark card. */
+  .bg-white { background-color: #151a23; }
+
+  /* Sticky, blurred top chrome (header) → translucent canvas. */
+  .bg-white\/90 { background-color: color-mix(in srgb, var(--ds-canvas) 86%, transparent); }
+  .bg-white\/95 { background-color: color-mix(in srgb, var(--ds-canvas) 90%, transparent); }
+
+  /* Shadows read as muddy halos on dark; the design's rings carry the edge. */
+  .shadow-sm, .shadow, .shadow-md, .shadow-lg { box-shadow: none; }
+}
