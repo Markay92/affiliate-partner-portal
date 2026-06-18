@@ -1251,7 +1251,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           <div className="ds-skel w-full h-[220px] rounded-2xl" />
         </div>
         <div className="fixed bottom-10 left-0 right-0 flex flex-col items-center gap-3">
-          <div className="w-7 h-7 rounded-full border-[2.5px] border-hair border-t-brand animate-spin" />
+          <svg className="w-9 h-9 animate-spin" viewBox="0 0 50 50" fill="none">
+            <circle cx="25" cy="25" r="21" stroke="var(--ds-hair)" strokeWidth="3.5" />
+            <circle cx="25" cy="25" r="21" stroke="var(--ds-brand)" strokeWidth="3.5" strokeLinecap="round" strokeDasharray="34 200" />
+          </svg>
           <span className="text-[13px] text-faint font-medium">Loading your dashboard…</span>
         </div>
       </div>

@@ -839,11 +839,12 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   if (loading) {
     return (
       <div className="min-h-screen bg-canvas flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 bg-brand-soft rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-brand-soft">
-            <RefreshCw className="w-5 h-5 animate-spin text-brand" />
-          </div>
-          <p className="text-faint text-sm font-medium">Loading your dashboard…</p>
+        <div className="flex flex-col items-center gap-5">
+          <svg className="w-[52px] h-[52px] animate-spin" viewBox="0 0 50 50" fill="none">
+            <circle cx="25" cy="25" r="21" stroke="var(--ds-hair)" strokeWidth="3.5" />
+            <circle cx="25" cy="25" r="21" stroke="var(--ds-brand)" strokeWidth="3.5" strokeLinecap="round" strokeDasharray="34 200" />
+          </svg>
+          <p className="text-faint text-[17px] font-medium">Loading your dashboard…</p>
         </div>
       </div>
     );
