@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Spinner } from './ui/spinner';
 import gsap from 'gsap';
@@ -386,6 +387,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [masterLink, setMasterLink] = useState('');
   const [ezrxRef,   setEzrxRef]     = useState('');
   const [linkBuilderIds, setLinkBuilderIds] = useState<string[]>([]);
+  // Which card's bonus/details popover is tapped open (mobile — desktop uses hover).
+  const [bonusOpenId, setBonusOpenId] = useState<string | number | null>(null);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState('');
   const [activeTab, setActiveTab]   = useState('cards');   // controlled tabs (drives nav menu)
@@ -1318,6 +1321,20 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 const isAdded = card.cardId && linkBuilderIds.includes(card.cardId);
                 const af = fmtAnnualFee(card.annualFee);
                 const hasDetails = card.introBonus || card.bonusMilesFull || af || card.introAprRate;
+                const detailContent = (
+                  <>
+                    {(card.introBonus || card.bonusMilesFull) && <span className="block text-[10.5px] font-bold uppercase tracking-[0.05em] text-faint2 mb-1">Intro bonus</span>}
+                    {card.introBonus && <span className="block text-[12.5px] text-ink leading-snug">{card.introBonus}</span>}
+                    {card.bonusMilesFull && <span className="block text-[12px] text-faint leading-snug mt-1.5">{card.bonusMilesFull}</span>}
+                    {(af || card.introAprRate || card.cardType) && (
+                      <span className={`block text-[11.5px] text-subtle leading-relaxed ${(card.introBonus || card.bonusMilesFull) ? 'mt-2.5 pt-2.5 border-t border-hair2' : ''}`}>
+                        {af && <span className="flex justify-between gap-3"><span className="text-faint">Annual fee</span><span className="text-ink font-medium text-right">{af.replace(' annual fee', '')}</span></span>}
+                        {card.introAprRate && <span className="flex justify-between gap-3"><span className="text-faint">Intro APR</span><span className="text-ink font-medium text-right">{card.introAprRate}{card.introAprDuration ? ` · ${card.introAprDuration}` : ''}</span></span>}
+                        {card.cardType && <span className="flex justify-between gap-3"><span className="text-faint">Type</span><span className="text-ink font-medium text-right">{card.cardType}</span></span>}
+                      </span>
+                    )}
+                  </>
+                );
                 return (
                   <div className="flex items-center gap-[18px] py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150"
                     style={{ paddingLeft: indent ? 24 : 0 }}>
@@ -1325,19 +1342,33 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       <span className="text-[14.5px] font-semibold text-ink tracking-[-0.01em] truncate">{card.name}</span>
                       {hasDetails && (
                         <span className="relative group/bn flex-shrink-0 leading-none">
-                          <Gift className="w-[15px] h-[15px] text-brand cursor-help" strokeWidth={2} />
-                          <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-2 z-30 hidden group-hover/bn:block w-[264px] p-3.5 rounded-xl bg-white shadow-lg ring-1 ring-ink/10 text-left whitespace-normal">
-                            {(card.introBonus || card.bonusMilesFull) && <span className="block text-[10.5px] font-bold uppercase tracking-[0.05em] text-faint2 mb-1">Intro bonus</span>}
-                            {card.introBonus && <span className="block text-[12.5px] text-ink leading-snug">{card.introBonus}</span>}
-                            {card.bonusMilesFull && <span className="block text-[12px] text-faint leading-snug mt-1.5">{card.bonusMilesFull}</span>}
-                            {(af || card.introAprRate || card.cardType) && (
-                              <span className={`block text-[11.5px] text-subtle leading-relaxed ${(card.introBonus || card.bonusMilesFull) ? 'mt-2.5 pt-2.5 border-t border-hair2' : ''}`}>
-                                {af && <span className="flex justify-between gap-3"><span className="text-faint">Annual fee</span><span className="text-ink font-medium text-right">{af.replace(' annual fee', '')}</span></span>}
-                                {card.introAprRate && <span className="flex justify-between gap-3"><span className="text-faint">Intro APR</span><span className="text-ink font-medium text-right">{card.introAprRate}{card.introAprDuration ? ` · ${card.introAprDuration}` : ''}</span></span>}
-                                {card.cardType && <span className="flex justify-between gap-3"><span className="text-faint">Type</span><span className="text-ink font-medium text-right">{card.cardType}</span></span>}
-                              </span>
-                            )}
+                          <button
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => setBonusOpenId(prev => prev === card.id ? null : card.id)}
+                            title="Card details"
+                            className="flex items-center text-brand cursor-pointer">
+                            <Gift className="w-[15px] h-[15px]" strokeWidth={2} />
+                          </button>
+                          {/* Desktop: reveal on hover */}
+                          <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 top-full mt-2 z-30 hidden sm:group-hover/bn:block w-[264px] p-3.5 rounded-xl bg-white shadow-lg ring-1 ring-ink/10 text-left whitespace-normal normal-case">
+                            {detailContent}
                           </span>
+                          {/* Mobile: tap → bottom sheet (portaled to body so it escapes the
+                              swipe-carousel transform that would otherwise clip position:fixed) */}
+                          {bonusOpenId === card.id && createPortal(
+                            <div className="sm:hidden" onClick={() => setBonusOpenId(null)}>
+                              <div className="fixed inset-0 z-[60] bg-black/30" />
+                              <div className="fixed left-4 right-4 bottom-6 z-[61] p-4 rounded-2xl bg-white shadow-xl ring-1 ring-ink/10 text-left normal-case" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-start justify-between gap-3 mb-1">
+                                  <span className="text-[14px] font-bold text-ink leading-snug">{card.name}</span>
+                                  <button onClick={() => setBonusOpenId(null)} className="flex-shrink-0 -mt-0.5 -mr-1 p-1 text-faint2"><X className="w-4 h-4" /></button>
+                                </div>
+                                {detailContent}
+                              </div>
+                            </div>,
+                            document.body
+                          )}
                         </span>
                       )}
                       <span className="hidden sm:flex items-center gap-2 text-[13px] font-medium whitespace-nowrap flex-shrink-0 min-w-0">
