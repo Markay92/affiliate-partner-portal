@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { User, Save, Copy, CheckCircle } from 'lucide-react';
+import { Spinner } from './ui/spinner';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 
 interface ProfileProps {
@@ -131,7 +132,8 @@ export function Profile({ accessToken }: ProfileProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16">
+      <div className="flex flex-col items-center gap-4 py-16">
+        <Spinner className="w-10 h-10" />
         <p className="text-faint text-sm">Loading profile…</p>
       </div>
     );
