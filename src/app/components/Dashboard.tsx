@@ -1303,11 +1303,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               const CardRow = ({ card, indent }: { card: any; indent?: boolean }) => {
                 const isAdded = card.cardId && linkBuilderIds.includes(card.cardId);
                 return (
-                  <div className="flex items-center gap-[18px] py-2 border-b border-hair2 hover:bg-surface transition-colors duration-150"
+                  <div className="flex items-center gap-[18px] py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150"
                     style={{ paddingLeft: indent ? 24 : 0 }}>
                     <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                      <span className="text-[15px] font-semibold text-ink tracking-[-0.01em] truncate">{card.name}</span>
-                      <span className="hidden sm:inline text-[13px] font-medium text-faint whitespace-nowrap flex-shrink-0">{card.issuer || '—'}</span>
+                      <span className="text-[14.5px] font-semibold text-ink tracking-[-0.01em] truncate">{card.name}</span>
+                      <span className="hidden sm:inline text-[13px] font-medium text-subtle whitespace-nowrap flex-shrink-0">{card.issuer || '—'}</span>
                       {card.earned > 0 && (
                         <span className="hidden md:inline-flex items-center gap-2.5 flex-shrink-0">
                           <span className="w-[3px] h-[3px] rounded-full bg-faint2" />
@@ -1554,10 +1554,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   {displayTracking.slice(0, activityVisible).map((item) => {
                     const dot = item.status === 'approval' ? 'var(--ds-pos)' : item.status === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
                     return (
-                      <div key={item.id} className="flex items-center gap-3 py-2 border-b border-hair2 hover:bg-surface transition-colors duration-150">
+                      <div key={item.id} className="flex items-center gap-3 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150">
                         <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                          <span className="text-[15px] font-semibold text-ink truncate">{item.cardName || '—'}</span>
-                          <span className="flex items-center gap-2 text-[12.5px] text-faint flex-shrink-0 whitespace-nowrap">
+                          <span className="text-[14.5px] font-semibold text-ink tracking-[-0.01em] truncate">{item.cardName || '—'}</span>
+                          <span className="flex items-center gap-2 text-[13px] font-medium text-faint flex-shrink-0 whitespace-nowrap">
                             <span className="inline-flex items-center gap-1.5 capitalize"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dot }} />{item.status}</span>
                             <span className="hidden sm:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
                             <span className="hidden sm:inline">{formatDate(item.clickDate)}</span>
@@ -1638,13 +1638,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   return (
                     <div key={inv.id}>
                       <div
-                        className="flex items-center gap-3 py-2 border-b border-hair2 hover:bg-surface transition-colors duration-150 cursor-pointer"
+                        className="flex items-center gap-3 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150 cursor-pointer"
                         onClick={() => setExpandedInvoices(prev => { const next = new Set(prev); next.has(inv.id) ? next.delete(inv.id) : next.add(inv.id); return next; })}
                       >
                         <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`} strokeWidth={2.6} />
                         <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                          <span className="text-[15px] font-semibold text-ink truncate">{inv.month}</span>
-                          <span className="flex items-center gap-2 text-[12.5px] text-faint flex-shrink-0 whitespace-nowrap">
+                          <span className="text-[14.5px] font-semibold text-ink tracking-[-0.01em] truncate">{inv.month}</span>
+                          <span className="flex items-center gap-2 text-[13px] font-medium text-faint flex-shrink-0 whitespace-nowrap">
                             {inv.date && <><span className="hidden sm:inline">{formatDate(inv.date)}</span><span className="hidden sm:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /></>}
                             <span className="tabular-nums">{approvalsCount} approvals</span>
                             {inv.status && <><span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="inline-flex items-center gap-1.5"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: statusDot }} />{inv.status}</span></>}
