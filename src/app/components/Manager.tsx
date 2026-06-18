@@ -1434,7 +1434,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 <button onClick={togglePerf} title={perfOpen ? 'Minimize performance' : 'Show performance'}
                   className="flex items-center gap-2.5 cursor-pointer group flex-shrink-0">
                   <ChevronRight className={`w-[15px] h-[15px] text-faint transition-transform duration-200 ${perfOpen ? 'rotate-90' : ''}`} strokeWidth={2.6} />
-                  <span className="text-base sm:text-lg font-bold text-ink tracking-tight group-hover:opacity-70 transition-opacity">Network performance</span>
+                  <span className="text-[19px] font-bold text-ink tracking-[-0.02em] group-hover:opacity-70 transition-opacity">Network performance</span>
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-soft text-brand-dark ring-1 ring-brand/30 align-middle tracking-normal">
                     {STAT_PERIOD_SHORT[statPeriod]}
                   </span>

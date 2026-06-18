@@ -179,7 +179,7 @@ export function Profile({ accessToken }: ProfileProps) {
         <div className="bg-brand-soft rounded-2xl p-5 mb-6">
           <label className="block text-[12.5px] font-medium text-faint mb-2">Your affiliate ID</label>
           <div className="flex items-center gap-3">
-            <code className="flex-1 text-2xl font-bold text-ink tracking-tight">
+            <code className="flex-1 font-mono-ds text-[18px] font-bold text-brand tracking-[-0.01em]">
               {userData?.affiliateId || 'N/A'}
             </code>
             <button
@@ -197,7 +197,7 @@ export function Profile({ accessToken }: ProfileProps) {
 
         {/* Contact Form */}
         <div>
-          <h3 className="text-[15px] font-bold text-ink mb-4">Contact information</h3>
+          <h3 className="text-[17px] font-bold text-ink tracking-[-0.01em] mb-4">Contact information</h3>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
