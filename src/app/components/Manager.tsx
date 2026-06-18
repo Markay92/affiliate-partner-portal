@@ -1880,37 +1880,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 const pagedTracking = displayTrackingActivity.slice(0, trackingVisible);
                 return (
                   <>
-                    <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-                      <p className="text-xs text-faint">
-                        Showing {pagedTracking.length} of {displayTrackingActivity.length} records
-                      </p>
-                      <div className="flex items-center gap-1.5 text-xs text-faint">
-                        <span>Show</span>
-                        {[25, 50, 100].map(n => (
-                          <button
-                            key={n}
-                            onClick={() => { setTrackingPageSize(n); setTrackingVisible(n); }}
-                            className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
-                              trackingPageSize === n
-                                ? 'border-brand/30 bg-brand-soft text-brand font-medium'
-                                : 'border-hair text-faint hover:bg-surface'
-                            }`}
-                          >
-                            {n}
-                          </button>
-                        ))}
-                        <button
-                          onClick={() => { setTrackingPageSize(Infinity); setTrackingVisible(Infinity); }}
-                          className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
-                            trackingPageSize === Infinity
-                              ? 'border-brand/30 bg-brand-soft text-brand font-medium'
-                              : 'border-hair text-faint hover:bg-surface'
-                          }`}
-                        >
-                          All
-                        </button>
-                      </div>
-                    </div>
                     <div>
                       {(() => {
                             const dotColor = (s: string) => s === 'approval' ? 'var(--ds-pos)' : s === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
@@ -2013,6 +1982,46 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         <LoadMoreYears showAll={trackingShowAllYears} setShowAll={v => { setTrackingShowAllYears(v); setTrackingVisible(trackingPageSize); }} hiddenCount={trackingHiddenOlderCount} />
                       </div>
                     )}
+
+                    {/* Page-size selector — bottom of the list. Numeric options enable only when enough records exist; otherwise All. */}
+                    <div className="flex items-center justify-between flex-wrap gap-2 pt-4 mt-2 border-t border-hair2">
+                      <p className="text-xs text-faint">
+                        Showing {pagedTracking.length} of {displayTrackingActivity.length} records
+                      </p>
+                      <div className="flex items-center gap-1.5 text-xs text-faint">
+                        <span>Show</span>
+                        {[25, 50, 100].map(n => {
+                          const disabled = displayTrackingActivity.length <= n;
+                          const active = !disabled && trackingPageSize === n;
+                          return (
+                            <button
+                              key={n}
+                              disabled={disabled}
+                              onClick={() => { setTrackingPageSize(n); setTrackingVisible(n); }}
+                              className={`px-2 py-0.5 rounded-md border transition-colors duration-150 ${
+                                disabled
+                                  ? 'border-hair text-faint2/50 cursor-not-allowed'
+                                  : active
+                                    ? 'border-brand/30 bg-brand-soft text-brand font-medium cursor-pointer'
+                                    : 'border-hair text-faint hover:bg-surface cursor-pointer'
+                              }`}
+                            >
+                              {n}
+                            </button>
+                          );
+                        })}
+                        <button
+                          onClick={() => { setTrackingPageSize(Infinity); setTrackingVisible(Infinity); }}
+                          className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
+                            (trackingPageSize === Infinity || trackingPageSize >= displayTrackingActivity.length)
+                              ? 'border-brand/30 bg-brand-soft text-brand font-medium'
+                              : 'border-hair text-faint hover:bg-surface'
+                          }`}
+                        >
+                          All
+                        </button>
+                      </div>
+                    </div>
                   </>
                 );
               })()}
