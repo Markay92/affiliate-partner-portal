@@ -1322,6 +1322,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </div>
                     {card.cardId && (
                       <button
+                        type="button"
+                        // Don't let the click focus the button — native focus-scroll
+                        // would jump the page to the top. Keyboard focus still works.
+                        onMouseDown={(e) => e.preventDefault()}
                         onClick={() => setLinkBuilderIds(prev => isAdded ? prev.filter(id => id !== card.cardId) : [...prev, card.cardId])}
                         title={isAdded ? 'Remove from share page' : 'Add to share page'}
                         className={`flex-shrink-0 w-8 h-8 rounded-full border-[1.5px] flex items-center justify-center transition-all duration-150 cursor-pointer ${
