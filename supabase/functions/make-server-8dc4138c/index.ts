@@ -742,10 +742,15 @@ const CARD_RATING_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const CR_FIELD = {
   cardName:  'fldHJmdj3vQMJ7cNl',
   cardId:    'fldDXGFG5wQvq3hjn',
-  cardType:  'fldbuxCKp2ZgtqmrJ',
+  cardType:  'fldbuxCKp2ZgtqmrJ', // DefaultCreditCardTypeName
   cardUse:   'fld429l9Oel12NeY6',
   logoUrl:   'fldG3BXiQNTmAgeqV', // LogoImageUrl — stable cdn.nextinsure.com URL
   rawLogo:   'fldm35TYYqxyz17EF', // RawLogoImageUrl — same CDN, no ?w= param
+  annualFee:       'fld8eVAF9MHrcSczE', // AnnualFeesAmount
+  introBonus:      'fld8EsOcX3pAEfXDA', // SignupReward (welcome/intro bonus)
+  introAprRate:    'fldRJftyqVrvqDSp0', // IntroAPRRate
+  introAprDuration:'fldMYiuxHWojbuaaz', // IntroAPRDuration
+  bonusMilesFull:  'fldrIpusy3mUt3S0T', // BonusMilesFull
 };
 
 // Strip trademark markers BEFORE removing non-alphanumerics so "(R)" and "®"
@@ -773,6 +778,11 @@ function buildCardRatingIndex(records: any[]): Record<string, any> {
       cardType: String(f[CR_FIELD.cardType] || '').trim(),
       cardUse:  String(f[CR_FIELD.cardUse]  || '').trim(),
       imageUrl,
+      annualFee:        String(f[CR_FIELD.annualFee]        || '').trim(),
+      introBonus:       String(f[CR_FIELD.introBonus]       || '').trim(),
+      introAprRate:     String(f[CR_FIELD.introAprRate]     || '').trim(),
+      introAprDuration: String(f[CR_FIELD.introAprDuration] || '').trim(),
+      bonusMilesFull:   String(f[CR_FIELD.bonusMilesFull]   || '').trim(),
     };
   }
   return index;
@@ -905,6 +915,11 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
         cardType: enrichment?.cardType ?? '',
         cardUse:  enrichment?.cardUse  ?? '',
         imageUrl: enrichment?.imageUrl ?? '',
+        annualFee:        enrichment?.annualFee        ?? '',
+        introBonus:       enrichment?.introBonus       ?? '',
+        introAprRate:     enrichment?.introAprRate     ?? '',
+        introAprDuration: enrichment?.introAprDuration ?? '',
+        bonusMilesFull:   enrichment?.bonusMilesFull   ?? '',
       });
     }
 
@@ -991,10 +1006,15 @@ async function writeSnapshot(key: string, records: any[]): Promise<void> {
   await kv.set(SYNCED_AT_KEY, now);
 }
 
-// Invalidate every dashboard snapshot and stamp the refresh time. Reads then
-// lazily repopulate from Airtable on next access.
+// Invalidate every dashboard snapshot (plus the CPA-rate and Card-Rating
+// enrichment caches) and stamp the refresh time. Reads then lazily repopulate
+// from Airtable on next access — so card enrichment fields refresh too.
 async function flushSnapshots(): Promise<void> {
-  await Promise.all(SNAPSHOT_KEYS.map(k => kv.del(k)));
+  await Promise.all([
+    ...SNAPSHOT_KEYS.map(k => kv.del(k)),
+    kv.del(CPA_CACHE_KEY),
+    kv.del(CARD_RATING_CACHE_KEY),
+  ]);
   await kv.set(SYNCED_AT_KEY, Date.now());
 }
 
@@ -2279,6 +2299,11 @@ app.get("/make-server-8dc4138c/manager/cpa-rates", async (c) => {
         cardType: enrichment?.cardType ?? '',
         cardUse:  enrichment?.cardUse  ?? '',
         imageUrl: enrichment?.imageUrl ?? '',
+        annualFee:        enrichment?.annualFee        ?? '',
+        introBonus:       enrichment?.introBonus       ?? '',
+        introAprRate:     enrichment?.introAprRate     ?? '',
+        introAprDuration: enrichment?.introAprDuration ?? '',
+        bonusMilesFull:   enrichment?.bonusMilesFull   ?? '',
       });
     }
 
