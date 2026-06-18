@@ -1207,18 +1207,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     const editing = editingCommission === user.id;
     const menuOpen = rowMenu === user.id;
     return (
-      <div key={user.id} className="flex items-center gap-3 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
+      <div key={user.id} className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
         <span className="w-8 h-8 rounded-full bg-brand-soft text-brand text-xs font-bold flex items-center justify-center flex-shrink-0">{initials}</span>
-        <div className="flex items-center gap-2.5 flex-1 min-w-0">
-          <span className="text-[13px] font-semibold text-ink tracking-[-0.01em] whitespace-nowrap flex-shrink-0">{user.name || 'N/A'}</span>
-          <span className="flex items-center gap-2 text-[13px] font-medium text-faint min-w-0">
-            <span className="truncate">{user.email}</span>
-            <span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
-            <span className="font-mono-ds whitespace-nowrap flex-shrink-0">{user.affiliateId || '—'}</span>
-            <span className="hidden sm:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
-            <span className="hidden sm:inline whitespace-nowrap tabular-nums flex-shrink-0">{(user.stats?.totalConversions || 0).toLocaleString()} appr.</span>
-          </span>
-        </div>
+        <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{user.name || 'N/A'}</span>
+        <span className="hidden lg:block w-[180px] flex-shrink-0 text-right text-[13px] font-medium text-faint truncate">{user.email}</span>
+        <span className="hidden md:block w-[88px] flex-shrink-0 text-right text-[13px] font-medium text-faint font-mono-ds truncate">{user.affiliateId || '—'}</span>
+        <span className="hidden sm:block w-[72px] flex-shrink-0 text-right text-[13px] font-medium text-faint tabular-nums">{(user.stats?.totalConversions || 0).toLocaleString()} appr.</span>
         {editing ? (
           <div className="flex items-center gap-2 flex-shrink-0">
             <input type="number" value={commissionValue} onChange={e => setCommissionValue(e.target.value)}
@@ -1229,10 +1223,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           </div>
         ) : (
           <>
-            <div className="text-right flex-shrink-0">
-              <div className="text-[13px] font-semibold text-ink tabular-nums">${Math.round(user.stats?.totalCommissions || 0).toLocaleString()}</div>
-              <div className="text-[13px] font-medium text-faint tabular-nums">{user.commissionRate || 100}% split</div>
-            </div>
+            <span className="hidden sm:block w-[78px] flex-shrink-0 text-right text-[13px] font-medium text-faint tabular-nums">{user.commissionRate || 100}% split</span>
+            <span className="w-[84px] flex-shrink-0 text-right text-[13px] font-medium text-ink tabular-nums">${Math.round(user.stats?.totalCommissions || 0).toLocaleString()}</span>
             <div className="relative flex-shrink-0">
               <button onClick={() => setRowMenu(menuOpen ? null : user.id)} title="Actions"
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-faint hover:text-ink hover:bg-hair2 transition-colors cursor-pointer"><MoreHorizontal className="w-[18px] h-[18px]" /></button>
@@ -1575,8 +1567,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       {topAffiliates.map(a => (
                         <div key={a.name} className="mb-3.5">
                           <div className="flex items-baseline justify-between mb-1.5">
-                            <span className="text-[13px] font-semibold text-ink truncate pr-3">{a.name}</span>
-                            <span className="text-[13px] font-bold text-ink tabular-nums flex-shrink-0">${a.earned.toLocaleString()}</span>
+                            <span className="text-[13px] font-medium text-ink truncate pr-3">{a.name}</span>
+                            <span className="text-[13px] font-medium text-ink tabular-nums flex-shrink-0">${a.earned.toLocaleString()}</span>
                           </div>
                           <div className="h-[7px] rounded-md bg-hair2 overflow-hidden">
                             <div className="h-full rounded-md bg-brand" style={{ width: `${Math.max(3, (a.earned / maxAffEarn) * 100)}%` }} />
@@ -1592,8 +1584,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <p className="text-[12.5px] text-faint mb-3.5">Across all affiliates</p>
                       {mostApprovedCards.map((c, idx) => (
                         <div key={c.name} className="flex items-center gap-3.5 py-2.5 border-b border-hair2">
-                          <span className="text-[13px] font-bold text-faint2 w-3.5 flex-shrink-0 tabular-nums">{idx + 1}</span>
-                          <span className="text-[13px] font-semibold text-ink truncate flex-1 min-w-0">{c.name}</span>
+                          <span className="text-[13px] font-medium text-faint2 w-3.5 flex-shrink-0 tabular-nums">{idx + 1}</span>
+                          <span className="text-[13px] font-medium text-ink truncate flex-1 min-w-0">{c.name}</span>
                           <span className="text-sm font-bold text-ink flex-shrink-0 tabular-nums">{c.approvals}</span>
                         </div>
                       ))}
@@ -1720,7 +1712,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             <div onClick={toggle} className="flex items-center gap-[11px] pt-5 pb-3 border-t border-hair2 cursor-pointer hover:opacity-70 transition-opacity select-none">
                               <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`} strokeWidth={2.6} />
                               <span className="text-[12.5px] font-bold text-ink tracking-[0.03em] uppercase">{rate} commission</span>
-                              <span className="text-[13px] font-semibold text-faint2 tabular-nums">{members.length}</span>
+                              <span className="text-[13px] font-medium text-faint2 tabular-nums">{members.length}</span>
                             </div>
                             {!isCollapsed && members.map((user: any) => renderUserRow(user, true))}
                           </React.Fragment>
@@ -1898,21 +1890,13 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             const dotColor = (s: string) => s === 'approval' ? 'var(--ds-pos)' : s === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
                             // Single row renderer — used in both flat and grouped modes
                             const TrackRow = ({ a, indent }: { a: any; indent?: boolean }) => (
-                              <div key={a.id} className="flex items-center gap-3 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
-                                <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                                  <span className="text-[13px] font-semibold text-ink tracking-[-0.01em] truncate">{a.cardName || '—'}</span>
-                                  <span className="flex items-center gap-2 text-[13px] font-medium text-faint flex-shrink-0 whitespace-nowrap">
-                                    <span className="inline-flex items-center gap-1.5 capitalize"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dotColor(a.status) }} />{a.status}</span>
-                                    <span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
-                                    <span className="hidden sm:inline">{a.memberName}</span>
-                                    <span className="hidden md:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
-                                    <span className="hidden md:inline">{formatDate(a.clickDate)}</span>
-                                    {a.state && <><span className="hidden lg:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="hidden lg:inline">{a.deviceType || '—'} · {a.state}</span></>}
-                                  </span>
-                                </div>
-                                <div className={`text-[13px] font-semibold tabular-nums flex-shrink-0 ${a.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>
-                                  {a.totalEarnings > 0 ? `$${a.totalEarnings.toFixed(2)}` : '—'}
-                                </div>
+                              <div key={a.id} className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
+                                <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{a.cardName || '—'}</span>
+                                <span className="hidden sm:inline-flex items-center gap-1.5 w-[100px] flex-shrink-0 text-[13px] font-medium text-faint capitalize"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dotColor(a.status) }} />{a.status}</span>
+                                <span className="hidden lg:block w-[136px] flex-shrink-0 text-right text-[13px] font-medium text-faint truncate">{a.memberName}</span>
+                                <span className="hidden md:block w-[116px] flex-shrink-0 text-right text-[13px] font-medium text-faint tabular-nums whitespace-nowrap">{formatDate(a.clickDate)}</span>
+                                <span className="hidden xl:block w-[150px] flex-shrink-0 text-right text-[13px] font-medium text-faint truncate">{a.state ? `${a.deviceType || '—'} · ${a.state}` : ''}</span>
+                                <span className={`w-[76px] flex-shrink-0 text-right text-[13px] font-medium tabular-nums ${a.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>{a.totalEarnings > 0 ? `$${a.totalEarnings.toFixed(2)}` : '—'}</span>
                               </div>
                             );
 
@@ -1968,7 +1952,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                     <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 flex-shrink-0 ${isCollapsed ? '' : 'rotate-90'}`} strokeWidth={2.6} />
                                     <span className="text-[12.5px] font-bold text-ink tracking-[0.03em] uppercase">{label}</span>
                                     {sublabel && <span className="text-[12px] text-faint font-mono-ds">{sublabel}</span>}
-                                    <span className="text-[13px] font-semibold text-faint2 tabular-nums">{rows.length}</span>
+                                    <span className="text-[13px] font-medium text-faint2 tabular-nums">{rows.length}</span>
                                     <div className="ml-auto flex items-center gap-3 text-[12.5px] text-faint">
                                       {grpClicks    > 0 && <span className="tabular-nums">{grpClicks.toLocaleString()} clicks</span>}
                                       {grpApprovals > 0 && <span className="tabular-nums">{grpApprovals} appr.</span>}
@@ -2186,23 +2170,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 });
 
                 const CpaRow = ({ rate, indent }: { rate: any; indent?: boolean }) => (
-                  <div className="flex items-center gap-3 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
-                    <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                      <span className="text-[13px] font-semibold text-ink tracking-[-0.01em] truncate">{rate.card}</span>
-                      <span className="flex items-center gap-2 text-[13px] font-medium text-faint flex-shrink-0 whitespace-nowrap">
-                        <span className="hidden sm:inline text-subtle">{rate.issuer || '—'}</span>
-                        {rate.date && <><span className="hidden sm:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span>{formatDate(rate.date)}</span></>}
-                        {rate.cardId && <><span className="hidden md:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><button onClick={() => navigator.clipboard.writeText(rate.cardId)} title={`Copy Card ID: ${rate.cardId}`} className="hidden md:inline-flex items-center gap-1 font-mono-ds hover:text-brand transition-colors cursor-pointer"><Copy className="w-3 h-3" />{rate.cardId}</button></>}
-                      </span>
-                    </div>
-                    <div className="flex items-baseline gap-3 flex-shrink-0">
-                      {cpaAffiliateFilter !== 'all' && (
-                        <span className="text-[13px] font-medium text-brand tabular-nums whitespace-nowrap">
-                          {rate.affiliatePayout != null && rate.affiliatePayout > 0 ? `$${rate.affiliatePayout.toLocaleString()} payout` : '—'}
-                        </span>
-                      )}
-                      <span className="inline-block min-w-[64px] text-right text-[13px] font-semibold text-pos tabular-nums">{rate.bankCpa > 0 ? `$${rate.bankCpa.toLocaleString()}` : <span className="text-faint2 font-normal">—</span>}</span>
-                    </div>
+                  <div className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
+                    <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{rate.card}</span>
+                    <span className="hidden sm:block w-[120px] lg:w-[140px] flex-shrink-0 text-right text-[13px] font-medium text-subtle truncate">{rate.issuer || '—'}</span>
+                    <span className="hidden md:block w-[116px] flex-shrink-0 text-right text-[13px] font-medium text-faint tabular-nums whitespace-nowrap">{rate.date ? formatDate(rate.date) : ''}</span>
+                    <span className="hidden lg:flex items-center justify-end w-[96px] flex-shrink-0">
+                      {rate.cardId && <button onClick={() => navigator.clipboard.writeText(rate.cardId)} title={`Copy Card ID: ${rate.cardId}`} className="inline-flex items-center gap-1 font-mono-ds text-[13px] text-faint hover:text-brand transition-colors cursor-pointer"><Copy className="w-3 h-3" />{rate.cardId}</button>}
+                    </span>
+                    {cpaAffiliateFilter !== 'all' && (
+                      <span className="hidden sm:block w-[104px] flex-shrink-0 text-right text-[13px] font-medium text-brand tabular-nums">{rate.affiliatePayout != null && rate.affiliatePayout > 0 ? `$${rate.affiliatePayout.toLocaleString()} payout` : '—'}</span>
+                    )}
+                    <span className="w-[64px] flex-shrink-0 text-right text-[13px] font-medium text-pos tabular-nums">{rate.bankCpa > 0 ? `$${rate.bankCpa.toLocaleString()}` : <span className="text-faint2 font-normal">—</span>}</span>
                   </div>
                 );
 
@@ -2240,7 +2218,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                   <div onClick={toggle} className="flex items-center gap-[11px] pt-5 pb-3 border-t border-hair2 cursor-pointer hover:opacity-70 transition-opacity select-none">
                                     <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`} strokeWidth={2.6} />
                                     <span className="text-[12.5px] font-bold text-ink tracking-[0.03em] uppercase">{issuer}</span>
-                                    <span className="text-[13px] font-semibold text-faint2 tabular-nums">{rates.length}</span>
+                                    <span className="text-[13px] font-medium text-faint2 tabular-nums">{rates.length}</span>
                                   </div>
                                   {!isCollapsed && rates.map(r => <CpaRow key={r.id} rate={r} indent />)}
                                 </React.Fragment>
@@ -2446,19 +2424,19 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             const statusDot = paid ? 'var(--ds-pos)' : pending ? 'var(--ds-warn)' : 'var(--ds-faint2)';
                             return (
                               <React.Fragment key={inv.id}>
-                                <div className="flex items-center gap-3 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
+                                <div className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
                                   <button onClick={toggleOpen} className="flex items-center gap-2.5 flex-1 min-w-0 text-left cursor-pointer">
                                     <ChevronRight className={`w-3.5 h-3.5 text-faint flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} strokeWidth={2.6} />
-                                    <span className="text-[13px] font-semibold text-ink tracking-[-0.01em] truncate">{inv.name}</span>
-                                    <span className="flex items-center gap-2 text-[13px] font-medium text-faint flex-shrink-0 whitespace-nowrap">
-                                      <span>{inv.month}</span>
-                                      <span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" />
-                                      <span className="tabular-nums">{approvalsCount} appr.</span>
-                                      {inv.status && <><span className="w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="inline-flex items-center gap-1.5"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: statusDot }} />{inv.status}</span></>}
-                                      {(inv.sent || inv.sentZelle) && <><span className="hidden sm:inline w-[3px] h-[3px] rounded-full bg-faint2 flex-shrink-0" /><span className="hidden sm:inline text-pos font-semibold">{inv.sentZelle ? 'Zelle sent' : 'Sent'}</span></>}
-                                    </span>
+                                    <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate">{inv.name}</span>
                                   </button>
-                                  <div className={`text-[13px] font-semibold tabular-nums flex-shrink-0 ${inv.amount > 0 ? 'text-ink' : 'text-faint2'}`}>
+                                  <span className="hidden sm:block w-[96px] flex-shrink-0 text-right text-[13px] font-medium text-faint">{inv.month}</span>
+                                  <span className="w-[64px] flex-shrink-0 text-right text-[13px] font-medium text-faint tabular-nums">{approvalsCount} appr.</span>
+                                  <span className="hidden md:inline-flex items-center justify-end gap-1.5 w-[112px] flex-shrink-0 text-[13px] font-medium text-faint capitalize">
+                                    {(inv.sent || inv.sentZelle)
+                                      ? <span className="text-pos">{inv.sentZelle ? 'Zelle sent' : 'Sent'}</span>
+                                      : inv.status ? <><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: statusDot }} />{inv.status}</> : ''}
+                                  </span>
+                                  <div className={`w-[92px] flex-shrink-0 text-right text-[13px] font-medium tabular-nums ${inv.amount > 0 ? 'text-ink' : 'text-faint2'}`}>
                                     {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}` : '—'}
                                   </div>
                                   {busy ? <Spinner className="w-4 h-4 flex-shrink-0" strokeWidth={4} /> : (
@@ -2544,7 +2522,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                   <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 flex-shrink-0 ${isCollapsed ? '' : 'rotate-90'}`} strokeWidth={2.6} />
                                   <span className="text-[12.5px] font-bold text-ink tracking-[0.03em] uppercase">{getLabel(key, rows)}</span>
                                   {sublabel && <span className="text-[12px] text-faint font-mono-ds">{sublabel}</span>}
-                                  <span className="text-[13px] font-semibold text-faint2 tabular-nums">{rows.length}</span>
+                                  <span className="text-[13px] font-medium text-faint2 tabular-nums">{rows.length}</span>
                                   <div className="ml-auto flex items-center gap-3 text-[12.5px] text-faint">
                                     {grpApprovals > 0 && <span className="tabular-nums">{grpApprovals} appr.</span>}
                                     {grpSent      > 0 && <span className="tabular-nums">{grpSent} paid</span>}
