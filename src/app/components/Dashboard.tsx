@@ -30,6 +30,7 @@ import {
   Check,
   MoreHorizontal,
   Gift,
+  Sparkles,
 } from 'lucide-react';
 import React from 'react';
 import { ComposedChart, LineChart, Line, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } from 'recharts';
@@ -222,6 +223,9 @@ function EmptyState({ icon: Icon, title, subtitle, action }: {
   );
 }
 
+// Max cards a partner can feature on their share link (drives the slot meter).
+const LINK_MAX = 6;
+
 /** Format a time string (ISO or HH:MM:SS) as "6:46 PM" */
 function formatTime(str: string | undefined): string {
   if (!str) return '';
@@ -411,6 +415,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [masterLink, setMasterLink] = useState('');
   const [ezrxRef,   setEzrxRef]     = useState('');
   const [linkBuilderIds, setLinkBuilderIds] = useState<string[]>([]);
+  // Featured-cards panel (the boost chip in the link bar) open/closed.
+  const [boostOpen, setBoostOpen] = useState(false);
   // Which card's bonus/details popover is tapped open (mobile — desktop uses hover).
   const [bonusOpenId, setBonusOpenId] = useState<string | number | null>(null);
   const [loading, setLoading]       = useState(true);
@@ -886,7 +892,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
   const navItems = [
     { key: 'cards',    label: 'Cards',       Icon: CreditCard, badge: 0 },
-    { key: 'create',   label: 'Create Link', Icon: Link2,      badge: linkBuilderIds.length },
     { key: 'activity', label: 'Activity',    Icon: Activity,   badge: 0 },
     { key: 'invoices', label: 'Invoices',    Icon: FileText,   badge: invoices.length },
     { key: 'profile',  label: 'Profile',     Icon: User,       badge: 0 },
@@ -1012,28 +1017,39 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             ? `https://www.cardratings.com/bestcards/featured-credit-cards?src=693350&shnq=${linkBuilderIds.join(',')}${var2Param(ezrxRef)}`
             : null;
           const displayLink = builtLink ?? masterLink;
+          const featured = linkBuilderIds.map(id => allCards.find(c => c.cardId === id)).filter(Boolean) as any[];
+          const featuredCount = linkBuilderIds.length;
+          const maxPayout = featured.reduce((s, c) => s + (c.cpa || 0), 0);
           return (
           <div
             ref={linkBarRef}
             data-anim
             className="sticky top-[60px] z-20 mb-5 -mx-4 sm:-mx-6 lg:-mx-8 bg-white/95 backdrop-blur-md border-b border-hair"
           >
-          {/* Compact referral link bar — single line, no expanded state */}
-          <div className="flex items-center gap-3 py-2.5 px-4 sm:px-6 lg:px-8">
+          {/* Compact referral link bar — single line, with a "featured" boost chip */}
+          <div className="relative flex items-center gap-3 py-2.5 px-4 sm:px-6 lg:px-8">
             <Link2 className="w-4 h-4 text-faint2 flex-shrink-0" />
             <span className="font-mono-ds text-[13px] font-medium text-ink truncate flex-1 min-w-0">
               {displayLink}
             </span>
-            {builtLink && (
-              <button onClick={() => setLinkBuilderIds([])} title="Reset to your default link"
-                className="text-[11px] font-medium text-faint hover:text-brand transition-colors flex-shrink-0 cursor-pointer">
-                Clear
-              </button>
-            )}
+
+            {/* Boost chip — featured count + slot meter; opens the featured panel */}
+            <button onClick={() => setBoostOpen(o => !o)} title="Cards featured on your link"
+              className={`flex items-center gap-2 h-7 pl-2.5 pr-2 rounded-full border text-[12px] font-semibold flex-shrink-0 cursor-pointer transition-colors ${boostOpen || featuredCount > 0 ? 'border-brand/30 text-brand bg-brand-soft' : 'border-hair text-subtle hover:border-brand/40 hover:text-brand'}`}>
+              <Sparkles className="w-3.5 h-3.5 text-brand" />
+              <span className="tabular-nums">{featuredCount}</span>
+              <span className="hidden sm:flex items-center gap-[3px]">
+                {Array.from({ length: LINK_MAX }).map((_, i) => (
+                  <span key={i} className="w-[6px] h-[6px] rounded-full" style={{ background: i < featuredCount ? 'var(--ds-brand)' : 'var(--ds-hair)' }} />
+                ))}
+              </span>
+              <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${boostOpen ? 'rotate-180' : ''}`} />
+            </button>
+
             <button
               onClick={() => copyToClipboard(displayLink, -1)}
               title="Copy link"
-              className="flex items-center gap-1.5 h-7 px-3 rounded-full bg-brand-soft text-brand-dark text-[12.5px] font-semibold hover:bg-brand/15 transition-colors flex-shrink-0 cursor-pointer"
+              className="flex items-center gap-1.5 h-7 px-3 rounded-full bg-brand text-white text-[12.5px] font-semibold hover:bg-brand-dark transition-colors flex-shrink-0 cursor-pointer"
             >
               {copiedId === -1 ? <><CheckCircle className="w-3.5 h-3.5" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy</>}
             </button>
@@ -1041,6 +1057,47 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               className="flex items-center justify-center w-8 h-8 rounded-lg text-faint hover:text-ink hover:bg-surface transition-colors flex-shrink-0 cursor-pointer">
               <ExternalLink className="w-[15px] h-[15px]" />
             </a>
+
+            {/* Featured-cards panel */}
+            {boostOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setBoostOpen(false)} />
+                <div className="absolute right-4 sm:right-6 lg:right-8 top-full mt-2 z-20 w-[340px] max-w-[calc(100vw-32px)] bg-white rounded-2xl border border-hair shadow-[0_16px_44px_rgba(15,23,42,0.16)] overflow-hidden">
+                  <div className="flex items-center justify-between gap-2 px-4 pt-3.5 pb-2.5">
+                    <span className="text-[13.5px] font-semibold text-ink">Featured on your link</span>
+                    <span className="text-[12px] font-medium text-faint tabular-nums">{featuredCount} / {LINK_MAX}</span>
+                  </div>
+                  {featured.length > 0 ? (
+                    <>
+                      <div className="max-h-[280px] overflow-y-auto border-t border-hair2">
+                        {featured.map(c => (
+                          <div key={c.cardId} className="flex items-center gap-3 px-4 py-2.5 border-b border-hair2 last:border-b-0">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[13px] font-medium text-ink truncate">{c.name}</div>
+                              <div className="text-[12px] text-faint truncate">{c.issuer || '—'}</div>
+                            </div>
+                            <span className="text-[13px] font-medium text-pos tabular-nums flex-shrink-0">{c.cpa > 0 ? `$${c.cpa.toLocaleString()}` : '—'}</span>
+                            <button onClick={() => setLinkBuilderIds(prev => prev.filter(id => id !== c.cardId))} title="Remove"
+                              className="w-6 h-6 rounded-md flex items-center justify-center text-faint2 hover:text-neg hover:bg-hair2 transition-colors flex-shrink-0 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between px-4 py-3 bg-surface border-t border-hair2">
+                        <span className="text-[12px] text-faint font-medium">Max payout / approval</span>
+                        <span className="text-[14px] font-semibold text-ink tabular-nums">${maxPayout.toLocaleString()}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="px-4 py-6 text-center border-t border-hair2">
+                      <p className="text-[13px] text-faint leading-relaxed">
+                        No cards featured yet. Add some from the{' '}
+                        <button onClick={() => { setBoostOpen(false); setActiveTab('cards'); }} className="font-semibold text-brand hover:underline cursor-pointer">Cards</button>{' '}tab to boost your link.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
           </div>
           );
@@ -1344,6 +1401,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               };
               const CardRow = ({ card, indent }: { card: any; indent?: boolean }) => {
                 const isAdded = card.cardId && linkBuilderIds.includes(card.cardId);
+                const linkFull = !isAdded && linkBuilderIds.length >= LINK_MAX;
                 const af = fmtAnnualFee(card.annualFee);
                 const hasDetails = card.introBonus || card.bonusMilesFull || af || card.introAprRate;
                 const detailContent = (
@@ -1410,10 +1468,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         // Don't let the click focus the button — native focus-scroll
                         // would jump the page to the top. Keyboard focus still works.
                         onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => setLinkBuilderIds(prev => isAdded ? prev.filter(id => id !== card.cardId) : [...prev, card.cardId])}
-                        title={isAdded ? 'Remove from share page' : 'Add to share page'}
-                        className={`flex-shrink-0 w-[26px] h-[26px] rounded-full border flex items-center justify-center transition-all duration-150 cursor-pointer ${
-                          isAdded ? 'bg-brand border-brand text-white' : 'border-line text-faint2 hover:border-brand hover:text-brand'
+                        disabled={linkFull}
+                        onClick={() => { if (linkFull) return; setLinkBuilderIds(prev => isAdded ? prev.filter(id => id !== card.cardId) : [...prev, card.cardId]); }}
+                        title={isAdded ? 'Remove from your link' : linkFull ? `Your link is full (${LINK_MAX} cards max)` : 'Feature on your link'}
+                        className={`flex-shrink-0 w-[26px] h-[26px] rounded-full border flex items-center justify-center transition-all duration-150 ${
+                          isAdded ? 'bg-brand border-brand text-white cursor-pointer' : linkFull ? 'border-hair text-faint2/40 cursor-not-allowed' : 'border-line text-faint2 hover:border-brand hover:text-brand cursor-pointer'
                         }`}>
                         {isAdded ? <Check className="w-[13px] h-[13px]" strokeWidth={3} /> : <Plus className="w-[13px] h-[13px]" strokeWidth={2.4} />}
                       </button>
@@ -1520,71 +1579,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           </div>
           </Slide>
 
-          {/* ── Create Link Tab ── */}
-          <Slide tabKey="create">
-          <div className="pt-6">
-            {(() => {
-              const selected = linkBuilderIds.map(id => allCards.find(c => c.cardId === id)).filter(Boolean) as any[];
-              const maxPayout = selected.reduce((s, c) => s + (c.cpa || 0), 0);
-              const shareLink = linkBuilderIds.length > 0
-                ? `https://www.cardratings.com/bestcards/featured-credit-cards?src=693350&shnq=${linkBuilderIds.join(',')}${var2Param(ezrxRef)}`
-                : masterLink;
-              return (
-                <div className="max-w-3xl">
-                  <h3 className="text-lg font-bold text-ink tracking-[-0.01em]">Your share page</h3>
-                  <p className="text-[13px] text-faint mt-0.5 mb-5">
-                    These cards appear on the page you share. Add or remove cards from the <span className="font-semibold text-subtle">Cards</span> tab.
-                  </p>
-
-                  {/* Share link */}
-                  <div className="flex items-center gap-3.5 flex-wrap p-4 border border-hair rounded-2xl mb-6">
-                    <div className="flex-1 min-w-[220px]">
-                      <div className="font-mono-ds text-[14.5px] font-medium text-ink break-all">{shareLink}</div>
-                      <div className="text-xs text-faint font-medium mt-1">
-                        {linkBuilderIds.length > 0
-                          ? `${linkBuilderIds.length} card${linkBuilderIds.length !== 1 ? 's' : ''} · $${maxPayout.toLocaleString()} max payout`
-                          : 'No cards selected — your default link will be shared'}
-                      </div>
-                    </div>
-                    <button onClick={() => copyToClipboard(shareLink, -2)}
-                      className="flex items-center gap-1.5 h-10 px-[18px] rounded-[10px] bg-brand text-white text-sm font-semibold hover:bg-brand-dark active:scale-95 transition-all duration-150 cursor-pointer">
-                      {copiedId === -2 ? <><CheckCircle className="w-4 h-4" /> Copied</> : <><Copy className="w-4 h-4" /> Copy</>}
-                    </button>
-                  </div>
-
-                  {/* Max payout summary */}
-                  <div className="flex items-baseline gap-2 mb-1.5">
-                    <span className="text-[30px] font-bold text-ink tracking-[-0.025em] leading-none tabular-nums">${maxPayout.toLocaleString()}</span>
-                    <span className="text-[12.5px] text-faint font-medium">max payout / approval · {selected.length} card{selected.length !== 1 ? 's' : ''}</span>
-                  </div>
-
-                  {selected.length > 0 ? (
-                    <div className="border-t border-hair mt-3">
-                      {selected.map(c => (
-                        <div key={c.cardId} className="flex items-center gap-3 py-3 border-b border-hair2">
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold text-ink truncate">{c.name}</div>
-                            <div className="text-xs text-faint font-medium">{c.issuer || '—'}</div>
-                          </div>
-                          <span className="text-sm font-bold text-pos tabular-nums flex-shrink-0">{c.cpa > 0 ? `$${c.cpa.toLocaleString()}` : '—'}</span>
-                          <button onClick={() => setLinkBuilderIds(prev => prev.filter(id => id !== c.cardId))}
-                            title="Remove" className="w-7 h-7 rounded-lg flex items-center justify-center text-faint hover:text-neg hover:bg-hair2 transition-colors cursor-pointer flex-shrink-0">
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="mt-3 px-5 py-7 text-center border border-dashed border-line rounded-2xl text-[13.5px] text-faint leading-relaxed">
-                      No cards on your page yet.<br />
-                      Go to the <span className="font-semibold text-brand">Cards</span> tab and tap <span className="font-semibold text-subtle">Add to link</span> on the cards you want to feature.
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-          </div>
-          </Slide>
 
           {/* ── Activity Tab ── */}
           <Slide tabKey="activity">
