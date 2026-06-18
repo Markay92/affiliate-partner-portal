@@ -1331,10 +1331,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => setLinkBuilderIds(prev => isAdded ? prev.filter(id => id !== card.cardId) : [...prev, card.cardId])}
                         title={isAdded ? 'Remove from share page' : 'Add to share page'}
-                        className={`flex-shrink-0 w-8 h-8 rounded-full border-[1.5px] flex items-center justify-center transition-all duration-150 cursor-pointer ${
+                        className={`flex-shrink-0 w-[26px] h-[26px] rounded-full border flex items-center justify-center transition-all duration-150 cursor-pointer ${
                           isAdded ? 'bg-brand border-brand text-white' : 'border-line text-faint2 hover:border-brand hover:text-brand'
                         }`}>
-                        {isAdded ? <Check className="w-[15px] h-[15px]" strokeWidth={3} /> : <Plus className="w-[15px] h-[15px]" strokeWidth={2.4} />}
+                        {isAdded ? <Check className="w-[13px] h-[13px]" strokeWidth={3} /> : <Plus className="w-[13px] h-[13px]" strokeWidth={2.4} />}
                       </button>
                     )}
                   </div>
@@ -1365,8 +1365,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         <React.Fragment key={`g-${issuer}`}>
                           <div onClick={toggle} className="flex items-center gap-[11px] pt-5 pb-3 border-t border-hair2 cursor-pointer hover:opacity-70 transition-opacity select-none">
                             <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${open ? 'rotate-90' : ''}`} strokeWidth={2.6} />
-                            <span className="text-[15px] font-bold text-ink tracking-[-0.01em]">{issuer}</span>
-                            <span className="text-[13px] font-semibold text-faint2 tabular-nums">{items.length}</span>
+                            <span className="text-[12.5px] font-bold text-ink tracking-[0.03em] uppercase">{issuer}</span>
+                            <span className="text-[12px] font-semibold text-faint2 tabular-nums">{items.length}</span>
                             <span className="ml-auto text-[15px] font-bold text-brand tracking-[-0.02em] tabular-nums">${Math.round(sub(items)).toLocaleString()}</span>
                           </div>
                           {open && items.map(card => <CardRow key={card.id} card={card} indent />)}
