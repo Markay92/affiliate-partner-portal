@@ -340,6 +340,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [syncingTracking, setSyncingTracking] = useState(false);
   const [importingCPA, setImportingCPA]     = useState(false);
   const [syncingCardRating, setSyncingCardRating] = useState(false);
+  const [refreshingData, setRefreshingData] = useState(false);
   const [actionsOpen, setActionsOpen]       = useState(false);
   const [messageTimeout, setMessageTimeout] = useState<NodeJS.Timeout | null>(null);
   const [trackingActivity, setTrackingActivity] = useState([]);
@@ -981,6 +982,32 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     finally { setSyncingTracking(false); }
   };
 
+  // Force-refresh the cached dashboard snapshots (tracking / invoices / cards)
+  // straight from Airtable. This is what affiliates see, so it updates their
+  // numbers and "Last updated" in one click.
+  const refreshAllData = async () => {
+    setMessage(''); setRefreshingData(true);
+    try {
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/refresh-data`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'X-Manager-Session': sessionToken,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+      const data = await response.json();
+      if (data.success) {
+        setMessageWithTimeout(`Data refreshed — ${data.tracking} tracking, ${data.invoices} invoices, ${data.cards} cards`, 8000);
+        await fetchTrackingActivity();
+      } else setMessageWithTimeout(data.error || 'Failed to refresh data', 8000);
+    } catch (error: any) { setMessageWithTimeout(`Refresh failed: ${error.message}`, 8000); }
+    finally { setRefreshingData(false); }
+  };
+
   const loginAsUser = async (userId: string, email: string) => {
     try {
       const response = await fetch(
@@ -1013,7 +1040,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         },
       );
       const data = await response.json();
-      if (data.success) { setTrackingActivity(data.activity || []); setLastUpdated(prev => ({ ...prev, tracking: Date.now() })); }
+      if (data.success) { setTrackingActivity(data.activity || []); setLastUpdated(prev => ({ ...prev, tracking: data.syncedAt || Date.now() })); }
       else setMessageWithTimeout(data.error || 'Failed to fetch tracking activity', 8000);
     } catch (error: any) { setMessageWithTimeout(`Failed to fetch tracking: ${error.message}`, 8000); }
   };
@@ -1299,7 +1326,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
             <div className="flex items-center gap-2 flex-1 justify-end">
               {/* Actions dropdown */}
               {(() => {
-                const anyBusy = syncing || syncingTracking || importingCPA;
+                const anyBusy = syncing || syncingTracking || importingCPA || syncingCardRating || refreshingData;
                 return (
                   <div className="relative">
                     <button
@@ -1321,6 +1348,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         <div className="fixed inset-0 z-10" onClick={() => setActionsOpen(false)} />
                         <div className="absolute right-0 mt-1 w-52 bg-white rounded-xl shadow-lg ring-1 ring-ink/10 z-20 overflow-hidden">
                           <div className="py-1">
+                            <button
+                              onClick={() => { setActionsOpen(false); refreshAllData(); }}
+                              disabled={refreshingData}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-ink hover:bg-surface disabled:opacity-50 transition-colors"
+                            >
+                              <RefreshCw className={`w-4 h-4 text-brand ${refreshingData ? 'animate-spin' : ''}`} />
+                              {refreshingData ? 'Refreshing…' : 'Refresh data'}
+                            </button>
+                            <div className="border-t border-hair my-1" />
                             <p className="px-3 py-1.5 text-xs font-semibold text-faint">Sync</p>
                             <button
                               onClick={() => { setActionsOpen(false); syncFromAirtable(); }}

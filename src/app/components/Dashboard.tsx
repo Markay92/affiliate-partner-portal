@@ -665,7 +665,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       setTracking(trackingData.tracking || []);
       setPayouts(payoutsData.payouts    || []);
       setInvoices(invoicesData.invoices || []);
-      setLastUpdated(Date.now());
+      // Snapshot sync time (when a manager last refreshed the data) — falls back
+      // to now only if the backend didn't report one.
+      setLastUpdated(trackingData.syncedAt || Date.now());
 
       const name = userData.user?.name || '';
       setFirstName(name.split(' ')[0] || '');
