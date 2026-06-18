@@ -1069,6 +1069,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     if (activeTab === 'invoices' && invoices.length === 0) {
       fetchInvoices();
     }
+    // Reset scroll on tab change so switching from a long tab to a short one
+    // doesn't leave the window parked in empty space below the content.
+    window.scrollTo({ top: 0 });
   }, [activeTab]);
 
   // Renders a single affiliate table row — defined as a closure so it
@@ -1643,50 +1646,50 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <CurrentYearBadge active={!trackingShowAllYears} />
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {/* Group by segmented control */}
-                    <div className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl p-1 text-xs font-medium">
-                      {([
-                        { value: 'none',      label: 'No Group' },
-                        { value: 'month',     label: 'Month' },
-                        { value: 'affiliate', label: 'Affiliate' },
-                      ] as { value: 'none'|'month'|'affiliate'; label: string }[]).map(({ value, label }) => (
-                        <button
-                          key={value}
-                          onClick={() => { setTrackingGroupBy(value); setTrackingCollapsed(new Set()); setTrackingVisible(PAGE_SIZE); }}
-                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all duration-150 cursor-pointer ${
-                            trackingGroupBy === value
-                              ? 'bg-blue-600 text-white shadow-sm'
-                              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-                          }`}
-                        >
-                          {value !== 'none' && <Layers className="w-3 h-3" />}
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    {trackingGroupBy !== 'none' && displayTrackingActivity.length > 0 && (() => {
-                      const allKeys = Array.from(new Set(displayTrackingActivity.map((a: any) =>
-                        trackingGroupBy === 'month'
-                          ? (() => { const d = parseLocalDate(a.clickDate); return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })()
-                          : (a.affiliateId || 'unknown')
-                      )));
-                      const allCollapsed = allKeys.every(k => trackingCollapsed.has(k));
-                      return (
-                        <button onClick={() => setTrackingCollapsed(allCollapsed ? new Set() : new Set(allKeys))}
-                          className="text-xs text-slate-500 hover:text-blue-600 transition-colors cursor-pointer">
-                          {allCollapsed ? 'Expand All' : 'Collapse All'}
-                        </button>
-                      );
-                    })()}
+                </div>
+
+                {/* Group by — pills matching the Status row, with an icon-only Refresh on the far right */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium text-slate-400 mr-1">Group by:</span>
+                  {([
+                    { value: 'none',      label: 'None' },
+                    { value: 'month',     label: 'Month' },
+                    { value: 'affiliate', label: 'Affiliate' },
+                  ] as { value: 'none'|'month'|'affiliate'; label: string }[]).map(({ value, label }) => (
                     <button
-                      onClick={() => { setTrackingVisible(PAGE_SIZE); fetchTrackingActivity(); }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-blue-300 hover:text-blue-600 transition-all duration-150 cursor-pointer"
+                      key={value}
+                      onClick={() => { setTrackingGroupBy(value); setTrackingCollapsed(new Set()); setTrackingVisible(PAGE_SIZE); }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
+                        trackingGroupBy === value
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'text-slate-600 bg-white border border-slate-200 hover:border-blue-300 hover:text-blue-600'
+                      }`}
                     >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      Refresh
+                      {label}
                     </button>
-                  </div>
+                  ))}
+                  {trackingGroupBy !== 'none' && displayTrackingActivity.length > 0 && (() => {
+                    const allKeys = Array.from(new Set(displayTrackingActivity.map((a: any) =>
+                      trackingGroupBy === 'month'
+                        ? (() => { const d = parseLocalDate(a.clickDate); return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })()
+                        : (a.affiliateId || 'unknown')
+                    )));
+                    const allCollapsed = allKeys.every(k => trackingCollapsed.has(k));
+                    return (
+                      <button onClick={() => setTrackingCollapsed(allCollapsed ? new Set() : new Set(allKeys))}
+                        className="text-xs text-slate-500 hover:text-blue-600 transition-colors cursor-pointer ml-1">
+                        {allCollapsed ? 'Expand All' : 'Collapse All'}
+                      </button>
+                    );
+                  })()}
+                  <button
+                    onClick={() => { setTrackingVisible(PAGE_SIZE); fetchTrackingActivity(); }}
+                    title="Refresh"
+                    aria-label="Refresh tracking activity"
+                    className="ml-auto flex items-center justify-center w-8 h-8 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded-lg transition-all duration-150 cursor-pointer"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
                 </div>
 
                 {/* Date filter */}
