@@ -33,6 +33,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import * as Tabs from '@radix-ui/react-tabs';
 import gsap from 'gsap';
 import { SwipeCarousel, Slide } from './ui/swipe-tabs';
+import { Spinner } from './ui/spinner';
 
 interface ManagerProps {
   sessionToken: string;
@@ -1278,7 +1279,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           <div className="ds-skel w-full h-[220px] rounded-2xl" />
         </div>
         <div className="fixed bottom-10 left-0 right-0 flex flex-col items-center gap-3">
-          <div className="w-7 h-7 rounded-full border-[2.5px] border-hair border-t-brand animate-spin" />
+          <Spinner className="w-9 h-9" />
           <span className="text-[13px] text-faint font-medium">Loading your dashboard…</span>
         </div>
       </div>
@@ -1335,7 +1336,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       className="flex items-center justify-center sm:justify-start gap-2 w-10 sm:w-auto px-0 sm:px-3 h-9 sm:bg-white sm:border sm:border-line text-subtle rounded-lg hover:bg-surface hover:text-ink transition-colors text-sm font-medium"
                     >
                       {anyBusy
-                        ? <RefreshCw className="w-4 h-4 sm:w-3.5 sm:h-3.5 animate-spin text-brand" />
+                        ? <Spinner className="w-4 h-4 sm:w-3.5 sm:h-3.5" strokeWidth={4} />
                         : <>
                             <MoreHorizontal className="w-5 h-5 sm:hidden" />
                             <RefreshCw className="hidden sm:block w-3.5 h-3.5" />
@@ -1353,7 +1354,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               disabled={refreshingData}
                               className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-ink hover:bg-surface disabled:opacity-50 transition-colors"
                             >
-                              <RefreshCw className={`w-4 h-4 text-brand ${refreshingData ? 'animate-spin' : ''}`} />
+                              {refreshingData ? <Spinner className="w-4 h-4 text-brand" strokeWidth={4} /> : <RefreshCw className="w-4 h-4 text-brand" />}
                               {refreshingData ? 'Refreshing…' : 'Refresh data'}
                             </button>
                             <div className="border-t border-hair my-1" />
@@ -1363,7 +1364,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               disabled={syncing}
                               className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-subtle hover:bg-surface disabled:opacity-50 transition-colors"
                             >
-                              <RefreshCw className={`w-4 h-4 text-brand ${syncing ? 'animate-spin' : ''}`} />
+                              {syncing ? <Spinner className="w-4 h-4 text-brand" strokeWidth={4} /> : <RefreshCw className="w-4 h-4 text-brand" />}
                               {syncing ? 'Syncing affiliates…' : 'Sync Affiliates'}
                             </button>
                             <button
@@ -1371,7 +1372,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               disabled={syncingTracking}
                               className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-subtle hover:bg-surface disabled:opacity-50 transition-colors"
                             >
-                              <RefreshCw className={`w-4 h-4 text-emerald-600 ${syncingTracking ? 'animate-spin' : ''}`} />
+                              {syncingTracking ? <Spinner className="w-4 h-4 text-emerald-600" strokeWidth={4} /> : <RefreshCw className="w-4 h-4 text-emerald-600" />}
                               {syncingTracking ? 'Syncing tracking…' : 'Sync Tracking'}
                             </button>
                             <button
@@ -1379,7 +1380,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               disabled={importingCPA}
                               className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-subtle hover:bg-surface disabled:opacity-50 transition-colors"
                             >
-                              <RefreshCw className={`w-4 h-4 text-orange-500 ${importingCPA ? 'animate-spin' : ''}`} />
+                              {importingCPA ? <Spinner className="w-4 h-4 text-orange-500" strokeWidth={4} /> : <RefreshCw className="w-4 h-4 text-orange-500" />}
                               {importingCPA ? 'Importing…' : 'Import CPA Rates'}
                             </button>
                             <button
@@ -1387,7 +1388,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               disabled={syncingCardRating}
                               className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-subtle hover:bg-surface disabled:opacity-50 transition-colors"
                             >
-                              <RefreshCw className={`w-4 h-4 text-brand ${syncingCardRating ? 'animate-spin' : ''}`} />
+                              {syncingCardRating ? <Spinner className="w-4 h-4 text-brand" strokeWidth={4} /> : <RefreshCw className="w-4 h-4 text-brand" />}
                               {syncingCardRating ? 'Syncing…' : 'Sync Card Rating API'}
                             </button>
                             {/* Mobile only: logout lives in this ellipsis menu */}
@@ -2159,10 +2160,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               </div>
 
               {cpaRatesLoading ? (
-                <div className="text-center py-16">
-                  <div className="w-12 h-12 bg-brand-soft rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <RefreshCw className="w-5 h-5 animate-spin text-brand" />
-                  </div>
+                <div className="flex flex-col items-center gap-4 py-16">
+                  <Spinner className="w-10 h-10" />
                   <p className="text-faint text-sm">Loading CPA rates from Airtable…</p>
                 </div>
               ) : cpaRates.length === 0 ? (
@@ -2395,17 +2394,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     onClick={() => { setInvoicesVisible(PAGE_SIZE); fetchInvoices(); }}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-subtle bg-white border border-hair rounded-lg hover:border-brand hover:text-brand transition-all duration-150 cursor-pointer"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${invoicesLoading ? 'animate-spin' : ''}`} />
+                    {invoicesLoading ? <Spinner className="w-3.5 h-3.5" strokeWidth={4} /> : <RefreshCw className="w-3.5 h-3.5" />}
                     Refresh
                   </button>
                 </div>
               </div>
 
               {invoicesLoading ? (
-                <div className="text-center py-16">
-                  <div className="w-12 h-12 bg-brand-soft rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <RefreshCw className="w-5 h-5 animate-spin text-brand" />
-                  </div>
+                <div className="flex flex-col items-center gap-4 py-16">
+                  <Spinner className="w-10 h-10" />
                   <p className="text-faint text-sm">Loading invoices…</p>
                 </div>
               ) : (() => {
@@ -2464,7 +2461,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                   <div className={`text-[16px] font-bold tabular-nums flex-shrink-0 ${inv.amount > 0 ? 'text-ink' : 'text-faint2'}`}>
                                     {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}` : '—'}
                                   </div>
-                                  {busy ? <RefreshCw className="w-4 h-4 animate-spin text-brand flex-shrink-0" /> : (
+                                  {busy ? <Spinner className="w-4 h-4 flex-shrink-0" strokeWidth={4} /> : (
                                     <div className="relative flex-shrink-0">
                                       <button onClick={() => setRowMenu(menuOpen ? null : inv.id)} title="Actions" className="w-8 h-8 rounded-lg flex items-center justify-center text-faint hover:text-ink hover:bg-hair2 transition-colors cursor-pointer"><MoreHorizontal className="w-[18px] h-[18px]" /></button>
                                       {menuOpen && (
@@ -2483,7 +2480,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                 {isOpen && (
                                   <div className="pl-7 pb-2 border-b border-hair2">
                                     {!trackingActivity.length ? (
-                                      <p className="text-xs text-faint py-3 flex items-center gap-2"><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Loading cards…</p>
+                                      <p className="text-xs text-faint py-3 flex items-center gap-2"><Spinner className="w-3.5 h-3.5" strokeWidth={4} /> Loading cards…</p>
                                     ) : cards.length === 0 ? (
                                       <p className="text-xs text-faint py-3">No approvals found for {inv.name} in {inv.month}.</p>
                                     ) : (

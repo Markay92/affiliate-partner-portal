@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { ManagerLogin } from '../ManagerLogin';
 import { Manager } from '../Manager';
+import { Spinner } from '../ui/spinner';
 
 interface ManagerRouteProps {
   requireAuth?: boolean;
@@ -61,8 +62,9 @@ export function ManagerRoute({ requireAuth }: ManagerRouteProps) {
 
   if (loading) {
     return (
-      <div className="size-full flex items-center justify-center">
-        <p className="text-gray-600">Loading...</p>
+      <div className="size-full flex flex-col items-center justify-center gap-4">
+        <Spinner className="w-10 h-10" />
+        <p className="text-faint text-sm">Loading…</p>
       </div>
     );
   }
