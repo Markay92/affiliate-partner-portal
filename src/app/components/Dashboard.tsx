@@ -199,6 +199,29 @@ function LastUpdated({ ts }: { ts?: number }) {
   );
 }
 
+/** Polished empty-state block — friendly icon badge, headline, subtext, optional CTA.
+   Used across the tabs so an empty Cards / Activity / Invoices view still feels designed. */
+function EmptyState({ icon: Icon, title, subtitle, action }: {
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  title: string;
+  subtitle: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center text-center px-6 py-16 sm:py-24 ds-rise">
+      <div className="relative mb-5">
+        <div className="absolute inset-0 -m-2.5 rounded-[22px] bg-brand-soft/70 blur-[3px]" aria-hidden />
+        <div className="relative w-[64px] h-[64px] rounded-[18px] bg-gradient-to-b from-white to-brand-soft ring-1 ring-hair flex items-center justify-center shadow-[0_6px_16px_-8px_rgba(10,132,255,0.4)]">
+          <Icon className="w-[26px] h-[26px] text-brand" strokeWidth={1.7} />
+        </div>
+      </div>
+      <h3 className="text-[17px] font-semibold text-ink tracking-[-0.015em] mb-1.5">{title}</h3>
+      <p className="text-[13.5px] text-faint leading-relaxed max-w-[320px]">{subtitle}</p>
+      {action && <div className="mt-5">{action}</div>}
+    </div>
+  );
+}
+
 /** Format a time string (ISO or HH:MM:SS) as "6:46 PM" */
 function formatTime(str: string | undefined): string {
   if (!str) return '';
@@ -1410,11 +1433,23 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               };
 
               if (displayCards.length === 0) {
-                return (
-                  <div className="py-14 text-center">
-                    <div className="text-base font-bold text-ink mb-1">No cards found</div>
-                    <div className="text-[13.5px] text-faint">{links.length === 0 ? 'No cards loaded yet — try refreshing.' : 'Try a different category or search.'}</div>
-                  </div>
+                return links.length === 0 ? (
+                  <EmptyState
+                    icon={CreditCard}
+                    title="No cards yet"
+                    subtitle="Your card catalogue lives here. Refresh to pull in the latest cards you can feature on your link."
+                    action={
+                      <button onClick={fetchData} className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full bg-brand text-white text-[13px] font-semibold hover:bg-brand-dark active:scale-95 transition-all shadow-sm cursor-pointer">
+                        <RefreshCw className="w-3.5 h-3.5" /> Refresh
+                      </button>
+                    }
+                  />
+                ) : (
+                  <EmptyState
+                    icon={Search}
+                    title="No cards match"
+                    subtitle="Nothing matches that category or search — try clearing your filters."
+                  />
                 );
               }
 
@@ -1599,24 +1634,24 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
           <div className="pt-5">
             {displayTracking.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="w-14 h-14 bg-surface rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-hair2">
-                  <TrendingUp className="w-7 h-7 text-faint2" />
-                </div>
-                <p className="text-faint text-sm font-medium mb-4">
-                  {tracking.length === 0
-                    ? 'No tracking activity found'
-                    : 'No activity matches the selected date range.'}
-                </p>
-                {tracking.length === 0 && (
-                  <button
-                    onClick={fetchData}
-                    className="px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand-dark active:scale-95 transition-all duration-150 text-sm font-medium shadow-sm cursor-pointer"
-                  >
-                    Refresh Data
-                  </button>
-                )}
-              </div>
+              tracking.length === 0 ? (
+                <EmptyState
+                  icon={Activity}
+                  title="No activity yet"
+                  subtitle="Every click, application, and approval from your link will land here the moment it happens. Share your link to get the first one."
+                  action={
+                    <button onClick={fetchData} className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full bg-brand text-white text-[13px] font-semibold hover:bg-brand-dark active:scale-95 transition-all shadow-sm cursor-pointer">
+                      <RefreshCw className="w-3.5 h-3.5" /> Refresh
+                    </button>
+                  }
+                />
+              ) : (
+                <EmptyState
+                  icon={Activity}
+                  title="No activity in this range"
+                  subtitle="Nothing matches the selected dates or status — try widening the range or switching to All Time."
+                />
+              )
             ) : (
               <>
                 <div>
@@ -1689,12 +1724,16 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           {/* ── Invoices Tab ── */}
           <Slide tabKey="invoices" className="pt-6">
             {invoices.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="w-14 h-14 bg-surface rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-hair2">
-                  <FileText className="w-7 h-7 text-faint2" />
-                </div>
-                <p className="text-faint text-sm font-medium">No invoices found for your account.</p>
-              </div>
+              <EmptyState
+                icon={FileText}
+                title="No invoices yet"
+                subtitle="Your monthly payout statements will appear here once your referrals start getting approved. Feature some cards on your link to get things moving."
+                action={
+                  <button onClick={() => setActiveTab('cards')} className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full bg-brand text-white text-[13px] font-semibold hover:bg-brand-dark active:scale-95 transition-all shadow-sm cursor-pointer">
+                    <CreditCard className="w-3.5 h-3.5" /> Browse cards
+                  </button>
+                }
+              />
             ) : (
               <>
               <div>
