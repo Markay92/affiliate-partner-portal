@@ -1313,7 +1313,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
         {/* Tab panels — the tab nav lives in the header. Real swipe carousel on mobile. */}
         <SwipeCarousel
-          order={['cards', 'create', 'activity', 'invoices', 'profile']}
+          order={['cards', 'activity', 'invoices', 'profile']}
           active={activeTab}
           onChange={setActiveTab}
           className="mt-2"
