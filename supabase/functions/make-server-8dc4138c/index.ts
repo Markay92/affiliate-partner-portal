@@ -459,8 +459,8 @@ app.get("/make-server-8dc4138c/links", async (c) => {
     let records: any[] = [];
     if (airtableToken) {
       try {
-        records = await fetchAllAirtableRecords(airtableToken, baseId, tableId, params);
-        console.log(`Fetched ${records.length} cards from Airtable CPA Changes`);
+        records = await getCachedCardList(airtableToken);
+        console.log(`Loaded ${records.length} cards (cached snapshot)`);
       } catch (err: any) {
         console.log('Airtable links fetch error:', err.message);
       }
@@ -644,14 +644,9 @@ app.get("/make-server-8dc4138c/tracking", async (c) => {
     // Fetch ALL records from the full table (no view/formula filter, since
     // `affiliate-id` is an Airtable lookup field and can't be matched with
     // filterByFormula), then filter to this affiliate's rows in JS.
-    console.log(`Fetching all tracking records and filtering for affiliate ${affiliateId}`);
+    console.log(`Fetching tracking records (cached snapshot) and filtering for affiliate ${affiliateId}`);
 
-    const records = await fetchAllAirtableRecords(
-      airtableToken,
-      baseId,
-      encodeURIComponent(tableName),
-      'sort[0][field]=Click%20Date&sort[0][direction]=desc',
-    );
+    const records = await getCachedTracking(airtableToken);
 
     // A row's Var2 (the `affiliate-id` field) may be this affiliate's code
     // (Affiliate-ID) OR their ezrxref- link value — accept either.
@@ -688,7 +683,7 @@ app.get("/make-server-8dc4138c/tracking", async (c) => {
       state: record.fields['State'] || ''
     }));
 
-    return c.json({ tracking });
+    return c.json({ tracking, syncedAt: await kv.get(SYNCED_AT_KEY) });
   } catch (error) {
     console.log(`Get tracking error: ${error.message}`);
     return c.json({ error: error.message }, 500);
@@ -971,6 +966,81 @@ async function fetchAllInvoices(airtableToken: string): Promise<any[]> {
   return fetchAllAirtableRecords(airtableToken, INVOICES_BASE, INVOICES_TABLE, `${fields}&${sort}&returnFieldsByFieldId=true`);
 }
 
+// ── Dashboard snapshot cache ─────────────────────────────────────────────────
+// The affiliate-facing datasets (tracking, invoices, card list) are stored in KV
+// so ordinary page-loads serve from the snapshot instead of hitting Airtable
+// every time. The snapshot refreshes only when a manager runs a sync / "Refresh
+// data" (or after the long TTL as a cold-start safety net). Each write stamps
+// `cache:synced_at`, which the dashboard surfaces as "Last updated".
+const SNAPSHOT_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days — effectively manual-refresh
+const SYNCED_AT_KEY = 'cache:synced_at';
+const SNAPSHOT_KEYS = ['snap:tracking', 'snap:invoices', 'snap:cards'];
+
+async function readSnapshot(key: string): Promise<any[] | null> {
+  const cached = await kv.get(`snap:${key}`);
+  if (cached && Array.isArray(cached.records) && cached.fetchedAt &&
+      Date.now() - cached.fetchedAt < SNAPSHOT_TTL_MS) {
+    return cached.records;
+  }
+  return null;
+}
+
+async function writeSnapshot(key: string, records: any[]): Promise<void> {
+  const now = Date.now();
+  await kv.set(`snap:${key}`, { records, fetchedAt: now });
+  await kv.set(SYNCED_AT_KEY, now);
+}
+
+// Invalidate every dashboard snapshot and stamp the refresh time. Reads then
+// lazily repopulate from Airtable on next access.
+async function flushSnapshots(): Promise<void> {
+  await Promise.all(SNAPSHOT_KEYS.map(k => kv.del(k)));
+  await kv.set(SYNCED_AT_KEY, Date.now());
+}
+
+// Tracking ("API Output") — shared by the affiliate /tracking feed, the affiliate
+// KPIs, and the manager activity table.
+async function getCachedTracking(token: string, force = false): Promise<any[]> {
+  if (!force) { const hit = await readSnapshot('tracking'); if (hit) return hit; }
+  const records = await fetchAllAirtableRecords(
+    token, 'apphsOm1RQvOeiAEl', encodeURIComponent('API Output'),
+    'sort[0][field]=Click%20Date&sort[0][direction]=desc',
+  );
+  await writeSnapshot('tracking', records);
+  return records;
+}
+
+// Affiliate invoices.
+async function getCachedInvoiceRecords(token: string, force = false): Promise<any[]> {
+  if (!force) { const hit = await readSnapshot('invoices'); if (hit) return hit; }
+  const records = await fetchAllInvoices(token);
+  await writeSnapshot('invoices', records);
+  return records;
+}
+
+// Card list for the Cards tab (CPA Changes table, with slug for link building).
+async function getCachedCardList(token: string, force = false): Promise<any[]> {
+  if (!force) { const hit = await readSnapshot('cards'); if (hit) return hit; }
+  const params = [
+    'fields[]=Card+Name', 'fields[]=Issuer', 'fields[]=Net+CPA+60%25', 'fields[]=slug',
+    'sort[0][field]=Card+Name', 'sort[0][direction]=asc',
+  ].join('&');
+  const records = await fetchAllAirtableRecords(token, 'appJq70k9nl9MK2zk', 'tbl31rWYAh5hb02Tx', params);
+  await writeSnapshot('cards', records);
+  return records;
+}
+
+// Force-refresh every dashboard snapshot (used by the "Refresh data" action).
+async function refreshAllSnapshots(token: string): Promise<{ tracking: number; invoices: number; cards: number; syncedAt: number }> {
+  const [tracking, invoices, cards] = await Promise.all([
+    getCachedTracking(token, true),
+    getCachedInvoiceRecords(token, true),
+    getCachedCardList(token, true),
+  ]);
+  const syncedAt = await kv.get(SYNCED_AT_KEY);
+  return { tracking: tracking.length, invoices: invoices.length, cards: cards.length, syncedAt };
+}
+
 // GET /invoices — affiliate's own invoices
 app.get("/make-server-8dc4138c/invoices", async (c) => {
   try {
@@ -985,7 +1055,7 @@ app.get("/make-server-8dc4138c/invoices", async (c) => {
     const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
     if (!airtableToken) return c.json({ invoices: [], error: 'Airtable not configured' });
 
-    const records  = await fetchAllInvoices(airtableToken);
+    const records  = await getCachedInvoiceRecords(airtableToken);
     const invoices = records
       .map(parseInvoice)
       .filter(inv => inv.email.toLowerCase().trim() === userEmail);
@@ -1008,7 +1078,7 @@ app.get("/make-server-8dc4138c/manager/invoices", async (c) => {
     const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
     if (!airtableToken) return c.json({ invoices: [], error: 'Airtable not configured' });
 
-    const records  = await fetchAllInvoices(airtableToken);
+    const records  = await getCachedInvoiceRecords(airtableToken);
     const invoices = records.map(parseInvoice);
 
     return c.json({ invoices, total: invoices.length });
@@ -1450,6 +1520,10 @@ app.post("/make-server-8dc4138c/manager/sync-tracking", async (c) => {
       updated++;
     }
 
+    // Refresh what affiliates see: invalidate dashboard snapshots + stamp the
+    // sync time so "Last updated" reflects this sync.
+    await flushSnapshots();
+
     return c.json({
       success: true,
       recordsProcessed: records.length,
@@ -1459,6 +1533,26 @@ app.post("/make-server-8dc4138c/manager/sync-tracking", async (c) => {
   } catch (error) {
     console.log(`Tracking sync error: ${error.message}`);
     console.log('Error stack:', error.stack);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Manager: Refresh all dashboard data — force-repopulate every snapshot from
+// Airtable and stamp the sync time. Backs the "Refresh data" button.
+app.post("/make-server-8dc4138c/manager/refresh-data", async (c) => {
+  try {
+    const sessionToken = c.req.header('X-Manager-Session');
+    const session = await kv.get(`manager_session:${sessionToken}`);
+    if (!session) return c.json({ error: 'Unauthorized' }, 401);
+
+    const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
+    if (!airtableToken) return c.json({ error: 'Airtable API key not configured' }, 500);
+
+    const result = await refreshAllSnapshots(airtableToken);
+    console.log(`Refresh data: tracking=${result.tracking} invoices=${result.invoices} cards=${result.cards}`);
+    return c.json({ success: true, ...result });
+  } catch (error) {
+    console.log(`Refresh data error: ${error.message}`);
     return c.json({ error: error.message }, 500);
   }
 });
@@ -1489,7 +1583,7 @@ app.get("/make-server-8dc4138c/manager/tracking-activity", async (c) => {
 
     let records: any[];
     try {
-      records = await fetchAllAirtableRecords(airtableToken, baseId, encodeURIComponent(tableName), '');
+      records = await getCachedTracking(airtableToken);
     } catch (err: any) {
       console.log('Airtable fetch error:', err.message);
       return c.json({ error: `Airtable API error: ${err.message}` }, 500);
@@ -1574,7 +1668,8 @@ app.get("/make-server-8dc4138c/manager/tracking-activity", async (c) => {
     return c.json({
       success: true,
       activity,
-      total: activity.length
+      total: activity.length,
+      syncedAt: await kv.get(SYNCED_AT_KEY)
     });
   } catch (error) {
     console.log(`Fetch tracking activity error: ${error.message}`);
@@ -2440,6 +2535,8 @@ app.post("/make-server-8dc4138c/manager/import-cpa-data", async (c) => {
 
     console.log(`Import done: ${cardsUpdated} cards updated across ${usersUpdated} users`);
 
+    await flushSnapshots();
+
     return c.json({
       success: true,
       stats: { uniqueCards: cardCommissions.size, usersUpdated, cardsUpdated },
@@ -2475,6 +2572,8 @@ app.post("/make-server-8dc4138c/manager/sync-card-rating-api", async (c) => {
       const errText = await probeRes.text();
       return c.json({ error: `Airtable unreachable: ${probeRes.status} ${errText.substring(0, 100)}` }, 502);
     }
+
+    await flushSnapshots();
 
     return c.json({ success: true, message: 'Card Rating API cache cleared — data will refresh on next load.' });
   } catch (error: any) {
