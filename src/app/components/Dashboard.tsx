@@ -407,9 +407,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
   // Pagination
   const [cardsVisible,    setCardsVisible]    = useState(PAGE_SIZE);
+  const [cardsPageSize,   setCardsPageSize]   = useState<number>(PAGE_SIZE);
   const [activityVisible, setActivityVisible] = useState<number>(Infinity);
   const [activityPageSize, setActivityPageSize] = useState<number>(Infinity); // default "All"; numeric limits enable only when enough records exist
   const [invoicesVisible, setInvoicesVisible] = useState(PAGE_SIZE);
+  const [invoicesPageSize, setInvoicesPageSize] = useState<number>(PAGE_SIZE);
 
   // Stats grid comparison period
   type StatPeriod = 'today' | 'week' | 'month' | 'lm' | 'year' | 'custom';
@@ -1379,15 +1381,45 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               return (
                 <div>
                   {pagedCards.map(card => <CardRow key={card.id} card={card} />)}
-                  {cardsVisible < displayCards.length && (
-                    <div className="pt-5 text-center">
-                      <button onClick={() => setCardsVisible(n => n + PAGE_SIZE)}
-                        className="px-4 py-2 text-[13px] font-semibold text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors cursor-pointer">
-                        Show {Math.min(PAGE_SIZE, displayCards.length - cardsVisible)} more
-                        <span className="text-faint ml-1">({displayCards.length - cardsVisible} remaining)</span>
+                  {/* Page-size selector — bottom of the list. Numeric options enable only when enough cards exist; otherwise All. */}
+                  <div className="flex items-center justify-between flex-wrap gap-2 pt-4 mt-2 border-t border-hair">
+                    <p className="text-xs text-faint">
+                      Showing {Math.min(cardsVisible, displayCards.length)} of {displayCards.length} cards
+                    </p>
+                    <div className="flex items-center gap-1.5 text-xs text-faint">
+                      <span>Show</span>
+                      {[25, 50, 100].map(n => {
+                        const disabled = displayCards.length <= n;
+                        const active = !disabled && cardsPageSize === n;
+                        return (
+                          <button
+                            key={n}
+                            disabled={disabled}
+                            onClick={() => { setCardsPageSize(n); setCardsVisible(n); }}
+                            className={`px-2 py-0.5 rounded-md border transition-colors duration-150 ${
+                              disabled
+                                ? 'border-hair text-faint2/50 cursor-not-allowed'
+                                : active
+                                  ? 'border-brand/30 bg-brand-soft text-brand font-medium cursor-pointer'
+                                  : 'border-hair text-faint hover:bg-surface cursor-pointer'
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        );
+                      })}
+                      <button
+                        onClick={() => { setCardsPageSize(Infinity); setCardsVisible(Infinity); }}
+                        className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
+                          (cardsPageSize === Infinity || cardsPageSize >= displayCards.length)
+                            ? 'border-brand/30 bg-brand-soft text-brand font-medium'
+                            : 'border-hair text-faint hover:bg-surface'
+                        }`}
+                      >
+                        All
                       </button>
                     </div>
-                  )}
+                  </div>
                 </div>
               );
             })()}
@@ -1540,18 +1572,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     );
                   })}
                 </div>
-                {activityVisible < displayTracking.length && (
-                  <div className="pt-4 text-center">
-                    <button
-                      onClick={() => setActivityVisible(n => n + activityPageSize)}
-                      className="px-4 py-2 text-xs font-medium text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors"
-                    >
-                      Show {Math.min(activityPageSize, displayTracking.length - activityVisible)} more
-                      <span className="text-faint ml-1">({displayTracking.length - activityVisible} remaining)</span>
-                    </button>
-                  </div>
-                )}
-
                 {/* Page-size selector — bottom of the list. Numeric options enable only when enough records exist; otherwise All. */}
                 <div className="flex items-center justify-between flex-wrap gap-2 pt-4 mt-2 border-t border-hair2">
                   <p className="text-xs text-faint">
@@ -1607,11 +1627,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
             ) : (
               <>
-              <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas py-3 border-b border-hair">
-                <p className="text-xs text-faint">
-                  Showing {Math.min(invoicesVisible, invoices.length)} of {invoices.length} invoices
-                </p>
-              </div>
               <div>
                 {invoices.slice(0, invoicesVisible).map(inv => {
                   const isExpanded = expandedInvoices.has(inv.id);
@@ -1667,17 +1682,45 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   );
                 })}
               </div>
-              {invoicesVisible < invoices.length && (
-                <div className="pt-4 text-center">
+              {/* Page-size selector — bottom of the list. Numeric options enable only when enough invoices exist; otherwise All. */}
+              <div className="flex items-center justify-between flex-wrap gap-2 pt-4 mt-2 border-t border-hair">
+                <p className="text-xs text-faint">
+                  Showing {Math.min(invoicesVisible, invoices.length)} of {invoices.length} invoices
+                </p>
+                <div className="flex items-center gap-1.5 text-xs text-faint">
+                  <span>Show</span>
+                  {[25, 50, 100].map(n => {
+                    const disabled = invoices.length <= n;
+                    const active = !disabled && invoicesPageSize === n;
+                    return (
+                      <button
+                        key={n}
+                        disabled={disabled}
+                        onClick={() => { setInvoicesPageSize(n); setInvoicesVisible(n); }}
+                        className={`px-2 py-0.5 rounded-md border transition-colors duration-150 ${
+                          disabled
+                            ? 'border-hair text-faint2/50 cursor-not-allowed'
+                            : active
+                              ? 'border-brand/30 bg-brand-soft text-brand font-medium cursor-pointer'
+                              : 'border-hair text-faint hover:bg-surface cursor-pointer'
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    );
+                  })}
                   <button
-                    onClick={() => setInvoicesVisible(n => n + PAGE_SIZE)}
-                    className="px-4 py-2 text-xs font-medium text-brand border border-brand/30 rounded-lg hover:bg-brand-soft transition-colors"
+                    onClick={() => { setInvoicesPageSize(Infinity); setInvoicesVisible(Infinity); }}
+                    className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
+                      (invoicesPageSize === Infinity || invoicesPageSize >= invoices.length)
+                        ? 'border-brand/30 bg-brand-soft text-brand font-medium'
+                        : 'border-hair text-faint hover:bg-surface'
+                    }`}
                   >
-                    Show {Math.min(PAGE_SIZE, invoices.length - invoicesVisible)} more
-                    <span className="text-faint ml-1">({invoices.length - invoicesVisible} remaining)</span>
+                    All
                   </button>
                 </div>
-              )}
+              </div>
               </>
             )}
           </Slide>
