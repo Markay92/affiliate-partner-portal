@@ -59,15 +59,15 @@ function LoadMoreYears({
   return !showAll ? (
     <button
       onClick={() => setShowAll(true)}
-      className="px-4 py-2 text-xs font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors duration-150 cursor-pointer"
+      className="px-4 py-2 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors duration-150 cursor-pointer"
     >
       Load {hiddenCount} older record{hiddenCount === 1 ? '' : 's'}
-      <span className="text-slate-400 ml-1">(prior years)</span>
+      <span className="text-slate-400 dark:text-slate-500 ml-1">(prior years)</span>
     </button>
   ) : (
     <button
       onClick={() => setShowAll(false)}
-      className="px-4 py-2 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors duration-150 cursor-pointer"
+      className="px-4 py-2 text-xs font-medium text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/10 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors duration-150 cursor-pointer"
     >
       Show {CURRENT_YEAR} only
     </button>
@@ -78,7 +78,7 @@ function LoadMoreYears({
 function CurrentYearBadge({ active }: { active: boolean }) {
   if (!active) return null;
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 ring-1 ring-amber-200/70 ml-2">
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 ring-1 ring-amber-200/70 ml-2">
       {CURRENT_YEAR} only
     </span>
   );
@@ -254,11 +254,11 @@ function FilterBar({
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <span className="text-xs font-medium text-slate-400 flex-shrink-0">Period:</span>
+        <span className="text-xs font-medium text-slate-400 dark:text-slate-500 flex-shrink-0">Period:</span>
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value as DateFilter)}
-          className="sm:hidden flex-1 min-w-0 text-xs font-medium bg-slate-100 border border-transparent rounded-lg px-2.5 py-1.5 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+          className="sm:hidden flex-1 min-w-0 text-xs font-medium bg-slate-100 dark:bg-white/10 border border-transparent rounded-lg px-2.5 py-1.5 text-slate-600 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
         >
           {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
             <option key={f} value={f}>{DATE_LABELS[f]}</option>
@@ -271,7 +271,7 @@ function FilterBar({
                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
                   filter === f
                     ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
+                    : 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15'
                 }`}>
                 {DATE_LABELS[f]}
               </button>
@@ -282,10 +282,10 @@ function FilterBar({
       {filter === 'custom' && (
         <div className="flex flex-wrap items-center gap-2">
           <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
-            className="flex-1 min-w-[130px] px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-shadow" />
-          <span className="text-slate-400 text-xs">to</span>
+            className="flex-1 min-w-[130px] px-2.5 py-2 text-xs border border-slate-200 dark:border-white/10 dark:bg-[#1a1c23] dark:text-white dark:placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-shadow" />
+          <span className="text-slate-400 dark:text-slate-500 text-xs">to</span>
           <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)}
-            className="flex-1 min-w-[130px] px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-shadow" />
+            className="flex-1 min-w-[130px] px-2.5 py-2 text-xs border border-slate-200 dark:border-white/10 dark:bg-[#1a1c23] dark:text-white dark:placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-shadow" />
         </div>
       )}
     </div>
@@ -303,11 +303,11 @@ function SortTh({
       ? sort.dir === 'asc'
         ? <ChevronUp className="w-3 h-3 flex-shrink-0" />
         : <ChevronDown className="w-3 h-3 flex-shrink-0" />
-      : <ChevronsUpDown className="w-3 h-3 flex-shrink-0 text-slate-300" />;
+      : <ChevronsUpDown className="w-3 h-3 flex-shrink-0 text-slate-300 dark:text-slate-600" />;
   return (
     <th
       onClick={() => onSort(field)}
-      className={`py-3.5 px-6 text-slate-500 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-slate-50 transition-colors text-${align}`}
+      className={`py-3.5 px-6 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-${align}`}
     >
       <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''}`}>
         {label}{icon}
@@ -327,11 +327,11 @@ function SortThSm({
       ? sort.dir === 'asc'
         ? <ChevronUp className="w-3 h-3 flex-shrink-0" />
         : <ChevronDown className="w-3 h-3 flex-shrink-0" />
-      : <ChevronsUpDown className="w-3 h-3 flex-shrink-0 text-slate-300" />;
+      : <ChevronsUpDown className="w-3 h-3 flex-shrink-0 text-slate-300 dark:text-slate-600" />;
   return (
     <th
       onClick={() => onSort(field)}
-      className={`py-3 px-4 text-slate-500 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-slate-50 transition-colors text-${align}`}
+      className={`py-3 px-4 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-${align}`}
     >
       <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''}`}>
         {label}{icon}
@@ -660,17 +660,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const PctBadge = ({ pct, compact = false }: { pct: number | null; compact?: boolean }) => {
     if (pct === null) {
       return compact
-        ? <span className="text-slate-300 text-xs">—</span>
-        : <span className="text-slate-400 text-xs">No prior-period data</span>;
+        ? <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
+        : <span className="text-slate-400 dark:text-slate-500 text-xs">No prior-period data</span>;
     }
     if (pct === 0) {
       return compact
-        ? <span className="text-slate-400 text-xs font-medium">No change</span>
-        : <span className="text-slate-400 text-xs flex items-center gap-1">— No change <span className="font-normal">{_periodLabel}</span></span>;
+        ? <span className="text-slate-400 dark:text-slate-500 text-xs font-medium">No change</span>
+        : <span className="text-slate-400 dark:text-slate-500 text-xs flex items-center gap-1">— No change <span className="font-normal">{_periodLabel}</span></span>;
     }
     const up = pct > 0;
     return (
-      <div className={`flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full ${up ? 'text-emerald-700 bg-emerald-50' : 'text-red-600 bg-red-50'}`}>
+      <div className={`flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full ${up ? 'text-emerald-700 dark:text-green-400 bg-emerald-50 dark:bg-green-900/30' : 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30'}`}>
         <TrendingUp className={`w-3 h-3 ${!up ? 'rotate-180' : ''}`} />
         <span>{up ? '+' : ''}{pct}%{!compact ? ` ${_periodLabel}` : ''}</span>
       </div>
@@ -1080,56 +1080,56 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     const isActive = (user.stats?.totalClicks || 0) > 0 || (user.stats?.totalCommissions || 0) > 0;
     const initials = (user.name || user.email || '?').split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
     return (
-    <tr key={user.id} className="border-b border-slate-50 hover:bg-blue-50/40 transition-colors duration-150">
+    <tr key={user.id} className="border-b border-slate-50 dark:border-white/8 hover:bg-blue-50/40 dark:hover:bg-white/5 transition-colors duration-150">
       <td className="py-4 px-6">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold flex items-center justify-center flex-shrink-0">{initials}</div>
+          <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold flex items-center justify-center flex-shrink-0">{initials}</div>
           <div className="min-w-0">
-            <div className="font-medium text-slate-900 flex items-center gap-1.5">
+            <div className="font-medium text-slate-900 dark:text-white flex items-center gap-1.5">
               <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-gray-300'}`}></span>
               {user.name || 'N/A'}
             </div>
-            <div className="text-xs text-slate-500 mt-0.5">{user.email}</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{user.email}</div>
           </div>
         </div>
       </td>
       <td className="py-4 px-6">
-        <div className="text-xs text-slate-500 space-y-0.5">
+        <div className="text-xs text-slate-500 dark:text-slate-400 space-y-0.5">
           {user.phone && <div>{user.phone}</div>}
           {(user.city || user.state) && <div>{[user.city, user.state].filter(Boolean).join(', ')}</div>}
-          {!user.phone && !user.city && !user.state && <span className="text-slate-300">—</span>}
+          {!user.phone && !user.city && !user.state && <span className="text-slate-300 dark:text-slate-600">—</span>}
         </div>
       </td>
       <td className="py-4 px-6">
-        <code className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded-lg font-mono">{user.affiliateId || 'N/A'}</code>
+        <code className="text-xs bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200 px-2 py-1 rounded-lg font-mono">{user.affiliateId || 'N/A'}</code>
       </td>
       <td className="py-4 px-6 text-right">
         {editingCommission === user.id ? (
           <div className="flex items-center justify-end gap-2">
             <input type="number" value={commissionValue} onChange={e => setCommissionValue(e.target.value)}
-              className="w-20 px-2 py-1 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400" min="0" max="100" />
-            <button onClick={() => updateCommission(user.id, parseInt(commissionValue))} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"><Save className="w-4 h-4" /></button>
-            <button onClick={() => setEditingCommission(null)} className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+              className="w-20 px-2 py-1 border border-slate-200 dark:border-white/10 dark:bg-[#1a1c23] dark:text-white dark:placeholder-slate-500 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400" min="0" max="100" />
+            <button onClick={() => updateCommission(user.id, parseInt(commissionValue))} className="p-1.5 text-emerald-600 dark:text-green-400 hover:bg-emerald-50 dark:hover:bg-white/5 rounded-lg transition-colors"><Save className="w-4 h-4" /></button>
+            <button onClick={() => setEditingCommission(null)} className="p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
           </div>
         ) : (
           <div className="flex items-center justify-end gap-2">
-            <span className="text-sm font-medium text-slate-700">{user.commissionRate || 100}%</span>
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{user.commissionRate || 100}%</span>
             <button onClick={() => { setEditingCommission(user.id); setCommissionValue((user.commissionRate || 100).toString()); }}
-              className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"><Edit className="w-4 h-4" /></button>
+              className="p-1.5 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors"><Edit className="w-4 h-4" /></button>
           </div>
         )}
       </td>
-      <td className="py-4 px-6 text-right text-sm text-slate-700">{(user.stats?.totalClicks || 0).toLocaleString()}</td>
-      <td className="py-4 px-6 text-right text-sm text-slate-700">{(user.stats?.totalConversions || 0).toLocaleString()}</td>
-      <td className="py-4 px-6 text-right text-sm font-semibold text-slate-900">${Math.round(user.stats?.totalCommissions || 0).toLocaleString()}</td>
-      <td className="py-4 px-6 text-right text-xs text-slate-500">{formatDate(user.createdAt)}</td>
+      <td className="py-4 px-6 text-right text-sm text-slate-700 dark:text-slate-200">{(user.stats?.totalClicks || 0).toLocaleString()}</td>
+      <td className="py-4 px-6 text-right text-sm text-slate-700 dark:text-slate-200">{(user.stats?.totalConversions || 0).toLocaleString()}</td>
+      <td className="py-4 px-6 text-right text-sm font-semibold text-slate-900 dark:text-white">${Math.round(user.stats?.totalCommissions || 0).toLocaleString()}</td>
+      <td className="py-4 px-6 text-right text-xs text-slate-500 dark:text-slate-400">{formatDate(user.createdAt)}</td>
       <td className="py-4 px-6">
         <div className="flex items-center justify-end gap-1">
-          <button onClick={() => loginAsUser(user.id, user.email)} className="text-blue-600 text-sm hover:underline mr-1" title="Login as this affiliate">Log in as</button>
+          <button onClick={() => loginAsUser(user.id, user.email)} className="text-blue-600 dark:text-blue-400 text-sm hover:underline mr-1" title="Login as this affiliate">Log in as</button>
           <button onClick={() => { setSelectedUser(user); setEditName(user.name||''); setEditEmail(user.email||''); setEditPhone(user.phone||''); setEditAddress(user.address||''); setEditCity(user.city||''); setEditState(user.state||''); setEditZip(user.zip||''); setEditCountry(user.country||''); setEditEzrxRef(user.ezrxRef||''); setShowEditModal(true); }}
-            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit affiliate"><Edit className="w-4 h-4" /></button>
-          <button onClick={() => { setSelectedUser(user); setShowResetModal(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Reset password"><Key className="w-4 h-4" /></button>
-          <button onClick={() => deleteUser(user.id, user.email)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete affiliate"><Trash2 className="w-4 h-4" /></button>
+            className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-white/5 rounded-lg transition-colors" title="Edit affiliate"><Edit className="w-4 h-4" /></button>
+          <button onClick={() => { setSelectedUser(user); setShowResetModal(true); }} className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-white/5 rounded-lg transition-colors" title="Reset password"><Key className="w-4 h-4" /></button>
+          <button onClick={() => deleteUser(user.id, user.email)} className="p-2 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-white/5 rounded-lg transition-colors" title="Delete affiliate"><Trash2 className="w-4 h-4" /></button>
         </div>
       </td>
     </tr>
@@ -1138,29 +1138,29 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 dark:bg-[#0d0f14] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
+          <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <RefreshCw className="w-5 h-5 animate-spin text-blue-600 dark:text-blue-400" />
           </div>
-          <p className="text-slate-500 text-sm">Loading manager dashboard…</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">Loading manager dashboard…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0d0f14]">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-white border-b border-gray-100">
+      <header className="sticky top-0 z-10 bg-white dark:bg-[#0d0f14] border-b border-gray-100 dark:border-white/8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-blue-600">
                 <path d="M13 2L4.5 13.5H11L10 22L20.5 9.5H14L13 2Z" fill="currentColor"/>
               </svg>
-              <span className="text-lg font-semibold text-gray-900">Affiliate Portal</span>
-              <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded-full ml-2">MANAGER</span>
+              <span className="text-lg font-semibold text-gray-900 dark:text-white">Affiliate Portal</span>
+              <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-semibold px-2 py-0.5 rounded-full ml-2">MANAGER</span>
             </div>
             <div className="flex items-center gap-2">
               {/* Actions dropdown */}
@@ -1170,7 +1170,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   <div className="relative">
                     <button
                       onClick={() => setActionsOpen(o => !o)}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors text-sm font-medium"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-[#151820] border border-gray-200 dark:border-white/10 text-gray-600 dark:text-slate-300 rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white transition-colors text-sm font-medium"
                     >
                       {anyBusy
                         ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-400" />
@@ -1181,13 +1181,13 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     {actionsOpen && (
                       <>
                         <div className="fixed inset-0 z-10" onClick={() => setActionsOpen(false)} />
-                        <div className="absolute right-0 mt-1 w-52 bg-white rounded-xl shadow-lg ring-1 ring-slate-900/10 z-20 overflow-hidden">
+                        <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-[#151820] rounded-xl shadow-lg dark:shadow-none ring-1 ring-slate-900/10 dark:ring-white/10 z-20 overflow-hidden">
                           <div className="py-1">
-                            <p className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Sync</p>
+                            <p className="px-3 py-1.5 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Sync</p>
                             <button
                               onClick={() => { setActionsOpen(false); syncFromAirtable(); }}
                               disabled={syncing}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 disabled:opacity-50 transition-colors"
                             >
                               <RefreshCw className={`w-4 h-4 text-violet-600 ${syncing ? 'animate-spin' : ''}`} />
                               {syncing ? 'Syncing affiliates…' : 'Sync Affiliates'}
@@ -1195,7 +1195,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             <button
                               onClick={() => { setActionsOpen(false); syncTrackingFromAirtable(); }}
                               disabled={syncingTracking}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 disabled:opacity-50 transition-colors"
                             >
                               <RefreshCw className={`w-4 h-4 text-emerald-600 ${syncingTracking ? 'animate-spin' : ''}`} />
                               {syncingTracking ? 'Syncing tracking…' : 'Sync Tracking'}
@@ -1203,7 +1203,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             <button
                               onClick={() => { setActionsOpen(false); importCPAData(); }}
                               disabled={importingCPA}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 disabled:opacity-50 transition-colors"
                             >
                               <RefreshCw className={`w-4 h-4 text-orange-500 ${importingCPA ? 'animate-spin' : ''}`} />
                               {importingCPA ? 'Importing…' : 'Import CPA Rates'}
@@ -1215,12 +1215,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   </div>
                 );
               })()}
-              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold flex items-center justify-center" title={managerName}>
+              <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold flex items-center justify-center" title={managerName}>
                 {(managerName || 'M').split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
               </div>
               <button
                 onClick={onLogout}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-900 rounded-lg transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white rounded-lg transition-colors"
               >
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline">Logout</span>
@@ -1234,17 +1234,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         {message && (
           <div className={`mb-6 p-4 rounded-xl text-sm ${
             message.includes('success') || message.includes('updated')
-              ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200/60'
+              ? 'bg-emerald-50 dark:bg-green-900/30 text-emerald-800 dark:text-green-400 ring-1 ring-emerald-200/60'
               : message.includes('No affiliates') || message.includes('get started')
-              ? 'bg-blue-50 text-blue-800 ring-1 ring-blue-200/60'
-              : 'bg-red-50 text-red-700 ring-1 ring-red-200/60'
+              ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 ring-1 ring-blue-200/60'
+              : 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 ring-1 ring-red-200/60'
           }`}>
             {message}
           </div>
         )}
 
         {/* ── Network Overview (collapsible) ── */}
-        <button onClick={() => setSummaryOpen(o => !o)} className="flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-900 px-6 py-3">
+        <button onClick={() => setSummaryOpen(o => !o)} className="flex items-center gap-1 text-sm font-medium text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white px-6 py-3">
           Network Overview {summaryOpen ? '▲' : '▾'}
         </button>
         {summaryOpen && (() => {
@@ -1275,15 +1275,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               {/* ── Period header ── */}
               <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div>
-                  <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
                     Performance Overview
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 ring-1 ring-blue-200/70 ml-2 align-middle tracking-normal">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 ring-1 ring-blue-200/70 ml-2 align-middle tracking-normal">
                       {STAT_PERIOD_SHORT[statPeriod]}
                     </span>
                   </h2>
-                  <p className="text-xs sm:text-sm text-slate-500">
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                     {STAT_PERIOD_LABELS[statPeriod]}
-                    <span className="text-slate-300 mx-1.5">•</span>
+                    <span className="text-slate-300 dark:text-slate-600 mx-1.5">•</span>
                     {users.length.toLocaleString()} affiliate{users.length === 1 ? '' : 's'}
                   </p>
                 </div>
@@ -1292,7 +1292,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   <select
                     value={statPeriod}
                     onChange={e => setStatPeriod(e.target.value as StatPeriod)}
-                    className="sm:hidden text-xs font-medium bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 cursor-pointer"
+                    className="sm:hidden text-xs font-medium bg-white dark:bg-[#1a1c23] border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-2 text-slate-600 dark:text-slate-300 shadow-sm dark:shadow-none focus:outline-none focus:ring-2 focus:ring-blue-500/30 cursor-pointer"
                   >
                     {([
                       { value: 'today',  label: 'Today' },
@@ -1306,7 +1306,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     ))}
                   </select>
                   {/* Desktop: pill row */}
-                  <div className="hidden sm:flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl p-1 text-xs font-medium shadow-sm">
+                  <div className="hidden sm:flex items-center gap-0.5 bg-white dark:bg-[#151820] border border-slate-200 dark:border-white/10 rounded-xl p-1 text-xs font-medium shadow-sm dark:shadow-none">
                     {([
                       { value: 'today',  label: 'Today' },
                       { value: 'week',   label: 'This Week' },
@@ -1317,7 +1317,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
                       <button key={value} onClick={() => setStatPeriod(value)}
                         className={`px-2.5 py-1.5 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer ${
-                          statPeriod === value ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                          statPeriod === value ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5'
                         }`}>
                         {label}
                       </button>
@@ -1327,17 +1327,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   {statPeriod === 'custom' && (
                     <div className="flex items-center gap-1.5">
                       <input type="date" value={statCustomFrom} onChange={e => setStatCustomFrom(e.target.value)}
-                        className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
-                      <span className="text-xs text-slate-400">→</span>
+                        className="text-xs border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-slate-600 dark:text-white bg-white dark:bg-[#1a1c23] dark:placeholder-slate-500 shadow-sm dark:shadow-none focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                      <span className="text-xs text-slate-400 dark:text-slate-500">→</span>
                       <input type="date" value={statCustomTo} onChange={e => setStatCustomTo(e.target.value)}
-                        className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        className="text-xs border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-slate-600 dark:text-white bg-white dark:bg-[#1a1c23] dark:placeholder-slate-500 shadow-sm dark:shadow-none focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
                     </div>
                   )}
                 </div>
               </div>
 
               {isEmptyPeriod && (
-                <div className="mb-3 flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+                <div className="mb-3 flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500 font-medium">
                   <RefreshCw className="w-3 h-3" /> No activity recorded for {STAT_PERIOD_LABELS[statPeriod].split(' vs ')[0].toLowerCase()}
                 </div>
               )}
@@ -1345,16 +1345,16 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               {/* ── Stat cards — always visible, the primary numbers ── */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
                 {statRows.map(({ label, value, iconColor, bgColor, Icon, sub, pct }) => (
-                  <div key={label} className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-200">
+                  <div key={label} className="bg-white dark:bg-[#151820] rounded-2xl ring-1 ring-slate-900/5 dark:ring-white/8 shadow-sm dark:shadow-none p-4 sm:p-5 hover:shadow-md transition-shadow duration-200">
                     <div className="flex items-center justify-between mb-3">
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${bgColor} ring-1 ring-inset ${iconColor.replace('text-', 'ring-')}/10`}>
                         <Icon className={`w-4.5 h-4.5 ${iconColor}`} />
                       </div>
                       {pct !== undefined && <PctBadge pct={pct} compact />}
                     </div>
-                    <div className="text-2xl sm:text-[28px] font-bold text-slate-900 leading-none tracking-tight tabular-nums">{value}</div>
-                    <div className="text-xs text-slate-400 font-medium mt-1.5 uppercase tracking-wide">{label}</div>
-                    {sub && <div className="text-xs text-slate-400 font-medium mt-0.5">{sub}</div>}
+                    <div className="text-2xl sm:text-[28px] font-bold text-slate-900 dark:text-white leading-none tracking-tight tabular-nums">{value}</div>
+                    <div className="text-xs text-slate-400 dark:text-slate-500 font-medium mt-1.5 uppercase tracking-wide">{label}</div>
+                    {sub && <div className="text-xs text-slate-400 dark:text-slate-500 font-medium mt-0.5">{sub}</div>}
                   </div>
                 ))}
               </div>
@@ -1363,17 +1363,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               {(showCharts || showTopCards) && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                   {showCharts && (
-                    <div className={`bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 sm:p-5 ${showTopCards ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+                    <div className={`bg-white dark:bg-[#151820] rounded-2xl ring-1 ring-slate-900/5 dark:ring-white/8 shadow-sm dark:shadow-none p-4 sm:p-5 ${showTopCards ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-semibold text-slate-700">Top Affiliates (all-time)</h3>
-                        <div className="flex items-center gap-3 text-[11px] text-slate-400 font-medium">
+                        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Top Affiliates (all-time)</h3>
+                        <div className="flex items-center gap-3 text-[11px] text-slate-400 dark:text-slate-500 font-medium">
                           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#bfdbfe]" />Clicks</span>
                           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#6366f1]" />Approvals</span>
                         </div>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 h-56 sm:h-64">
                         <div className="h-full flex flex-col overflow-hidden">
-                          <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 flex-none">Earnings</div>
+                          <div className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1 flex-none">Earnings</div>
                           <div className="flex-1 min-h-0">
                             <ResponsiveContainer width="100%" height="100%">
                               <BarChart data={chartData} margin={{ top:4, right:8, left:0, bottom:0 }}>
@@ -1390,7 +1390,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                           </div>
                         </div>
                         <div className="h-full flex flex-col overflow-hidden">
-                          <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 flex-none">Clicks vs Approvals</div>
+                          <div className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1 flex-none">Clicks vs Approvals</div>
                           <div className="flex-1 min-h-0">
                             <ResponsiveContainer width="100%" height="100%">
                               <BarChart data={chartData} margin={{ top:4, right:8, left:0, bottom:0 }}>
@@ -1408,18 +1408,18 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   )}
 
                   {showTopCards && (
-                    <div className={`bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 sm:p-5 ${showCharts ? 'lg:col-span-1' : 'lg:col-span-3'} flex flex-col`}>
-                      <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-1.5">
+                    <div className={`bg-white dark:bg-[#151820] rounded-2xl ring-1 ring-slate-900/5 dark:ring-white/8 shadow-sm dark:shadow-none p-4 sm:p-5 ${showCharts ? 'lg:col-span-1' : 'lg:col-span-3'} flex flex-col`}>
+                      <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
                         <Award className="w-4 h-4 text-emerald-500" /> Top Approved Cards
                       </h3>
                       <div className="flex flex-col gap-1 flex-1">
                         {mostApprovedCards.map((c, idx) => (
-                          <div key={c.name} className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-slate-50 transition-colors duration-150 min-w-0">
+                          <div key={c.name} className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors duration-150 min-w-0">
                             <span className={`text-xs font-bold flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center ${
-                              idx === 0 ? 'bg-amber-50 text-amber-500' : idx === 1 ? 'bg-slate-100 text-slate-400' : idx === 2 ? 'bg-orange-50 text-orange-500' : 'bg-slate-50 text-slate-300'
+                              idx === 0 ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-500 dark:text-amber-400' : idx === 1 ? 'bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-slate-500' : idx === 2 ? 'bg-orange-50 text-orange-500' : 'bg-slate-50 dark:bg-white/5 text-slate-300 dark:text-slate-600'
                             }`}>{idx+1}</span>
-                            <span className="text-sm text-slate-700 truncate flex-1 min-w-0 font-medium">{c.name}</span>
-                            <span className="text-xs text-slate-400 flex-shrink-0 font-semibold tabular-nums">{c.approvals}×</span>
+                            <span className="text-sm text-slate-700 dark:text-slate-200 truncate flex-1 min-w-0 font-medium">{c.name}</span>
+                            <span className="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0 font-semibold tabular-nums">{c.approvals}×</span>
                           </div>
                         ))}
                       </div>
@@ -1430,7 +1430,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
               {/* ── Visibility toggles for the insights row ── */}
               <div className="flex items-center gap-1.5 mt-3">
-                <span className="text-[11px] font-semibold text-slate-400 mr-0.5 uppercase tracking-wider">Show:</span>
+                <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 mr-0.5 uppercase tracking-wider">Show:</span>
                 {(['charts', 'topCards'] as const).map(key => {
                   const labels = { charts: 'Top Affiliates', topCards: 'Top Cards' };
                   return (
@@ -1438,7 +1438,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-150 border cursor-pointer ${
                         visiblePanels.has(key)
                           ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                          : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'
+                          : 'bg-white dark:bg-[#151820] text-slate-500 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:border-blue-300 hover:text-blue-600 dark:hover:text-blue-400'
                       }`}>
                       {labels[key]}
                     </button>
@@ -1451,32 +1451,32 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
         {/* Tabs */}
         <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <Tabs.List className="flex border-b border-slate-200 mb-6 overflow-x-auto">
+          <Tabs.List className="flex border-b border-slate-200 dark:border-white/10 mb-6 overflow-x-auto">
             <Tabs.Trigger
               value="affiliates"
-              className="px-4 sm:px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 hover:text-slate-800 transition-colors -mb-px whitespace-nowrap"
+              className="px-4 sm:px-5 py-3.5 text-sm font-medium text-slate-500 dark:text-slate-400 border-b-2 border-transparent data-[state=active]:border-blue-600 dark:data-[state=active]:border-blue-400 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 hover:text-slate-800 dark:hover:text-slate-100 transition-colors -mb-px whitespace-nowrap"
             >
               Affiliates
             </Tabs.Trigger>
             <Tabs.Trigger
               value="tracking"
-              className="px-4 sm:px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 hover:text-slate-800 transition-colors -mb-px whitespace-nowrap"
+              className="px-4 sm:px-5 py-3.5 text-sm font-medium text-slate-500 dark:text-slate-400 border-b-2 border-transparent data-[state=active]:border-blue-600 dark:data-[state=active]:border-blue-400 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 hover:text-slate-800 dark:hover:text-slate-100 transition-colors -mb-px whitespace-nowrap"
             >
               Activity
             </Tabs.Trigger>
             <Tabs.Trigger
               value="cpa-rates"
-              className="px-4 sm:px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 hover:text-slate-800 transition-colors -mb-px whitespace-nowrap"
+              className="px-4 sm:px-5 py-3.5 text-sm font-medium text-slate-500 dark:text-slate-400 border-b-2 border-transparent data-[state=active]:border-blue-600 dark:data-[state=active]:border-blue-400 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 hover:text-slate-800 dark:hover:text-slate-100 transition-colors -mb-px whitespace-nowrap"
             >
               CPA Rates
             </Tabs.Trigger>
             <Tabs.Trigger
               value="invoices"
-              className="px-4 sm:px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 hover:text-slate-800 transition-colors -mb-px whitespace-nowrap"
+              className="px-4 sm:px-5 py-3.5 text-sm font-medium text-slate-500 dark:text-slate-400 border-b-2 border-transparent data-[state=active]:border-blue-600 dark:data-[state=active]:border-blue-400 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 hover:text-slate-800 dark:hover:text-slate-100 transition-colors -mb-px whitespace-nowrap"
             >
               <span className="flex items-center gap-1.5">
                 Invoices
-                {invoices.length > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-1.5 py-0.5 rounded-full">{invoices.length}</span>}
+                {invoices.length > 0 && <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-semibold px-1.5 py-0.5 rounded-full">{invoices.length}</span>}
               </span>
             </Tabs.Trigger>
           </Tabs.List>
@@ -1485,17 +1485,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           <Tabs.Content value="affiliates">
 
             {/* Toolbar: Search + Date filter + Group + Create */}
-            <div className="sticky top-16 z-10 bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 mb-4 space-y-3">
+            <div className="sticky top-16 z-10 bg-white dark:bg-[#151820] rounded-2xl ring-1 ring-slate-900/5 dark:ring-white/8 shadow-sm dark:shadow-none p-4 mb-4 space-y-3">
               <div className="flex flex-wrap items-center gap-3">
                 {/* Search */}
                 <div className="relative flex-1 min-w-[200px]">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-slate-500 pointer-events-none" />
                   <input
                     type="text"
                     placeholder="Search by name or email…"
                     value={affiliateSearch}
                     onChange={e => { setAffiliateSearch(e.target.value); setAffiliatesVisible(PAGE_SIZE); }}
-                    className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white text-slate-700 transition-shadow"
+                    className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white dark:bg-[#1a1c23] text-slate-700 dark:text-white dark:placeholder-slate-500 transition-shadow"
                   />
                 </div>
 
@@ -1506,7 +1506,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all duration-150 cursor-pointer ${
                       affiliateGroupBy
                         ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                        : 'text-slate-600 bg-white border-slate-200 hover:border-blue-300 hover:text-blue-600'
+                        : 'text-slate-600 dark:text-slate-300 bg-white dark:bg-[#151820] border-slate-200 dark:border-white/10 hover:border-blue-300 hover:text-blue-600 dark:hover:text-blue-400'
                     }`}
                   >
                     <Layers className="w-3.5 h-3.5" />
@@ -1518,7 +1518,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     return (
                       <button
                         onClick={() => setAffiliateCollapsed(allCollapsed ? new Set() : new Set(allRates))}
-                        className="text-xs text-slate-500 hover:text-blue-600 transition-colors cursor-pointer"
+                        className="text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
                       >
                         {allCollapsed ? 'Expand All' : 'Collapse All'}
                       </button>
@@ -1542,39 +1542,39 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   customTo={affiliatesCustomTo}     setCustomTo={v => { setAffiliatesCustomTo(v); setAffiliatesVisible(PAGE_SIZE); }}
                 />
                 {(affiliateSearch || affiliatesFilter !== 'all') && (
-                  <span className="text-xs text-slate-500 ml-1">
+                  <span className="text-xs text-slate-500 dark:text-slate-400 ml-1">
                     {displayUsers.length} of {users.length} members
-                    {affiliateSearch && <button onClick={() => { setAffiliateSearch(''); setAffiliatesVisible(PAGE_SIZE); }} className="text-blue-600 hover:underline ml-2 cursor-pointer">Clear search</button>}
+                    {affiliateSearch && <button onClick={() => { setAffiliateSearch(''); setAffiliatesVisible(PAGE_SIZE); }} className="text-blue-600 dark:text-blue-400 hover:underline ml-2 cursor-pointer">Clear search</button>}
                   </span>
                 )}
               </div>
             </div>
 
             {/* Affiliates Table */}
-            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm">
+            <div className="bg-white dark:bg-[#151820] rounded-2xl ring-1 ring-slate-900/5 dark:ring-white/8 shadow-sm dark:shadow-none">
               <div className="flex items-center justify-between gap-2 px-5 pt-4">
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-400 dark:text-slate-500">
                   Showing {Math.min(affiliatesVisible, displayUsers.length)} of {displayUsers.length} affiliates
                 </p>
                 {affiliatesUpdated && (
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 dark:text-slate-500">
                     Last updated {affiliatesUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 )}
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-slate-50/80 border-b border-slate-100">
+                  <thead className="bg-slate-50/80 dark:bg-white/5 border-b border-slate-100 dark:border-white/8">
                     <tr>
                       <SortTh label="Affiliate"     field="name"             sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} />
-                      <th className="text-left py-3.5 px-6 text-slate-500 text-xs font-semibold uppercase tracking-wider">Contact Info</th>
-                      <th className="text-left py-3.5 px-6 text-slate-500 text-xs font-semibold uppercase tracking-wider">Affiliate ID</th>
+                      <th className="text-left py-3.5 px-6 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Contact Info</th>
+                      <th className="text-left py-3.5 px-6 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Affiliate ID</th>
                       <SortTh label="Commission %"  field="commissionRate"   sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
                       <SortTh label="Clicks"        field="totalClicks"      sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
                       <SortTh label="Conversions"   field="totalConversions" sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
                       <SortTh label="Earned"        field="totalCommissions" sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
                       <SortTh label="Joined"        field="createdAt"        sort={affiliatesSort} onSort={(f) => setAffiliatesSort(toggleSort(affiliatesSort, f))} align="right" />
-                      <th className="text-right py-3.5 px-6 text-slate-500 text-xs font-semibold uppercase tracking-wider">Actions</th>
+                      <th className="text-right py-3.5 px-6 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1599,12 +1599,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             });
                             return (
                               <React.Fragment key={`group-${rate}`}>
-                                <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none">
+                                <tr onClick={toggle} className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors duration-150 select-none">
                                   <td colSpan={9} className="py-2.5 px-6">
                                     <div className="flex items-center gap-2">
-                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                      <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{rate} Commission</span>
-                                      <span className="text-xs font-normal text-slate-400 ml-0.5">({members.length} {members.length === 1 ? 'member' : 'members'})</span>
+                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 dark:text-slate-500 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+                                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">{rate} Commission</span>
+                                      <span className="text-xs font-normal text-slate-400 dark:text-slate-500 ml-0.5">({members.length} {members.length === 1 ? 'member' : 'members'})</span>
                                     </div>
                                   </td>
                                 </tr>
@@ -1622,10 +1622,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 <div className="py-4 text-center">
                   <button
                     onClick={() => setAffiliatesVisible(n => n + PAGE_SIZE)}
-                    className="px-4 py-2 text-xs font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors duration-150 cursor-pointer"
+                    className="px-4 py-2 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors duration-150 cursor-pointer"
                   >
                     Show {Math.min(PAGE_SIZE, displayUsers.length - affiliatesVisible)} more
-                    <span className="text-slate-400 ml-1">({displayUsers.length - affiliatesVisible} remaining)</span>
+                    <span className="text-slate-400 dark:text-slate-500 ml-1">({displayUsers.length - affiliatesVisible} remaining)</span>
                   </button>
                 </div>
               )}
@@ -1634,12 +1634,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
           {/* ── Tracking Activity Tab ── */}
           <Tabs.Content value="tracking">
-            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm">
-              <div className="sticky top-16 z-10 bg-white p-4 border-b border-slate-100 space-y-2.5">
+            <div className="bg-white dark:bg-[#151820] rounded-2xl ring-1 ring-slate-900/5 dark:ring-white/8 shadow-sm dark:shadow-none">
+              <div className="sticky top-16 z-10 bg-white dark:bg-[#151820] p-4 border-b border-slate-100 dark:border-white/8 space-y-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-base font-semibold text-slate-900">All Tracking Activity</h2>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <h2 className="text-base font-semibold text-slate-900 dark:text-white">All Tracking Activity</h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       {displayTrackingActivity.length}
                       {(mgTrackingFilter !== 'all' || mgTrackingStatusFilter !== 'all' || mgTrackingAffiliateFilter !== 'all')
                         ? ` of ${trackingActivity.length}` : ''} records
@@ -1650,7 +1650,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
                 {/* Group by — pills matching the Status row, with an icon-only Refresh on the far right */}
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-medium text-slate-400 mr-1">Group by:</span>
+                  <span className="text-xs font-medium text-slate-400 dark:text-slate-500 mr-1">Group by:</span>
                   {([
                     { value: 'none',      label: 'None' },
                     { value: 'month',     label: 'Month' },
@@ -1662,7 +1662,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
                         trackingGroupBy === value
                           ? 'bg-blue-600 text-white shadow-sm'
-                          : 'text-slate-600 bg-white border border-slate-200 hover:border-blue-300 hover:text-blue-600'
+                          : 'text-slate-600 dark:text-slate-300 bg-white dark:bg-[#151820] border border-slate-200 dark:border-white/10 hover:border-blue-300 hover:text-blue-600 dark:hover:text-blue-400'
                       }`}
                     >
                       {label}
@@ -1677,7 +1677,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     const allCollapsed = allKeys.every(k => trackingCollapsed.has(k));
                     return (
                       <button onClick={() => setTrackingCollapsed(allCollapsed ? new Set() : new Set(allKeys))}
-                        className="text-xs text-slate-500 hover:text-blue-600 transition-colors cursor-pointer ml-1">
+                        className="text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer ml-1">
                         {allCollapsed ? 'Expand All' : 'Collapse All'}
                       </button>
                     );
@@ -1686,7 +1686,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     onClick={() => { setTrackingVisible(PAGE_SIZE); fetchTrackingActivity(); }}
                     title="Refresh"
                     aria-label="Refresh tracking activity"
-                    className="ml-auto flex items-center justify-center w-8 h-8 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded-lg transition-all duration-150 cursor-pointer"
+                    className="ml-auto flex items-center justify-center w-8 h-8 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg transition-all duration-150 cursor-pointer"
                   >
                     <RefreshCw className="w-4 h-4" />
                   </button>
@@ -1701,7 +1701,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
                 {/* Status filter */}
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-medium text-slate-400 mr-1">Status:</span>
+                  <span className="text-xs font-medium text-slate-400 dark:text-slate-500 mr-1">Status:</span>
                   {[
                     { value: 'all',         label: 'All' },
                     { value: 'click',       label: 'Click' },
@@ -1714,7 +1714,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
                         mgTrackingStatusFilter === value
                           ? 'bg-blue-600 text-white shadow-sm'
-                          : 'text-slate-600 bg-white border border-slate-200 hover:border-blue-300 hover:text-blue-600'
+                          : 'text-slate-600 dark:text-slate-300 bg-white dark:bg-[#151820] border border-slate-200 dark:border-white/10 hover:border-blue-300 hover:text-blue-600 dark:hover:text-blue-400'
                       }`}
                     >
                       {label}
@@ -1725,11 +1725,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 {/* Affiliate filter */}
                 {affiliateOptions.length > 0 && (
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-medium text-slate-400 mr-1">Affiliate:</span>
+                    <span className="text-xs font-medium text-slate-400 dark:text-slate-500 mr-1">Affiliate:</span>
                     <select
                       value={mgTrackingAffiliateFilter}
                       onChange={(e) => { setMgTrackingAffiliateFilter(e.target.value); setTrackingVisible(PAGE_SIZE); }}
-                      className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white text-slate-700 cursor-pointer transition-shadow"
+                      className="px-2.5 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white dark:bg-[#1a1c23] text-slate-700 dark:text-white dark:placeholder-slate-500 cursor-pointer transition-shadow"
                     >
                       <option value="all">All affiliates</option>
                       {affiliateOptions.map((a) => (
@@ -1739,7 +1739,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     {mgTrackingAffiliateFilter !== 'all' && (
                       <button
                         onClick={() => { setMgTrackingAffiliateFilter('all'); setTrackingVisible(PAGE_SIZE); }}
-                        className="text-xs text-blue-600 hover:underline cursor-pointer"
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                       >
                         Clear
                       </button>
@@ -1754,18 +1754,18 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 return (
                   <>
                     <div className="flex items-center justify-between gap-2 mb-3">
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-slate-400 dark:text-slate-500">
                         Showing {pagedTracking.length} of {displayTrackingActivity.length} records
                       </p>
                       {trackingUpdated && (
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs text-gray-400 dark:text-slate-500">
                           Last updated {trackingUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       )}
                     </div>
-                    <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
+                    <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100 dark:ring-white/8">
                       <table className="w-full">
-                        <thead className="bg-slate-50/80 border-b border-slate-100">
+                        <thead className="bg-slate-50/80 dark:bg-white/5 border-b border-slate-100 dark:border-white/8">
                           <tr>
                             <SortThSm label="Date / Time"  field="clickDate"     sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
                             <SortThSm label="Affiliate"    field="memberName"    sort={mgTrackingSort} onSort={(f) => setMgTrackingSort(toggleSort(mgTrackingSort, f))} />
@@ -1780,28 +1780,28 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                           {(() => {
                             // Single row renderer — used in both flat and grouped modes
                             const TrackRow = ({ a }: { a: any }) => (
-                              <tr key={a.id} className="border-b border-slate-50 hover:bg-blue-50/40 transition-colors duration-150">
+                              <tr key={a.id} className="border-b border-slate-50 dark:border-white/8 hover:bg-blue-50/40 dark:hover:bg-white/5 transition-colors duration-150">
                                 <td className="py-3.5 px-4 text-sm">
-                                  <div className="font-medium text-slate-900">{formatDate(a.clickDate)}</div>
-                                  <div className="text-xs text-slate-400 mt-0.5">{formatTime(a.clickTime)}</div>
+                                  <div className="font-medium text-slate-900 dark:text-white">{formatDate(a.clickDate)}</div>
+                                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{formatTime(a.clickTime)}</div>
                                 </td>
                                 <td className="py-3.5 px-4 text-sm">
-                                  <div className="font-medium text-slate-900">{a.memberName}</div>
-                                  <div className="text-xs text-slate-400 mt-0.5">{a.affiliateId}</div>
+                                  <div className="font-medium text-slate-900 dark:text-white">{a.memberName}</div>
+                                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{a.affiliateId}</div>
                                 </td>
-                                <td className="py-3.5 px-4 text-sm text-slate-700">{a.cardName}</td>
+                                <td className="py-3.5 px-4 text-sm text-slate-700 dark:text-slate-200">{a.cardName}</td>
                                 <td className="py-3.5 px-4">
                                   <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                                    a.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
-                                    a.status === 'application' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70' :
-                                    'bg-slate-100 text-slate-600'
+                                    a.status === 'approval'    ? 'bg-emerald-50 dark:bg-green-900/30 text-emerald-700 dark:text-green-400 ring-1 ring-emerald-200/70' :
+                                    a.status === 'application' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 ring-1 ring-blue-200/70' :
+                                    'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300'
                                   }`}>{a.status}</span>
                                 </td>
-                                <td className="py-3.5 px-4 text-sm text-right font-semibold text-slate-900 tabular-nums">
-                                  {a.totalEarnings > 0 ? `$${a.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
+                                <td className="py-3.5 px-4 text-sm text-right font-semibold text-slate-900 dark:text-white tabular-nums">
+                                  {a.totalEarnings > 0 ? `$${a.totalEarnings.toFixed(2)}` : <span className="text-slate-300 dark:text-slate-600 font-normal">—</span>}
                                 </td>
-                                <td className="py-3.5 px-4 text-sm text-slate-500">{a.deviceType || '—'}</td>
-                                <td className="py-3.5 px-4 text-sm text-slate-500">{a.state || '—'}</td>
+                                <td className="py-3.5 px-4 text-sm text-slate-500 dark:text-slate-400">{a.deviceType || '—'}</td>
+                                <td className="py-3.5 px-4 text-sm text-slate-500 dark:text-slate-400">{a.state || '—'}</td>
                               </tr>
                             );
 
@@ -1853,20 +1853,20 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               const sublabel     = trackingGroupBy === 'affiliate' ? key : undefined;
                               return (
                                 <React.Fragment key={key}>
-                                  <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none">
+                                  <tr onClick={toggle} className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors duration-150 select-none">
                                     <td colSpan={7} className="py-2.5 px-4">
                                       <div className="flex items-center gap-3 flex-wrap">
                                         <div className="flex items-center gap-2">
-                                          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                          <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{label}</span>
-                                          {sublabel && <span className="text-xs text-slate-400 font-mono normal-case">{sublabel}</span>}
-                                          <span className="text-xs font-normal text-slate-400">({rows.length} records)</span>
+                                          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 dark:text-slate-500 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+                                          <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">{label}</span>
+                                          {sublabel && <span className="text-xs text-slate-400 dark:text-slate-500 font-mono normal-case">{sublabel}</span>}
+                                          <span className="text-xs font-normal text-slate-400 dark:text-slate-500">({rows.length} records)</span>
                                         </div>
-                                        <div className="flex items-center gap-3 ml-2 text-xs text-slate-500">
+                                        <div className="flex items-center gap-3 ml-2 text-xs text-slate-500 dark:text-slate-400">
                                           {grpClicks    > 0 && <span>{grpClicks.toLocaleString()} clicks</span>}
                                           {grpApps      > 0 && <span>{grpApps} apps</span>}
                                           {grpApprovals > 0 && <span>{grpApprovals} approvals</span>}
-                                          {grpEarnings  > 0 && <span className="font-medium text-emerald-600">${grpEarnings.toFixed(2)}</span>}
+                                          {grpEarnings  > 0 && <span className="font-medium text-emerald-600 dark:text-green-400">${grpEarnings.toFixed(2)}</span>}
                                         </div>
                                       </div>
                                     </td>
@@ -1884,10 +1884,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         {trackingVisible < displayTrackingActivity.length && (
                           <button
                             onClick={() => setTrackingVisible(n => n + PAGE_SIZE)}
-                            className="px-4 py-2 text-xs font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors duration-150 cursor-pointer"
+                            className="px-4 py-2 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors duration-150 cursor-pointer"
                           >
                             Show {Math.min(PAGE_SIZE, displayTrackingActivity.length - trackingVisible)} more
-                            <span className="text-slate-400 ml-1">({displayTrackingActivity.length - trackingVisible} remaining)</span>
+                            <span className="text-slate-400 dark:text-slate-500 ml-1">({displayTrackingActivity.length - trackingVisible} remaining)</span>
                           </button>
                         )}
                         <LoadMoreYears showAll={trackingShowAllYears} setShowAll={v => { setTrackingShowAllYears(v); setTrackingVisible(PAGE_SIZE); }} hiddenCount={trackingHiddenOlderCount} />
@@ -1902,26 +1902,26 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
           {/* ── CPA Rates Tab ── */}
           <Tabs.Content value="cpa-rates">
-            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm">
+            <div className="bg-white dark:bg-[#151820] rounded-2xl ring-1 ring-slate-900/5 dark:ring-white/8 shadow-sm dark:shadow-none">
               {/* Toolbar */}
-              <div className="sticky top-16 z-10 bg-white p-5 border-b border-slate-100 space-y-3">
+              <div className="sticky top-16 z-10 bg-white dark:bg-[#151820] p-5 border-b border-slate-100 dark:border-white/8 space-y-3">
                 {/* Row 1: Search + Affiliate + Refresh */}
                 <div className="flex flex-wrap items-center gap-3">
                   {/* Search */}
                   <div className="relative flex-1 min-w-[180px]">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-slate-500 pointer-events-none" />
                     <input
                       type="text"
                       placeholder="Search cards…"
                       value={cpaSearch}
                       onChange={e => { setCpaSearch(e.target.value); setCpaVisible(PAGE_SIZE); }}
-                      className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white text-slate-700 transition-shadow"
+                      className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white dark:bg-[#1a1c23] text-slate-700 dark:text-white dark:placeholder-slate-500 transition-shadow"
                     />
                   </div>
 
                   {/* Affiliate */}
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-slate-500">Affiliate:</span>
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Affiliate:</span>
                     <select
                       value={cpaAffiliateFilter}
                       onChange={(e) => {
@@ -1930,7 +1930,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         setCpaVisible(PAGE_SIZE);
                         fetchCpaRates(val);
                       }}
-                      className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white text-slate-700 cursor-pointer transition-shadow"
+                      className="px-2.5 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white dark:bg-[#1a1c23] text-slate-700 dark:text-white dark:placeholder-slate-500 cursor-pointer transition-shadow"
                     >
                       <option value="all">All (bank CPA only)</option>
                       {(users as any[]).map((u: any) => (
@@ -1949,7 +1949,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all duration-150 cursor-pointer ${
                         cpaGroupBy
                           ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                          : 'text-slate-600 bg-white border-slate-200 hover:border-blue-300 hover:text-blue-600'
+                          : 'text-slate-600 dark:text-slate-300 bg-white dark:bg-[#151820] border-slate-200 dark:border-white/10 hover:border-blue-300 hover:text-blue-600 dark:hover:text-blue-400'
                       }`}
                     >
                       <Layers className="w-3.5 h-3.5" />
@@ -1962,7 +1962,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       return (
                         <button
                           onClick={() => setCpaCollapsed(allCollapsed ? new Set() : new Set(allIssuers))}
-                          className="text-xs text-slate-500 hover:text-blue-600 transition-colors cursor-pointer"
+                          className="text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
                         >
                           {allCollapsed ? 'Expand All' : 'Collapse All'}
                         </button>
@@ -1970,7 +1970,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     })()}
                     <button
                       onClick={() => { setCpaVisible(PAGE_SIZE); fetchCpaRates(cpaAffiliateFilter); }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-blue-300 hover:text-blue-600 transition-all duration-150 cursor-pointer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-[#151820] border border-slate-200 dark:border-white/10 rounded-lg hover:border-blue-300 hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-150 cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       Refresh
@@ -1983,11 +1983,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   <div className="flex flex-wrap items-center gap-3">
                     {/* Issuer dropdown */}
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-slate-400">Issuer:</span>
+                      <span className="text-xs font-medium text-slate-400 dark:text-slate-500">Issuer:</span>
                       <select
                         value={cpaIssuerFilter}
                         onChange={e => { setCpaIssuerFilter(e.target.value); setCpaVisible(PAGE_SIZE); }}
-                        className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white text-slate-700 cursor-pointer transition-shadow"
+                        className="px-2.5 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white dark:bg-[#1a1c23] text-slate-700 dark:text-white dark:placeholder-slate-500 cursor-pointer transition-shadow"
                       >
                         <option value="all">All issuers</option>
                         {Array.from(new Set(cpaRates.map(r => r.issuer).filter(Boolean))).sort().map((iss: any) => (
@@ -1998,7 +1998,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
                     {/* CPA range pills */}
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-medium text-slate-400">Payout:</span>
+                      <span className="text-xs font-medium text-slate-400 dark:text-slate-500">Payout:</span>
                       {([
                         { value: 'all',    label: 'All' },
                         { value: 'lt100',  label: '<$100' },
@@ -2011,7 +2011,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                           className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
                             cpaCpaRange === value
                               ? 'bg-blue-600 text-white shadow-sm'
-                              : 'text-slate-600 bg-white border border-slate-200 hover:border-blue-300 hover:text-blue-600'
+                              : 'text-slate-600 dark:text-slate-300 bg-white dark:bg-[#151820] border border-slate-200 dark:border-white/10 hover:border-blue-300 hover:text-blue-600 dark:hover:text-blue-400'
                           }`}
                         >
                           {label}
@@ -2023,7 +2023,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     {(cpaSearch || cpaIssuerFilter !== 'all' || cpaCpaRange !== 'all') && (
                       <button
                         onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(PAGE_SIZE); }}
-                        className="text-xs text-blue-600 hover:underline ml-1 cursor-pointer"
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline ml-1 cursor-pointer"
                       >
                         Clear filters
                       </button>
@@ -2034,17 +2034,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
               {cpaRatesLoading ? (
                 <div className="text-center py-16">
-                  <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
+                  <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <RefreshCw className="w-5 h-5 animate-spin text-blue-600 dark:text-blue-400" />
                   </div>
-                  <p className="text-slate-500 text-sm">Loading CPA rates from Airtable…</p>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">Loading CPA rates from Airtable…</p>
                 </div>
               ) : cpaRates.length === 0 ? (
                 <div className="text-center py-16">
-                  <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <DollarSign className="w-7 h-7 text-slate-300" />
+                  <div className="w-14 h-14 bg-slate-50 dark:bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <DollarSign className="w-7 h-7 text-slate-300 dark:text-slate-600" />
                   </div>
-                  <p className="text-slate-500 text-sm">No CPA rates found. Try refreshing.</p>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">No CPA rates found. Try refreshing.</p>
                 </div>
               ) : (() => {
                 // Apply all filters + sort
@@ -2064,27 +2064,27 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 });
 
                 const CpaRow = ({ rate }: { rate: any }) => (
-                  <tr className="border-b border-slate-50 hover:bg-blue-50/40 transition-colors duration-150">
-                    <td className="py-3 px-4 font-medium text-sm text-slate-900">{rate.card}</td>
-                    {!cpaGroupBy && <td className="py-3 px-4 text-sm text-slate-500">{rate.issuer || '—'}</td>}
-                    <td className="py-3 px-4 text-right font-semibold text-sm text-slate-900">
-                      {rate.bankCpa > 0 ? `$${rate.bankCpa.toLocaleString()}` : <span className="text-slate-300 font-normal">—</span>}
+                  <tr className="border-b border-slate-50 dark:border-white/8 hover:bg-blue-50/40 dark:hover:bg-white/5 transition-colors duration-150">
+                    <td className="py-3 px-4 font-medium text-sm text-slate-900 dark:text-white">{rate.card}</td>
+                    {!cpaGroupBy && <td className="py-3 px-4 text-sm text-slate-500 dark:text-slate-400">{rate.issuer || '—'}</td>}
+                    <td className="py-3 px-4 text-right font-semibold text-sm text-slate-900 dark:text-white">
+                      {rate.bankCpa > 0 ? `$${rate.bankCpa.toLocaleString()}` : <span className="text-slate-300 dark:text-slate-600 font-normal">—</span>}
                     </td>
                     {cpaAffiliateFilter !== 'all' && (
-                      <td className="py-3 px-4 text-right font-semibold text-sm text-blue-600">
+                      <td className="py-3 px-4 text-right font-semibold text-sm text-blue-600 dark:text-blue-400">
                         {rate.affiliatePayout != null && rate.affiliatePayout > 0
                           ? `$${rate.affiliatePayout.toLocaleString()}`
-                          : <span className="text-slate-300 font-normal">—</span>}
+                          : <span className="text-slate-300 dark:text-slate-600 font-normal">—</span>}
                       </td>
                     )}
-                    <td className="py-3 px-4 text-sm text-slate-500">{formatDate(rate.date)}</td>
+                    <td className="py-3 px-4 text-sm text-slate-500 dark:text-slate-400">{formatDate(rate.date)}</td>
                   </tr>
                 );
 
                 if (filtered.length === 0) return (
                   <div className="text-center py-16">
-                    <p className="text-slate-500 text-sm">No cards match the filters.</p>
-                    <button onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(PAGE_SIZE); }} className="text-xs text-blue-600 hover:underline mt-2 cursor-pointer">Clear filters</button>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm">No cards match the filters.</p>
+                    <button onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(PAGE_SIZE); }} className="text-xs text-blue-600 dark:text-blue-400 hover:underline mt-2 cursor-pointer">Clear filters</button>
                   </div>
                 );
 
@@ -2093,20 +2093,20 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 return (
                   <div className="overflow-x-auto">
                     <div className="flex items-center justify-between px-5 py-2 flex-wrap gap-2">
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-slate-400 dark:text-slate-500">
                         Showing {pagedFiltered.length} of {filtered.length} cards
                         {filtered.length !== cpaRates.length ? ` (${cpaRates.length} total)` : ''}
                         {cpaAffiliateLabel ? ` · ${cpaAffiliateLabel}` : ''}
                         <CurrentYearBadge active={!cpaShowAllYears} />
                       </p>
                       {cpaUpdated && (
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs text-gray-400 dark:text-slate-500">
                           Last updated {cpaUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       )}
                     </div>
                     <table className="w-full text-sm">
-                      <thead className="bg-slate-50/80 border-b border-slate-100">
+                      <thead className="bg-slate-50/80 dark:bg-white/5 border-b border-slate-100 dark:border-white/8">
                         <tr>
                           <SortThSm label="Card"     field="card"    sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} />
                           {!cpaGroupBy && <SortThSm label="Issuer" field="issuer" sort={cpaSort} onSort={f => setCpaSort(toggleSort(cpaSort, f))} />}
@@ -2139,13 +2139,13 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                 <React.Fragment key={`group-${issuer}`}>
                                   <tr
                                     onClick={toggle}
-                                    className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none"
+                                    className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors duration-150 select-none"
                                   >
                                     <td colSpan={colCount} className="py-2.5 px-4">
                                       <div className="flex items-center gap-2">
-                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                        <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{issuer}</span>
-                                        <span className="text-xs font-normal text-slate-400 ml-0.5">({rates.length} {rates.length === 1 ? 'card' : 'cards'})</span>
+                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 dark:text-slate-500 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+                                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">{issuer}</span>
+                                        <span className="text-xs font-normal text-slate-400 dark:text-slate-500 ml-0.5">({rates.length} {rates.length === 1 ? 'card' : 'cards'})</span>
                                       </div>
                                     </td>
                                   </tr>
@@ -2163,10 +2163,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <div className="py-4 flex flex-wrap items-center justify-center gap-2">
                         <button
                           onClick={() => setCpaVisible(n => n + PAGE_SIZE)}
-                          className="px-4 py-2 text-xs font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors duration-150 cursor-pointer"
+                          className="px-4 py-2 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors duration-150 cursor-pointer"
                         >
                           Show {Math.min(PAGE_SIZE, filtered.length - cpaVisible)} more
-                          <span className="text-slate-400 ml-1">({filtered.length - cpaVisible} remaining)</span>
+                          <span className="text-slate-400 dark:text-slate-500 ml-1">({filtered.length - cpaVisible} remaining)</span>
                         </button>
                       </div>
                     )}
@@ -2177,17 +2177,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           </Tabs.Content>
           {/* ── Invoices Tab ── */}
           <Tabs.Content value="invoices">
-            <div className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm">
+            <div className="bg-white dark:bg-[#151820] rounded-2xl ring-1 ring-slate-900/5 dark:ring-white/8 shadow-sm dark:shadow-none">
               {/* Toolbar */}
-              <div className="sticky top-16 z-10 bg-white p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+              <div className="sticky top-16 z-10 bg-white dark:bg-[#151820] p-5 border-b border-slate-100 dark:border-white/8 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-3">
                   {/* Affiliate filter */}
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-slate-500">Affiliate:</span>
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Affiliate:</span>
                     <select
                       value={invoiceAffiliateFilter}
                       onChange={e => { setInvoiceAffiliateFilter(e.target.value); setInvoicesVisible(PAGE_SIZE); }}
-                      className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white text-slate-700 cursor-pointer transition-shadow"
+                      className="px-2.5 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white dark:bg-[#1a1c23] text-slate-700 dark:text-white dark:placeholder-slate-500 cursor-pointer transition-shadow"
                     >
                       <option value="all">All affiliates</option>
                       {Array.from(new Set(invoices.map((inv: any) => inv.email).filter(Boolean))).sort().map((email: any) => (
@@ -2197,11 +2197,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   </div>
                   {/* Month filter */}
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-slate-500">Month:</span>
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Month:</span>
                     <select
                       value={invoiceMonthFilter}
                       onChange={e => { setInvoiceMonthFilter(e.target.value); setInvoicesVisible(PAGE_SIZE); }}
-                      className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white text-slate-700 cursor-pointer transition-shadow"
+                      className="px-2.5 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white dark:bg-[#1a1c23] text-slate-700 dark:text-white dark:placeholder-slate-500 cursor-pointer transition-shadow"
                     >
                       <option value="all">All months</option>
                       {Array.from(new Set(invoices.map((inv: any) => inv.month).filter(Boolean))).map((m: any) => (
@@ -2212,11 +2212,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   {/* Status filter */}
                   {Array.from(new Set(invoices.map((inv: any) => inv.status).filter(Boolean))).length > 0 && (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-slate-500">Status:</span>
+                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Status:</span>
                       <select
                         value={invoiceStatusFilter}
                         onChange={e => { setInvoiceStatusFilter(e.target.value); setInvoicesVisible(PAGE_SIZE); }}
-                        className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white text-slate-700 cursor-pointer transition-shadow"
+                        className="px-2.5 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white dark:bg-[#1a1c23] text-slate-700 dark:text-white dark:placeholder-slate-500 cursor-pointer transition-shadow"
                       >
                         <option value="all">All statuses</option>
                         {Array.from(new Set(invoices.map((inv: any) => inv.status).filter(Boolean))).map((s: any) => (
@@ -2228,7 +2228,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Group by segmented control */}
-                  <div className="flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl p-1 text-xs font-medium">
+                  <div className="flex items-center gap-0.5 bg-white dark:bg-[#151820] border border-slate-200 dark:border-white/10 rounded-xl p-1 text-xs font-medium">
                     {([
                       { value: 'none',      label: 'No Group' },
                       { value: 'month',     label: 'Month' },
@@ -2240,7 +2240,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all duration-150 cursor-pointer ${
                           invoiceGroupBy === value
                             ? 'bg-blue-600 text-white shadow-sm'
-                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5'
                         }`}
                       >
                         {value !== 'none' && <Layers className="w-3 h-3" />}
@@ -2263,14 +2263,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     const allCollapsed = allKeys.every(k => invoiceCollapsed.has(k));
                     return (
                       <button onClick={() => setInvoiceCollapsed(allCollapsed ? new Set() : new Set(allKeys))}
-                        className="text-xs text-slate-500 hover:text-blue-600 transition-colors cursor-pointer">
+                        className="text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer">
                         {allCollapsed ? 'Expand All' : 'Collapse All'}
                       </button>
                     );
                   })()}
                   <button
                     onClick={() => { setInvoicesVisible(PAGE_SIZE); fetchInvoices(); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-blue-300 hover:text-blue-600 transition-all duration-150 cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-[#151820] border border-slate-200 dark:border-white/10 rounded-lg hover:border-blue-300 hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-150 cursor-pointer"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${invoicesLoading ? 'animate-spin' : ''}`} />
                     Refresh
@@ -2280,10 +2280,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
               {invoicesLoading ? (
                 <div className="text-center py-16">
-                  <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
+                  <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <RefreshCw className="w-5 h-5 animate-spin text-blue-600 dark:text-blue-400" />
                   </div>
-                  <p className="text-slate-500 text-sm">Loading invoices…</p>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">Loading invoices…</p>
                 </div>
               ) : (() => {
                 const invoiceHiddenOlderCount = (invoices as any[])
@@ -2299,39 +2299,39 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 );
                 if (filtered.length === 0) return (
                   <div className="text-center py-16">
-                    <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <FileText className="w-7 h-7 text-slate-300" />
+                    <div className="w-14 h-14 bg-slate-50 dark:bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <FileText className="w-7 h-7 text-slate-300 dark:text-slate-600" />
                     </div>
-                    <p className="text-slate-500 text-sm">No invoices match the selected filters.</p>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm">No invoices match the selected filters.</p>
                   </div>
                 );
                 const pagedFiltered = filtered.slice(0, invoicesVisible);
                 return (
                   <div className="overflow-x-auto">
                     <div className="flex items-center justify-between px-5 py-2 flex-wrap gap-2">
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-slate-400 dark:text-slate-500">
                         Showing {pagedFiltered.length} of {filtered.length} invoices
                         {invoices.length !== filtered.length ? ` (${invoices.length} total)` : ''}
                         <CurrentYearBadge active={!invoiceShowAllYears} />
                       </p>
                       {invoicesUpdated && (
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs text-gray-400 dark:text-slate-500">
                           Last updated {invoicesUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       )}
                     </div>
                     <table className="w-full">
-                      <thead className="bg-slate-50/80 border-b border-slate-100">
+                      <thead className="bg-slate-50/80 dark:bg-white/5 border-b border-slate-100 dark:border-white/8">
                         <tr>
                           <SortThSm label="Affiliate"  field="name"      sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} />
                           <SortThSm label="Month"      field="month"     sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} />
                           <SortThSm label="Amount"     field="amount"    sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} align="right" />
                           <SortThSm label="Approvals"  field="approvals" sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} align="right" />
                           <SortThSm label="Status"     field="status"    sort={invoiceSort} onSort={f => setInvoiceSort(toggleSort(invoiceSort, f))} />
-                          <th className="py-3 px-4 text-slate-500 text-xs font-semibold uppercase tracking-wider text-center">Sent</th>
-                          <th className="py-3 px-4 text-slate-500 text-xs font-semibold uppercase tracking-wider text-center">Zelle</th>
-                          <th className="py-3 px-4 text-slate-500 text-xs font-semibold uppercase tracking-wider">Contact</th>
-                          <th className="py-3 px-4 text-slate-500 text-xs font-semibold uppercase tracking-wider text-right">Actions</th>
+                          <th className="py-3 px-4 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider text-center">Sent</th>
+                          <th className="py-3 px-4 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider text-center">Zelle</th>
+                          <th className="py-3 px-4 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Contact</th>
+                          <th className="py-3 px-4 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2352,79 +2352,79 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                               <React.Fragment key={inv.id}>
                                 <tr
                                   onClick={toggleOpen}
-                                  className={`border-b border-slate-50 hover:bg-blue-50/40 transition-colors duration-150 cursor-pointer ${isOpen ? 'bg-blue-50/40' : ''}`}
+                                  className={`border-b border-slate-50 dark:border-white/8 hover:bg-blue-50/40 dark:hover:bg-white/5 transition-colors duration-150 cursor-pointer ${isOpen ? 'bg-blue-50/40 dark:bg-white/5' : ''}`}
                                 >
                                   <td className="py-3.5 px-4">
                                     <div className="flex items-center gap-2">
-                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${isOpen ? '' : '-rotate-90'}`} />
+                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 dark:text-slate-500 transition-transform duration-200 shrink-0 ${isOpen ? '' : '-rotate-90'}`} />
                                       <div>
-                                        <div className="font-medium text-sm text-slate-900">{inv.name}</div>
-                                        <div className="text-xs text-slate-400 mt-0.5">{inv.email}</div>
+                                        <div className="font-medium text-sm text-slate-900 dark:text-white">{inv.name}</div>
+                                        <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{inv.email}</div>
                                       </div>
                                     </div>
                                   </td>
-                                  <td className="py-3.5 px-4 text-sm text-slate-700">{inv.month}</td>
-                                  <td className="py-3.5 px-4 text-right font-semibold text-sm text-slate-900">
-                                    {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}` : <span className="text-slate-300 font-normal">—</span>}
+                                  <td className="py-3.5 px-4 text-sm text-slate-700 dark:text-slate-200">{inv.month}</td>
+                                  <td className="py-3.5 px-4 text-right font-semibold text-sm text-slate-900 dark:text-white">
+                                    {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}` : <span className="text-slate-300 dark:text-slate-600 font-normal">—</span>}
                                   </td>
-                                  <td className="py-3.5 px-4 text-right text-sm text-slate-600">{approvalsCount}</td>
+                                  <td className="py-3.5 px-4 text-right text-sm text-slate-600 dark:text-slate-300">{approvalsCount}</td>
                                   <td className="py-3.5 px-4">
                                     {inv.status ? (
                                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
                                         inv.status.toLowerCase().includes('paid')
-                                          ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70'
+                                          ? 'bg-emerald-50 dark:bg-green-900/30 text-emerald-700 dark:text-green-400 ring-1 ring-emerald-200/70'
                                           : inv.status.toLowerCase().includes('pending')
-                                          ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/70'
-                                          : 'bg-slate-100 text-slate-600'
+                                          ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 ring-1 ring-amber-200/70'
+                                          : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300'
                                       }`}>{inv.status}</span>
-                                    ) : <span className="text-slate-300 text-xs">—</span>}
+                                    ) : <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>}
                                   </td>
                                   <td className="py-3.5 px-4 text-center" onClick={e => e.stopPropagation()}>
                                     <button disabled={busy} onClick={() => updateInvoice(inv.id, { sent: !inv.sent })}
                                       title="Mark payout as sent"
-                                      className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sent ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
+                                      className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sent ? 'bg-emerald-100 dark:bg-green-900/40 text-emerald-700 dark:text-green-400 hover:bg-emerald-200 dark:hover:bg-green-900/60' : 'bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-white/15'}`}>
                                       <CheckCircle className="w-4 h-4" />
                                     </button>
                                   </td>
                                   <td className="py-3.5 px-4 text-center" onClick={e => e.stopPropagation()}>
                                     <button disabled={busy} onClick={() => updateInvoice(inv.id, { sentZelle: !inv.sentZelle })}
                                       title="Mark Zelle payout as sent"
-                                      className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sentZelle ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
+                                      className={`w-7 h-7 rounded-lg flex items-center justify-center mx-auto transition-colors ${inv.sentZelle ? 'bg-emerald-100 dark:bg-green-900/40 text-emerald-700 dark:text-green-400 hover:bg-emerald-200 dark:hover:bg-green-900/60' : 'bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-white/15'}`}>
                                       <Send className="w-4 h-4" />
                                     </button>
                                   </td>
-                                  <td className="py-3.5 px-4 text-xs text-slate-500">{inv.zelle || '—'}</td>
+                                  <td className="py-3.5 px-4 text-xs text-slate-500 dark:text-slate-400">{inv.zelle || '—'}</td>
                                   <td className="py-3.5 px-4 text-right">
                                     {busy && <RefreshCw className="w-4 h-4 animate-spin text-blue-400 ml-auto" />}
                                   </td>
                                 </tr>
                                 {isOpen && (
-                                  <tr className="bg-slate-50/40 border-b border-slate-100">
+                                  <tr className="bg-slate-50/40 dark:bg-white/5 border-b border-slate-100 dark:border-white/8">
                                     <td colSpan={9} className="px-4 pl-12 py-3">
                                       {!trackingActivity.length ? (
-                                        <p className="text-xs text-slate-400 py-2 flex items-center gap-2">
+                                        <p className="text-xs text-slate-400 dark:text-slate-500 py-2 flex items-center gap-2">
                                           <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Loading cards…
                                         </p>
                                       ) : cards.length === 0 ? (
-                                        <p className="text-xs text-slate-400 py-2">No approvals found for {inv.name} in {inv.month}.</p>
+                                        <p className="text-xs text-slate-400 dark:text-slate-500 py-2">No approvals found for {inv.name} in {inv.month}.</p>
                                       ) : (
                                         <div className="space-y-1.5 py-1">
-                                          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                                          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1.5">
                                             Approvals for {inv.name} in {inv.month} ({cards.length})
                                           </p>
                                           {cards.map((c: any) => (
-                                            <div key={c.id} className="flex items-center justify-between text-sm py-1.5 px-3 bg-white rounded-lg border border-slate-100">
+                                            <div key={c.id} className="flex items-center justify-between text-sm py-1.5 px-3 bg-white dark:bg-[#151820] rounded-lg border border-slate-100 dark:border-white/8">
                                               <div className="flex items-center gap-3 min-w-0">
-                                                <span className="font-medium text-slate-900 truncate">{c.cardName}</span>
+                                                <span className="font-medium text-slate-900 dark:text-white truncate">{c.cardName}</span>
                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 ${
-                                                  c.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
-                                                  c.status === 'application' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70' :
-                                                  'bg-slate-100 text-slate-500'
+                                                  c.status === 'approval'    ? 'bg-emerald-50 dark:bg-green-900/30 text-emerald-700 dark:text-green-400 ring-1 ring-emerald-200/70' :
+                                                  c.status === 'application' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 ring-1 ring-blue-200/70' :
+                                                  'bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-400'
                                                 }`}>{c.status}</span>
-                                                <span className="text-xs text-slate-400 shrink-0">{formatDate(c.clickDate)}</span>
+                                                <span className="text-xs text-slate-400 dark:text-slate-500 shrink-0">{formatDate(c.clickDate)}</span>
                                               </div>
-                                              <span className="font-semibold text-emerald-600 shrink-0 ml-3">
-                                                {c.totalEarnings > 0 ? `$${c.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
+                                              <span className="font-semibold text-emerald-600 dark:text-green-400 shrink-0 ml-3">
+                                                {c.totalEarnings > 0 ? `$${c.totalEarnings.toFixed(2)}` : <span className="text-slate-300 dark:text-slate-600 font-normal">—</span>}
                                               </span>
                                             </div>
                                           ))}
@@ -2474,17 +2474,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             const sublabel     = getSub(key);
                             return (
                               <React.Fragment key={key}>
-                                <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none">
+                                <tr onClick={toggle} className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors duration-150 select-none">
                                   <td colSpan={9} className="py-2.5 px-4">
                                     <div className="flex items-center gap-3 flex-wrap">
                                       <div className="flex items-center gap-2">
-                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                        <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{getLabel(key, rows)}</span>
-                                        {sublabel && <span className="text-xs text-slate-400 font-mono normal-case">{sublabel}</span>}
-                                        <span className="text-xs font-normal text-slate-400">({rows.length} invoice{rows.length !== 1 ? 's' : ''})</span>
+                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 dark:text-slate-500 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+                                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">{getLabel(key, rows)}</span>
+                                        {sublabel && <span className="text-xs text-slate-400 dark:text-slate-500 font-mono normal-case">{sublabel}</span>}
+                                        <span className="text-xs font-normal text-slate-400 dark:text-slate-500">({rows.length} invoice{rows.length !== 1 ? 's' : ''})</span>
                                       </div>
-                                      <div className="flex items-center gap-3 ml-2 text-xs text-slate-500">
-                                        {grpAmount    > 0 && <span className="font-medium text-emerald-600">${grpAmount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}</span>}
+                                      <div className="flex items-center gap-3 ml-2 text-xs text-slate-500 dark:text-slate-400">
+                                        {grpAmount    > 0 && <span className="font-medium text-emerald-600 dark:text-green-400">${grpAmount.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}</span>}
                                         {grpApprovals > 0 && <span>{grpApprovals} approvals</span>}
                                         {grpSent      > 0 && <span>{grpSent} paid</span>}
                                       </div>
@@ -2502,10 +2502,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <div className="py-4 flex flex-wrap items-center justify-center gap-2">
                         <button
                           onClick={() => setInvoicesVisible(n => n + PAGE_SIZE)}
-                          className="px-4 py-2 text-xs font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors duration-150 cursor-pointer"
+                          className="px-4 py-2 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors duration-150 cursor-pointer"
                         >
                           Show {Math.min(PAGE_SIZE, filtered.length - invoicesVisible)} more
-                          <span className="text-slate-400 ml-1">({filtered.length - invoicesVisible} remaining)</span>
+                          <span className="text-slate-400 dark:text-slate-500 ml-1">({filtered.length - invoicesVisible} remaining)</span>
                         </button>
                       </div>
                     )}
@@ -2523,8 +2523,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         <Dialog.Root open={showCreateModal} onOpenChange={setShowCreateModal}>
           <Dialog.Portal>
             <Dialog.Overlay className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
-            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl ring-1 ring-slate-900/10">
-              <Dialog.Title className="text-lg font-semibold text-slate-900 mb-4">Create New Affiliate</Dialog.Title>
+            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-[#151820] rounded-2xl p-6 w-full max-w-md shadow-2xl ring-1 ring-slate-900/10 dark:ring-white/10">
+              <Dialog.Title className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Create New Affiliate</Dialog.Title>
               <Dialog.Description className="sr-only">Create a new affiliate account with name, email, password, and commission rate</Dialog.Description>
               <form onSubmit={createUser} className="space-y-4">
                 {[
@@ -2533,30 +2533,30 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   { label: 'Password', value: newUserPassword, set: setNewUserPassword, type: 'password' },
                 ].map(({ label, value, set, type }) => (
                   <div key={label}>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">{label}</label>
                     <input
                       type={type}
                       value={value}
                       onChange={(e) => set(e.target.value)}
-                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm"
+                      className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-white/10 dark:bg-[#1a1c23] dark:text-white dark:placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm"
                       required
                       minLength={type === 'password' ? 6 : undefined}
                     />
                   </div>
                 ))}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Commission Rate (%)</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Commission Rate (%)</label>
                   <input
                     type="number"
                     value={newUserCommission}
                     onChange={(e) => setNewUserCommission(e.target.value)}
-                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm"
+                    className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-white/10 dark:bg-[#1a1c23] dark:text-white dark:placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm"
                     min="0" max="100" required
                   />
                 </div>
                 <div className="flex gap-3 mt-6">
                   <button type="submit" className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">Create Affiliate</button>
-                  <button type="button" onClick={() => setShowCreateModal(false)} className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium">Cancel</button>
+                  <button type="button" onClick={() => setShowCreateModal(false)} className="flex-1 bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200 py-2.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/15 transition-colors text-sm font-medium">Cancel</button>
                 </div>
               </form>
             </Dialog.Content>
@@ -2567,24 +2567,24 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         <Dialog.Root open={showResetModal} onOpenChange={setShowResetModal}>
           <Dialog.Portal>
             <Dialog.Overlay className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
-            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl ring-1 ring-slate-900/10">
-              <Dialog.Title className="text-lg font-semibold text-slate-900 mb-4">Reset Password</Dialog.Title>
+            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-[#151820] rounded-2xl p-6 w-full max-w-md shadow-2xl ring-1 ring-slate-900/10 dark:ring-white/10">
+              <Dialog.Title className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Reset Password</Dialog.Title>
               <Dialog.Description className="sr-only">Reset the password for the selected affiliate account</Dialog.Description>
-              {selectedUser && <p className="mb-4 text-sm text-slate-600">Reset password for <strong className="text-slate-900">{selectedUser.email}</strong></p>}
+              {selectedUser && <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">Reset password for <strong className="text-slate-900 dark:text-white">{selectedUser.email}</strong></p>}
               <form onSubmit={resetUserPassword} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">New Password</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">New Password</label>
                   <input
                     type="password"
                     value={resetPassword}
                     onChange={(e) => setResetPassword(e.target.value)}
-                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm"
+                    className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-white/10 dark:bg-[#1a1c23] dark:text-white dark:placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm"
                     required minLength={6}
                   />
                 </div>
                 <div className="flex gap-3 mt-6">
                   <button type="submit" className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">Reset Password</button>
-                  <button type="button" onClick={() => { setShowResetModal(false); setSelectedUser(null); setResetPassword(''); }} className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium">Cancel</button>
+                  <button type="button" onClick={() => { setShowResetModal(false); setSelectedUser(null); setResetPassword(''); }} className="flex-1 bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200 py-2.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/15 transition-colors text-sm font-medium">Cancel</button>
                 </div>
               </form>
             </Dialog.Content>
@@ -2595,10 +2595,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         <Dialog.Root open={showEditModal} onOpenChange={setShowEditModal}>
           <Dialog.Portal>
             <Dialog.Overlay className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" />
-            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 w-full max-w-2xl shadow-2xl ring-1 ring-slate-900/10 max-h-[90vh] overflow-y-auto">
-              <Dialog.Title className="text-lg font-semibold text-slate-900 mb-4">Edit Affiliate</Dialog.Title>
+            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-[#151820] rounded-2xl p-6 w-full max-w-2xl shadow-2xl ring-1 ring-slate-900/10 dark:ring-white/10 max-h-[90vh] overflow-y-auto">
+              <Dialog.Title className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Edit Affiliate</Dialog.Title>
               <Dialog.Description className="sr-only">Edit affiliate profile information</Dialog.Description>
-              {selectedUser && <p className="mb-4 text-sm text-slate-600">Editing: <strong className="text-slate-900">{selectedUser.email}</strong></p>}
+              {selectedUser && <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">Editing: <strong className="text-slate-900 dark:text-white">{selectedUser.email}</strong></p>}
               <form onSubmit={editUser} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[
@@ -2612,31 +2612,31 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     { label: 'Country',  value: editCountry, set: setEditCountry, type: 'text',  req: false },
                   ].map(({ label, value, set, type, req }) => (
                     <div key={label}>
-                      <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">{label}</label>
                       <input
                         type={type}
                         value={value}
                         onChange={(e) => set(e.target.value)}
-                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm"
+                        className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-white/10 dark:bg-[#1a1c23] dark:text-white dark:placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm"
                         required={req}
                       />
                     </div>
                   ))}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Affiliate Link Reference (ezrxref)</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1.5">Affiliate Link Reference (ezrxref)</label>
                   <input
                     type="text"
                     value={editEzrxRef}
                     onChange={(e) => setEditEzrxRef(e.target.value)}
                     placeholder="e.g. 12345"
-                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm"
+                    className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-white/10 dark:bg-[#1a1c23] dark:text-white dark:placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm"
                   />
-                  <p className="text-xs text-slate-500 mt-1.5">Powers the affiliate's cardratings.com link shown on their dashboard. Leave blank if not yet assigned.</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">Powers the affiliate's cardratings.com link shown on their dashboard. Leave blank if not yet assigned.</p>
                 </div>
                 <div className="flex gap-3 mt-6">
                   <button type="submit" className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">Save Changes</button>
-                  <button type="button" onClick={() => { setShowEditModal(false); setSelectedUser(null); }} className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium">Cancel</button>
+                  <button type="button" onClick={() => { setShowEditModal(false); setSelectedUser(null); }} className="flex-1 bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200 py-2.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/15 transition-colors text-sm font-medium">Cancel</button>
                 </div>
               </form>
             </Dialog.Content>

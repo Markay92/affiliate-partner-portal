@@ -246,11 +246,11 @@ function FilterBar({
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <span className="text-xs font-medium text-slate-400 flex-shrink-0">Period:</span>
+        <span className="text-xs font-medium text-slate-400 dark:text-slate-500 flex-shrink-0">Period:</span>
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value as DateFilter)}
-          className="sm:hidden flex-1 min-w-0 text-xs font-medium bg-slate-100 border border-transparent rounded-lg px-2.5 py-1.5 text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+          className="sm:hidden flex-1 min-w-0 text-xs font-medium bg-slate-100 dark:bg-white/10 border border-transparent rounded-lg px-2.5 py-1.5 text-slate-600 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
         >
           {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
             <option key={f} value={f}>{DATE_LABELS[f]}</option>
@@ -263,7 +263,7 @@ function FilterBar({
                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
                   filter === f
                     ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
+                    : 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15'
                 }`}>
                 {DATE_LABELS[f]}
               </button>
@@ -274,10 +274,10 @@ function FilterBar({
       {filter === 'custom' && (
         <div className="flex flex-wrap items-center gap-2">
           <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
-            className="flex-1 min-w-[130px] px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400" />
-          <span className="text-slate-400 text-xs">to</span>
+            className="flex-1 min-w-[130px] px-2.5 py-1.5 text-xs border border-slate-200 dark:border-white/10 dark:bg-[#1a1c23] dark:text-white dark:placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400" />
+          <span className="text-slate-400 dark:text-slate-500 text-xs">to</span>
           <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)}
-            className="flex-1 min-w-[130px] px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400" />
+            className="flex-1 min-w-[130px] px-2.5 py-1.5 text-xs border border-slate-200 dark:border-white/10 dark:bg-[#1a1c23] dark:text-white dark:placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400" />
         </div>
       )}
     </div>
@@ -300,9 +300,9 @@ function SortTh({
     <th
       onClick={() => onSort(field)}
       aria-sort={sort.field === field ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-      className={`py-3 px-4 text-slate-500 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-slate-100/70 hover:text-slate-700 transition-colors duration-150 text-${align}`}
+      className={`py-3 px-4 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:bg-slate-100/70 dark:hover:bg-white/10 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-150 text-${align}`}
     >
-      <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''} ${sort.field === field ? 'text-blue-600' : ''}`}>
+      <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''} ${sort.field === field ? 'text-blue-600 dark:text-blue-400' : ''}`}>
         {label}{icon}
       </span>
     </th>
@@ -629,17 +629,17 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const PctBadge = ({ pct, compact = false }: { pct: number | null; compact?: boolean }) => {
     if (pct === null) {
       return compact
-        ? <span className="text-slate-300 text-xs">—</span>
-        : <span className="text-slate-400 text-xs">No prior-period data</span>;
+        ? <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
+        : <span className="text-slate-400 dark:text-slate-500 text-xs">No prior-period data</span>;
     }
     if (pct === 0) {
       return compact
-        ? <span className="text-slate-400 text-xs font-medium">No change</span>
-        : <span className="text-slate-400 text-xs flex items-center gap-1">— No change <span className="font-normal">{_periodLabel}</span></span>;
+        ? <span className="text-slate-400 dark:text-slate-500 text-xs font-medium">No change</span>
+        : <span className="text-slate-400 dark:text-slate-500 text-xs flex items-center gap-1">— No change <span className="font-normal">{_periodLabel}</span></span>;
     }
     const up = pct > 0;
     return (
-      <div className={`flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full ${up ? 'text-emerald-700 bg-emerald-50' : 'text-red-600 bg-red-50'}`}>
+      <div className={`flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full ${up ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30' : 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30'}`}>
         <TrendingUp className={`w-3 h-3 ${!up ? 'rotate-180' : ''}`} />
         <span>{up ? '+' : ''}{pct}%{!compact ? ` ${_periodLabel}` : ''}</span>
       </div>
@@ -666,45 +666,45 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-100 to-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-b from-slate-100 to-slate-50 dark:from-[#0d0f14] dark:to-[#0d0f14] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-blue-100">
+          <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-blue-100 dark:ring-white/10">
             <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
           </div>
-          <p className="text-slate-500 text-sm font-medium">Loading your dashboard…</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Loading your dashboard…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-100 to-slate-50">
+    <div className="min-h-screen bg-gradient-to-b from-slate-100 to-slate-50 dark:from-[#0d0f14] dark:to-[#0d0f14]">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-white border-b border-gray-100">
+      <header className="sticky top-0 z-10 bg-white dark:bg-[#0d0f14] border-b border-gray-100 dark:border-white/8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-blue-600">
                 <path d="M13 2L4.5 13.5H11L10 22L20.5 9.5H14L13 2Z" fill="currentColor"/>
               </svg>
-              <span className="hidden sm:block text-lg font-semibold text-gray-900">Affiliate Portal</span>
+              <span className="hidden sm:block text-lg font-semibold text-gray-900 dark:text-white">Affiliate Portal</span>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={fetchData}
-                className="p-2 hover:bg-gray-100 active:scale-95 rounded-lg transition-all duration-150 cursor-pointer"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 active:scale-95 rounded-lg transition-all duration-150 cursor-pointer"
                 title="Refresh data"
               >
-                <RefreshCw className="w-4 h-4 text-gray-400" />
+                <RefreshCw className="w-4 h-4 text-gray-400 dark:text-slate-500" />
               </button>
               {(firstName || userEmail) && (
-                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold flex items-center justify-center" title={firstName || userEmail}>
+                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold flex items-center justify-center" title={firstName || userEmail}>
                   {(firstName || userEmail).charAt(0).toUpperCase()}
                 </div>
               )}
               <button
                 onClick={onLogout}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-900 active:scale-95 rounded-lg transition-all duration-150 cursor-pointer"
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white active:scale-95 rounded-lg transition-all duration-150 cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline">Logout</span>
@@ -715,7 +715,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       </header>
 
       {error && (
-        <div className="bg-red-50 border-b border-red-100 px-4 sm:px-6 lg:px-8 py-3 text-red-700 text-sm max-w-7xl mx-auto">
+        <div className="bg-red-50 dark:bg-red-900/30 border-b border-red-100 dark:border-red-900/40 px-4 sm:px-6 lg:px-8 py-3 text-red-700 dark:text-red-400 text-sm max-w-7xl mx-auto">
           <span className="font-medium">{error}</span> — try refreshing the page or logging out and back in.
         </div>
       )}
@@ -766,15 +766,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               {/* ── Period header ── */}
               <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div>
-                  <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">Performance Overview</h2>
-                  <p className="text-xs sm:text-sm text-slate-500">{STAT_PERIOD_LABELS[statPeriod]}</p>
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">Performance Overview</h2>
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">{STAT_PERIOD_LABELS[statPeriod]}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Mobile: dropdown */}
                   <select
                     value={statPeriod}
                     onChange={e => setStatPeriod(e.target.value as StatPeriod)}
-                    className="sm:hidden text-xs font-medium bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    className="sm:hidden text-xs font-medium bg-white dark:bg-[#1a1c23] border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-2 text-slate-600 dark:text-white shadow-sm dark:shadow-none focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                   >
                     {([
                       { value: 'today',  label: 'Today' },
@@ -788,7 +788,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     ))}
                   </select>
                   {/* Desktop: pill row */}
-                  <div className="hidden sm:flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl p-1 text-xs font-medium shadow-sm">
+                  <div className="hidden sm:flex items-center gap-0.5 bg-white dark:bg-[#151820] border border-slate-200 dark:border-white/10 rounded-xl p-1 text-xs font-medium shadow-sm dark:shadow-none">
                     {([
                       { value: 'today',  label: 'Today' },
                       { value: 'week',   label: 'This Week' },
@@ -799,7 +799,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
                       <button key={value} onClick={() => setStatPeriod(value)}
                         className={`px-2.5 py-1.5 rounded-lg transition-all duration-150 whitespace-nowrap cursor-pointer ${
-                          statPeriod === value ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                          statPeriod === value ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5'
                         }`}>
                         {label}
                       </button>
@@ -809,17 +809,17 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   {statPeriod === 'custom' && (
                     <div className="flex items-center gap-1.5">
                       <input type="date" value={statCustomFrom} onChange={e => setStatCustomFrom(e.target.value)}
-                        className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
-                      <span className="text-xs text-slate-400">→</span>
+                        className="text-xs border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-slate-600 dark:text-white bg-white dark:bg-[#1a1c23] dark:placeholder-slate-500 shadow-sm dark:shadow-none focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                      <span className="text-xs text-slate-400 dark:text-slate-500">→</span>
                       <input type="date" value={statCustomTo} onChange={e => setStatCustomTo(e.target.value)}
-                        className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-600 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                        className="text-xs border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-slate-600 dark:text-white bg-white dark:bg-[#1a1c23] dark:placeholder-slate-500 shadow-sm dark:shadow-none focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
                     </div>
                   )}
                 </div>
               </div>
 
               {isEmptyPeriod && (
-                <div className="mb-3 flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+                <div className="mb-3 flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500 font-medium">
                   <RefreshCw className="w-3 h-3" /> No activity recorded for {STAT_PERIOD_LABELS[statPeriod].split(' vs ')[0].toLowerCase()}
                 </div>
               )}
@@ -827,16 +827,16 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               {/* ── Stat cards — always visible, the primary numbers ── */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
                 {statRows.map(({ label, value, iconColor, bgColor, Icon, sub, pct }) => (
-                  <div key={label} className="bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-200">
+                  <div key={label} className="bg-white dark:bg-[#151820] rounded-2xl ring-1 ring-slate-900/5 dark:ring-white/8 shadow-sm dark:shadow-none p-4 sm:p-5 hover:shadow-md transition-shadow duration-200">
                     <div className="flex items-center justify-between mb-3">
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${bgColor} ring-1 ring-inset ${iconColor.replace('text-', 'ring-')}/10`}>
                         <Icon className={`w-4.5 h-4.5 ${iconColor}`} />
                       </div>
                       {pct !== undefined && <PctBadge pct={pct} compact />}
                     </div>
-                    <div className="text-2xl sm:text-[28px] font-bold text-slate-900 leading-none tracking-tight tabular-nums">{value}</div>
-                    <div className="text-xs text-slate-400 font-medium mt-1.5 uppercase tracking-wide">{label}</div>
-                    {sub && <div className="text-xs text-slate-400 font-medium mt-0.5">{sub}</div>}
+                    <div className="text-2xl sm:text-[28px] font-bold text-slate-900 dark:text-white leading-none tracking-tight tabular-nums">{value}</div>
+                    <div className="text-xs text-slate-400 dark:text-slate-500 font-medium mt-1.5 uppercase tracking-wide">{label}</div>
+                    {sub && <div className="text-xs text-slate-400 dark:text-slate-500 font-medium mt-0.5">{sub}</div>}
                   </div>
                 ))}
               </div>
@@ -845,10 +845,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               {(showCharts || showTopCards) && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                   {showCharts && (
-                    <div className={`bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 sm:p-5 ${showTopCards ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+                    <div className={`bg-white dark:bg-[#151820] rounded-2xl ring-1 ring-slate-900/5 dark:ring-white/8 shadow-sm dark:shadow-none p-4 sm:p-5 ${showTopCards ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-semibold text-slate-700">Monthly Performance</h3>
-                        <div className="flex items-center gap-3 text-[11px] text-slate-400 font-medium">
+                        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Monthly Performance</h3>
+                        <div className="flex items-center gap-3 text-[11px] text-slate-400 dark:text-slate-500 font-medium">
                           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#bfdbfe]" />Clicks</span>
                           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#818cf8]" />Applications</span>
                           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#6366f1]" />Approvals</span>
@@ -871,18 +871,18 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   )}
 
                   {showTopCards && (
-                    <div className={`bg-white rounded-2xl ring-1 ring-slate-900/5 shadow-sm p-4 sm:p-5 ${showCharts ? 'lg:col-span-1' : 'lg:col-span-3'} flex flex-col`}>
-                      <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-1.5">
+                    <div className={`bg-white dark:bg-[#151820] rounded-2xl ring-1 ring-slate-900/5 dark:ring-white/8 shadow-sm dark:shadow-none p-4 sm:p-5 ${showCharts ? 'lg:col-span-1' : 'lg:col-span-3'} flex flex-col`}>
+                      <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
                         <Award className="w-4 h-4 text-emerald-500" /> Top Approved Cards
                       </h3>
                       <div className="flex flex-col gap-1 flex-1">
                         {mostApprovedCards.map((c, idx) => (
-                          <div key={c.name} className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-slate-50 transition-colors duration-150 min-w-0">
+                          <div key={c.name} className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors duration-150 min-w-0">
                             <span className={`text-xs font-bold flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center ${
-                              idx === 0 ? 'bg-amber-50 text-amber-500' : idx === 1 ? 'bg-slate-100 text-slate-400' : idx === 2 ? 'bg-orange-50 text-orange-500' : 'bg-slate-50 text-slate-300'
+                              idx === 0 ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-500 dark:text-amber-400' : idx === 1 ? 'bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-slate-500' : idx === 2 ? 'bg-orange-50 text-orange-500' : 'bg-slate-50 dark:bg-[#0d0f14] text-slate-300 dark:text-slate-600'
                             }`}>{idx+1}</span>
-                            <span className="text-sm text-slate-700 truncate flex-1 min-w-0 font-medium">{decodeHtml(c.name)}</span>
-                            <span className="text-xs text-slate-400 flex-shrink-0 font-semibold tabular-nums">{c.approvals}×</span>
+                            <span className="text-sm text-slate-700 dark:text-slate-200 truncate flex-1 min-w-0 font-medium">{decodeHtml(c.name)}</span>
+                            <span className="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0 font-semibold tabular-nums">{c.approvals}×</span>
                           </div>
                         ))}
                       </div>
@@ -893,7 +893,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
               {/* ── Visibility toggles for the insights row ── */}
               <div className="flex items-center gap-1.5 mt-3">
-                <span className="text-[11px] font-semibold text-slate-400 mr-0.5 uppercase tracking-wider">Show:</span>
+                <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 mr-0.5 uppercase tracking-wider">Show:</span>
                 {(['charts', 'topCards'] as const).map(key => {
                   const labels = { charts: 'Monthly Chart', topCards: 'Top Cards' };
                   return (
@@ -901,7 +901,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-150 border cursor-pointer ${
                         visiblePanels.has(key)
                           ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                          : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'
+                          : 'bg-white dark:bg-[#151820] text-slate-500 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:border-blue-300 hover:text-blue-600 dark:hover:text-blue-400'
                       }`}>
                       {labels[key]}
                     </button>
@@ -913,16 +913,16 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         })()}
 
         {/* Tabs */}
-        <Tabs.Root defaultValue="cards" className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-900/5">
-          <Tabs.List className="flex border-b border-slate-100 overflow-x-auto px-2 pt-1">
+        <Tabs.Root defaultValue="cards" className="bg-white dark:bg-[#151820] rounded-2xl shadow-sm dark:shadow-none ring-1 ring-slate-900/5 dark:ring-white/8">
+          <Tabs.List className="flex border-b border-slate-100 dark:border-white/8 overflow-x-auto px-2 pt-1">
             {['cards', 'activity', 'invoices', 'profile'].map((tab) => (
               <Tabs.Trigger
                 key={tab}
                 value={tab}
-                className="relative px-5 py-3.5 text-sm font-medium text-slate-500 border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-700 data-[state=active]:font-semibold hover:text-slate-800 transition-colors duration-150 whitespace-nowrap capitalize -mb-px cursor-pointer"
+                className="relative px-5 py-3.5 text-sm font-medium text-slate-500 dark:text-slate-400 border-b-2 border-transparent data-[state=active]:border-blue-600 dark:data-[state=active]:border-blue-400 data-[state=active]:text-blue-700 dark:data-[state=active]:text-blue-400 data-[state=active]:font-semibold hover:text-slate-800 dark:hover:text-slate-100 transition-colors duration-150 whitespace-nowrap capitalize -mb-px cursor-pointer"
               >
                 {tab === 'invoices'
-                  ? <span className="flex items-center gap-1.5">Invoices{invoices.length > 0 && <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-1.5 py-0.5 rounded-full">{invoices.length}</span>}</span>
+                  ? <span className="flex items-center gap-1.5">Invoices{invoices.length > 0 && <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-semibold px-1.5 py-0.5 rounded-full">{invoices.length}</span>}</span>
                   : tab.charAt(0).toUpperCase() + tab.slice(1)}
               </Tabs.Trigger>
             ))}
@@ -958,25 +958,25 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 </div>
               </div>
             ) : (
-              <div className="mb-6 p-4 bg-slate-50 rounded-2xl ring-1 ring-slate-200/60 text-sm text-slate-500">
+              <div className="mb-6 p-4 bg-slate-50 dark:bg-[#0d0f14] rounded-2xl ring-1 ring-slate-200/60 dark:ring-white/10 text-sm text-slate-500 dark:text-slate-400">
                 No affiliate link configured yet — contact your manager to set up your link.
               </div>
             )}
           </div>
 
             {/* ── Sticky filter toolbar ── */}
-            <div className="sticky top-16 z-10 bg-white border-b border-slate-100 px-4 sm:px-6 py-3">
+            <div className="sticky top-16 z-10 bg-white dark:bg-[#0d0f14] border-b border-slate-100 dark:border-white/8 px-4 sm:px-6 py-3">
             <div className="flex flex-wrap items-center gap-2">
               {/* Search */}
               <div className="relative flex-1 min-w-[180px]">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-slate-500 pointer-events-none" />
                 <input type="text" placeholder="Search cards or issuer…" value={cardsSearch}
                   onChange={e => { setCardsSearch(e.target.value); setCardsVisible(PAGE_SIZE); }}
-                  className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white text-slate-700 transition-shadow" />
+                  className="w-full pl-8 pr-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white dark:bg-[#1a1c23] text-slate-700 dark:text-white dark:placeholder-slate-500 transition-shadow" />
               </div>
               {/* Issuer */}
               <select value={cardsIssuerFilter} onChange={e => { setCardsIssuerFilter(e.target.value); setCardsVisible(PAGE_SIZE); }}
-                className="px-2.5 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white text-slate-700 cursor-pointer">
+                className="px-2.5 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white dark:bg-[#1a1c23] text-slate-700 dark:text-white cursor-pointer">
                 <option value="all">All issuers</option>
                 {cardIssuers.map(issuer => <option key={issuer} value={issuer}>{issuer}</option>)}
               </select>
@@ -992,7 +992,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       className={`px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
                         cardsPayoutFilter === value
                           ? 'bg-blue-600 text-white shadow-sm'
-                          : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
+                          : 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15'
                       }`}>{label}</button>
                   ))}
                 </div>
@@ -1001,7 +1001,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               <div className="flex items-center gap-2 sm:ml-auto">
                 <button onClick={() => { setCardsGroupBy(g => !g); setCardsCollapsed(new Set()); }}
                   className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-150 cursor-pointer ${
-                    cardsGroupBy ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'text-slate-600 bg-white border-slate-200 hover:border-blue-300 hover:text-blue-600'
+                    cardsGroupBy ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'text-slate-600 dark:text-slate-300 bg-white dark:bg-[#151820] border-slate-200 dark:border-white/10 hover:border-blue-300 hover:text-blue-600 dark:hover:text-blue-400'
                   }`}>
                   <Layers className="w-3.5 h-3.5" />
                   Group by Issuer
@@ -1011,14 +1011,14 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   const allCollapsed = allIssuers.every(i => cardsCollapsed.has(i));
                   return (
                     <button onClick={() => setCardsCollapsed(allCollapsed ? new Set() : new Set(allIssuers))}
-                      className="text-xs text-slate-500 hover:text-blue-600 transition-colors cursor-pointer">
+                      className="text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer">
                       {allCollapsed ? 'Expand All' : 'Collapse All'}
                     </button>
                   );
                 })()}
                 {(cardsSearch || cardsIssuerFilter !== 'all' || cardsPayoutFilter !== 'all') && (
                   <button onClick={() => { setCardsSearch(''); setCardsIssuerFilter('all'); setCardsPayoutFilter('all'); setCardsVisible(PAGE_SIZE); }}
-                    className="text-xs text-blue-600 hover:underline cursor-pointer">Clear</button>
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline cursor-pointer">Clear</button>
                 )}
               </div>
             </div>
@@ -1027,21 +1027,21 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           <div className="p-4 sm:p-6 pt-3">
             {displayCards.length === 0 ? (
               <div className="text-center py-16">
-                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-slate-100">
-                  <CreditCard className="w-7 h-7 text-slate-300" />
+                <div className="w-14 h-14 bg-slate-50 dark:bg-[#0d0f14] rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-slate-100 dark:ring-white/8">
+                  <CreditCard className="w-7 h-7 text-slate-300 dark:text-slate-600" />
                 </div>
-                <p className="text-sm text-slate-500 font-medium">{links.length === 0 ? 'No cards loaded yet — try refreshing.' : 'No cards match the filters.'}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">{links.length === 0 ? 'No cards loaded yet — try refreshing.' : 'No cards match the filters.'}</p>
               </div>
             ) : (() => {
               const CardRow = ({ card }: { card: any }) => (
-                <tr key={card.id} className="border-b border-slate-50 hover:bg-blue-50/40 transition-colors duration-150">
-                  <td className="py-3.5 px-4 font-medium text-sm text-slate-900">{card.name}</td>
-                  {!cardsGroupBy && <td className="py-3.5 px-4 text-sm text-slate-500">{card.issuer || '—'}</td>}
-                  <td className="py-3.5 px-4 text-right text-sm font-semibold text-slate-900 tabular-nums">
-                    {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : <span className="text-slate-300 font-normal">—</span>}
+                <tr key={card.id} className="border-b border-slate-50 dark:border-white/5 hover:bg-blue-50/40 dark:hover:bg-white/5 transition-colors duration-150">
+                  <td className="py-3.5 px-4 font-medium text-sm text-slate-900 dark:text-white">{card.name}</td>
+                  {!cardsGroupBy && <td className="py-3.5 px-4 text-sm text-slate-500 dark:text-slate-400">{card.issuer || '—'}</td>}
+                  <td className="py-3.5 px-4 text-right text-sm font-semibold text-slate-900 dark:text-white tabular-nums">
+                    {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : <span className="text-slate-300 dark:text-slate-600 font-normal">—</span>}
                   </td>
-                  <td className="py-3.5 px-4 text-right text-sm text-slate-600 tabular-nums">{card.clicks}</td>
-                  <td className="py-3.5 px-4 text-right text-sm text-slate-600 tabular-nums">{card.conversions}</td>
+                  <td className="py-3.5 px-4 text-right text-sm text-slate-600 dark:text-slate-300 tabular-nums">{card.clicks}</td>
+                  <td className="py-3.5 px-4 text-right text-sm text-slate-600 dark:text-slate-300 tabular-nums">{card.conversions}</td>
                 </tr>
               );
               const colCount = cardsGroupBy ? 4 : 5;
@@ -1049,19 +1049,19 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               return (
                 <>
                   <div className="flex items-center justify-between mb-3 gap-2">
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-slate-400 dark:text-slate-500">
                       Showing {pagedCards.length} of {displayCards.length} cards
                     </p>
                     {lastUpdated && (
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-gray-400 dark:text-slate-500">
                         Last updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     )}
                   </div>
-                  <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
+                  <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100 dark:ring-white/8">
                     <table className="w-full">
-                      <thead className="bg-slate-50/80">
-                        <tr className="border-b border-slate-100">
+                      <thead className="bg-slate-50/80 dark:bg-white/5">
+                        <tr className="border-b border-slate-100 dark:border-white/8">
                           <SortTh label="Card"      field="name"        sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />
                           {!cardsGroupBy && <SortTh label="Issuer" field="issuer" sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} />}
                           <SortTh label="Your CPA"  field="cpa"         sort={cardsSort} onSort={f => setCardsSort(toggleSort(cardsSort, f))} align="right" />
@@ -1079,12 +1079,12 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                               const toggle = () => setCardsCollapsed(prev => { const next = new Set(prev); next.has(issuer) ? next.delete(issuer) : next.add(issuer); return next; });
                               return (
                                 <React.Fragment key={`g-${issuer}`}>
-                                  <tr onClick={toggle} className="bg-slate-50 border-b border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors duration-150 select-none">
+                                  <tr onClick={toggle} className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/10 transition-colors duration-150 select-none">
                                     <td colSpan={colCount} className="py-2.5 px-4">
                                       <div className="flex items-center gap-2">
-                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                                        <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">{issuer}</span>
-                                        <span className="text-xs font-normal text-slate-400 ml-0.5">({cards.length})</span>
+                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 dark:text-slate-500 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+                                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">{issuer}</span>
+                                        <span className="text-xs font-normal text-slate-400 dark:text-slate-500 ml-0.5">({cards.length})</span>
                                       </div>
                                     </td>
                                   </tr>
@@ -1103,10 +1103,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     <div className="pt-4 text-center">
                       <button
                         onClick={() => setCardsVisible(n => n + PAGE_SIZE)}
-                        className="px-4 py-2 text-xs font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+                        className="px-4 py-2 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-400/30 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                       >
                         Show {Math.min(PAGE_SIZE, displayCards.length - cardsVisible)} more
-                        <span className="text-slate-400 ml-1">({displayCards.length - cardsVisible} remaining)</span>
+                        <span className="text-slate-400 dark:text-slate-500 ml-1">({displayCards.length - cardsVisible} remaining)</span>
                       </button>
                     </div>
                   )}
@@ -1119,15 +1119,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           {/* ── Activity Tab ── */}
           <Tabs.Content value="activity">
             {/* Sticky controls */}
-            <div className="sticky top-16 z-10 bg-white border-b border-slate-100 px-4 sm:px-6 py-3">
-            <div className="flex items-center justify-between mb-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200">
-              <p className="text-sm text-slate-600">
-                <span className="font-semibold text-slate-900 tabular-nums">{displayTracking.length}</span>
-                {trackingFilter !== 'all' ? <span className="text-slate-400"> of {tracking.length}</span> : ''} activity records
+            <div className="sticky top-16 z-10 bg-white dark:bg-[#0d0f14] border-b border-slate-100 dark:border-white/8 px-4 sm:px-6 py-3">
+            <div className="flex items-center justify-between mb-3 p-3.5 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                <span className="font-semibold text-slate-900 dark:text-white tabular-nums">{displayTracking.length}</span>
+                {trackingFilter !== 'all' ? <span className="text-slate-400 dark:text-slate-500"> of {tracking.length}</span> : ''} activity records
               </p>
               <button
                 onClick={fetchData}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:border-blue-300 hover:text-blue-600 active:scale-95 transition-all duration-150 cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-[#151820] border border-slate-200 dark:border-white/10 rounded-lg hover:border-blue-300 hover:text-blue-600 dark:hover:text-blue-400 active:scale-95 transition-all duration-150 cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 Refresh
@@ -1145,7 +1145,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-slate-400 mr-1">Status:</span>
+              <span className="text-xs font-medium text-slate-400 dark:text-slate-500 mr-1">Status:</span>
               {[
                 { value: 'all',         label: 'All' },
                 { value: 'click',       label: 'Click' },
@@ -1158,7 +1158,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
                     trackingStatusFilter === value
                       ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-slate-600 bg-white border border-slate-200 hover:border-blue-300 hover:text-blue-600'
+                      : 'text-slate-600 dark:text-slate-300 bg-white dark:bg-[#151820] border border-slate-200 dark:border-white/10 hover:border-blue-300 hover:text-blue-600 dark:hover:text-blue-400'
                   }`}
                 >
                   {label}
@@ -1170,10 +1170,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           <div className="p-4 sm:p-6 pt-3">
             {displayTracking.length === 0 ? (
               <div className="text-center py-16">
-                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-slate-100">
-                  <TrendingUp className="w-7 h-7 text-slate-300" />
+                <div className="w-14 h-14 bg-slate-50 dark:bg-[#0d0f14] rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-slate-100 dark:ring-white/8">
+                  <TrendingUp className="w-7 h-7 text-slate-300 dark:text-slate-600" />
                 </div>
-                <p className="text-slate-500 text-sm font-medium mb-4">
+                <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-4">
                   {tracking.length === 0
                     ? 'No tracking activity found'
                     : 'No activity matches the selected date range.'}
@@ -1190,18 +1190,18 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             ) : (
               <>
                 <div className="flex items-center justify-between mb-3 gap-2">
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-400 dark:text-slate-500">
                     Showing {Math.min(activityVisible, displayTracking.length)} of {displayTracking.length} records
                   </p>
                   {lastUpdated && (
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-400 dark:text-slate-500">
                       Last updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   )}
                 </div>
-                <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
+                <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100 dark:ring-white/8">
                   <table className="w-full">
-                    <thead className="bg-slate-50/80 border-b border-slate-100">
+                    <thead className="bg-slate-50/80 dark:bg-white/5 border-b border-slate-100 dark:border-white/8">
                       <tr>
                         <SortTh label="Date / Time"  field="clickDate"     sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
                         <SortTh label="Card"         field="cardName"      sort={trackingSort} onSort={(f) => setTrackingSort(toggleSort(trackingSort, f))} />
@@ -1213,26 +1213,26 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </thead>
                     <tbody>
                       {displayTracking.slice(0, activityVisible).map((item) => (
-                        <tr key={item.id} className="border-b border-slate-50 hover:bg-blue-50/40 transition-colors duration-150">
+                        <tr key={item.id} className="border-b border-slate-50 dark:border-white/5 hover:bg-blue-50/40 dark:hover:bg-white/5 transition-colors duration-150">
                           <td className="py-3.5 px-4 text-sm">
-                            <div className="font-medium text-slate-900">{formatDate(item.clickDate)}</div>
-                            <div className="text-xs text-slate-400 mt-0.5">{formatTime(item.clickTime)}</div>
+                            <div className="font-medium text-slate-900 dark:text-white">{formatDate(item.clickDate)}</div>
+                            <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{formatTime(item.clickTime)}</div>
                           </td>
-                          <td className="py-3.5 px-4 text-sm text-slate-700">{item.cardName}</td>
+                          <td className="py-3.5 px-4 text-sm text-slate-700 dark:text-slate-200">{item.cardName}</td>
                           <td className="py-3.5 px-4">
                             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                              item.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
-                              item.status === 'application' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70' :
-                              'bg-slate-100 text-slate-600'
+                              item.status === 'approval'    ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-200/70 dark:ring-emerald-400/20' :
+                              item.status === 'application' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 ring-1 ring-blue-200/70 dark:ring-blue-400/20' :
+                              'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300'
                             }`}>
                               {item.status}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4 text-sm text-right font-semibold text-slate-900 tabular-nums">
-                            {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
+                          <td className="py-3.5 px-4 text-sm text-right font-semibold text-slate-900 dark:text-white tabular-nums">
+                            {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : <span className="text-slate-300 dark:text-slate-600 font-normal">—</span>}
                           </td>
-                          <td className="py-3.5 px-4 text-sm text-slate-500">{item.deviceType || '—'}</td>
-                          <td className="py-3.5 px-4 text-sm text-slate-500">{item.state || '—'}</td>
+                          <td className="py-3.5 px-4 text-sm text-slate-500 dark:text-slate-400">{item.deviceType || '—'}</td>
+                          <td className="py-3.5 px-4 text-sm text-slate-500 dark:text-slate-400">{item.state || '—'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1242,10 +1242,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   <div className="pt-4 text-center">
                     <button
                       onClick={() => setActivityVisible(n => n + PAGE_SIZE)}
-                      className="px-4 py-2 text-xs font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+                      className="px-4 py-2 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-400/30 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                     >
                       Show {Math.min(PAGE_SIZE, displayTracking.length - activityVisible)} more
-                      <span className="text-slate-400 ml-1">({displayTracking.length - activityVisible} remaining)</span>
+                      <span className="text-slate-400 dark:text-slate-500 ml-1">({displayTracking.length - activityVisible} remaining)</span>
                     </button>
                   </div>
                 )}
@@ -1258,33 +1258,33 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           <Tabs.Content value="invoices" className="p-4 sm:p-6">
             {invoices.length === 0 ? (
               <div className="text-center py-16">
-                <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-slate-100">
-                  <FileText className="w-7 h-7 text-slate-300" />
+                <div className="w-14 h-14 bg-slate-50 dark:bg-[#0d0f14] rounded-2xl flex items-center justify-center mx-auto mb-4 ring-1 ring-slate-100 dark:ring-white/8">
+                  <FileText className="w-7 h-7 text-slate-300 dark:text-slate-600" />
                 </div>
-                <p className="text-slate-500 text-sm font-medium">No invoices found for your account.</p>
+                <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">No invoices found for your account.</p>
               </div>
             ) : (
               <>
               <div className="flex items-center justify-between mb-3 gap-2">
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-400 dark:text-slate-500">
                   Showing {Math.min(invoicesVisible, invoices.length)} of {invoices.length} invoices
                 </p>
                 {lastUpdated && (
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 dark:text-slate-500">
                     Last updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 )}
               </div>
-              <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100">
+              <div className="overflow-x-auto rounded-xl ring-1 ring-slate-100 dark:ring-white/8">
                 <table className="w-full">
-                  <thead className="bg-slate-50/80">
-                    <tr className="border-b border-slate-100">
-                      <th className="py-3 px-4 text-left text-slate-500 text-xs font-semibold uppercase tracking-wider"></th>
-                      <th className="py-3 px-4 text-left text-slate-500 text-xs font-semibold uppercase tracking-wider">Month</th>
-                      <th className="py-3 px-4 text-right text-slate-500 text-xs font-semibold uppercase tracking-wider">Amount</th>
-                      <th className="py-3 px-4 text-right text-slate-500 text-xs font-semibold uppercase tracking-wider">Approvals</th>
-                      <th className="py-3 px-4 text-left text-slate-500 text-xs font-semibold uppercase tracking-wider">Status</th>
-                      <th className="py-3 px-4 text-left text-slate-500 text-xs font-semibold uppercase tracking-wider">Paid</th>
+                  <thead className="bg-slate-50/80 dark:bg-white/5">
+                    <tr className="border-b border-slate-100 dark:border-white/8">
+                      <th className="py-3 px-4 text-left text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider"></th>
+                      <th className="py-3 px-4 text-left text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Month</th>
+                      <th className="py-3 px-4 text-right text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Amount</th>
+                      <th className="py-3 px-4 text-right text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Approvals</th>
+                      <th className="py-3 px-4 text-left text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Status</th>
+                      <th className="py-3 px-4 text-left text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Paid</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1297,7 +1297,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       return (
                         <React.Fragment key={inv.id}>
                           <tr
-                            className="border-b border-slate-50 hover:bg-blue-50/40 transition-colors duration-150 cursor-pointer"
+                            className="border-b border-slate-50 dark:border-white/5 hover:bg-blue-50/40 dark:hover:bg-white/5 transition-colors duration-150 cursor-pointer"
                             onClick={() => {
                               setExpandedInvoices(prev => {
                                 const next = new Set(prev);
@@ -1307,68 +1307,68 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                             }}
                           >
                             <td className="py-3.5 pl-4 pr-1 w-8">
-                              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isExpanded ? '' : '-rotate-90'}`} />
+                              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 dark:text-slate-500 transition-transform duration-200 ${isExpanded ? '' : '-rotate-90'}`} />
                             </td>
                             <td className="py-3.5 px-4">
-                              <div className="font-medium text-sm text-slate-900">{inv.month}</div>
-                              {inv.date && <div className="text-xs text-slate-400 mt-0.5">{formatDate(inv.date)}</div>}
+                              <div className="font-medium text-sm text-slate-900 dark:text-white">{inv.month}</div>
+                              {inv.date && <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{formatDate(inv.date)}</div>}
                             </td>
-                            <td className="py-3.5 px-4 text-right font-semibold text-sm text-slate-900 tabular-nums">
-                              {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-slate-300 font-normal">—</span>}
+                            <td className="py-3.5 px-4 text-right font-semibold text-sm text-slate-900 dark:text-white tabular-nums">
+                              {inv.amount > 0 ? `$${inv.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-slate-300 dark:text-slate-600 font-normal">—</span>}
                             </td>
-                            <td className="py-3.5 px-4 text-right text-sm text-slate-600 tabular-nums">{approvalsCount}</td>
+                            <td className="py-3.5 px-4 text-right text-sm text-slate-600 dark:text-slate-300 tabular-nums">{approvalsCount}</td>
                             <td className="py-3.5 px-4">
                               {inv.status ? (
                                 <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
                                   inv.status.toLowerCase().includes('paid')
-                                    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70'
+                                    ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-200/70 dark:ring-emerald-400/20'
                                     : inv.status.toLowerCase().includes('pending')
-                                    ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/70'
-                                    : 'bg-slate-100 text-slate-600'
+                                    ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 ring-1 ring-amber-200/70 dark:ring-amber-400/20'
+                                    : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300'
                                 }`}>{inv.status}</span>
-                              ) : <span className="text-slate-300 text-sm">—</span>}
+                              ) : <span className="text-slate-300 dark:text-slate-600 text-sm">—</span>}
                             </td>
                             <td className="py-3.5 px-4">
                               {inv.sent || inv.sentZelle ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-200/70 dark:ring-emerald-400/20">
                                   <CheckCircle className="w-3 h-3" />
                                   {inv.sentZelle ? 'Zelle sent' : 'Sent'}
                                 </span>
                               ) : (
-                                <span className="text-slate-400 text-xs">Pending</span>
+                                <span className="text-slate-400 dark:text-slate-500 text-xs">Pending</span>
                               )}
                             </td>
                           </tr>
                           {isExpanded && (
-                            <tr className="border-b border-slate-50 bg-slate-50/40">
+                            <tr className="border-b border-slate-50 dark:border-white/5 bg-slate-50/40 dark:bg-white/5">
                               <td colSpan={6} className="px-4 py-3">
                                 {items.length === 0 ? (
-                                  <p className="text-xs text-slate-400 px-3 py-2">No approvals found for this month.</p>
+                                  <p className="text-xs text-slate-400 dark:text-slate-500 px-3 py-2">No approvals found for this month.</p>
                                 ) : (
-                                  <div className="rounded-xl bg-white ring-1 ring-slate-100 overflow-hidden">
-                                    <div className="px-4 py-2 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                  <div className="rounded-xl bg-white dark:bg-[#151820] ring-1 ring-slate-100 dark:ring-white/8 overflow-hidden">
+                                    <div className="px-4 py-2 border-b border-slate-100 dark:border-white/8 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                                       Approvals in {inv.month}{inv.date ? ` ${parseLocalDate(inv.date).getFullYear()}` : ''} ({items.length})
                                     </div>
                                     <table className="w-full">
                                       <tbody>
                                         {items.map(item => (
-                                          <tr key={item.id} className="border-b border-slate-50 last:border-b-0">
+                                          <tr key={item.id} className="border-b border-slate-50 dark:border-white/5 last:border-b-0">
                                             <td className="py-2.5 px-4 text-sm">
-                                              <div className="font-medium text-slate-900">{formatDate(item.clickDate)}</div>
-                                              <div className="text-xs text-slate-400">{formatTime(item.clickTime)}</div>
+                                              <div className="font-medium text-slate-900 dark:text-white">{formatDate(item.clickDate)}</div>
+                                              <div className="text-xs text-slate-400 dark:text-slate-500">{formatTime(item.clickTime)}</div>
                                             </td>
-                                            <td className="py-2.5 px-4 text-sm text-slate-700">{decodeHtml(item.cardName)}</td>
+                                            <td className="py-2.5 px-4 text-sm text-slate-700 dark:text-slate-200">{decodeHtml(item.cardName)}</td>
                                             <td className="py-2.5 px-4">
                                               <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                                                item.status === 'approval'    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/70' :
-                                                item.status === 'application' ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200/70' :
-                                                'bg-slate-100 text-slate-600'
+                                                item.status === 'approval'    ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-200/70 dark:ring-emerald-400/20' :
+                                                item.status === 'application' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 ring-1 ring-blue-200/70 dark:ring-blue-400/20' :
+                                                'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300'
                                               }`}>
                                                 {item.status}
                                               </span>
                                             </td>
-                                            <td className="py-2.5 px-4 text-sm text-right font-semibold text-slate-900">
-                                              {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : <span className="text-slate-300 font-normal">—</span>}
+                                            <td className="py-2.5 px-4 text-sm text-right font-semibold text-slate-900 dark:text-white">
+                                              {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : <span className="text-slate-300 dark:text-slate-600 font-normal">—</span>}
                                             </td>
                                           </tr>
                                         ))}
@@ -1389,10 +1389,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <div className="pt-4 text-center">
                   <button
                     onClick={() => setInvoicesVisible(n => n + PAGE_SIZE)}
-                    className="px-4 py-2 text-xs font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+                    className="px-4 py-2 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-400/30 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                   >
                     Show {Math.min(PAGE_SIZE, invoices.length - invoicesVisible)} more
-                    <span className="text-slate-400 ml-1">({invoices.length - invoicesVisible} remaining)</span>
+                    <span className="text-slate-400 dark:text-slate-500 ml-1">({invoices.length - invoicesVisible} remaining)</span>
                   </button>
                 </div>
               )}

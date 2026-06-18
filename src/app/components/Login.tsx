@@ -124,22 +124,22 @@ export function Login({ onLogin }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0d0f14] flex flex-col justify-center">
       <div className="max-w-md w-full mx-auto px-4">
         {/* Wordmark */}
         <div className="flex items-center gap-2 justify-center mb-8">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-blue-600">
             <path d="M13 2L4.5 13.5H11L10 22L20.5 9.5H14L13 2Z" fill="currentColor"/>
           </svg>
-          <span className="text-xl font-semibold text-gray-900">Affiliate Portal</span>
+          <span className="text-xl font-semibold text-gray-900 dark:text-white">Affiliate Portal</span>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-lg p-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">
+        <div className="bg-white dark:bg-[#151820] rounded-2xl shadow-lg dark:shadow-none dark:ring-1 dark:ring-white/8 p-8">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
             {isForgotPassword ? 'Reset password' : (isSignup ? 'Create account' : 'Sign in')}
           </h1>
-          <p className="text-sm text-gray-500 mb-6">
+          <p className="text-sm text-gray-500 dark:text-slate-400 mb-6">
             {isForgotPassword
               ? 'Enter your email and we’ll send you a reset link.'
               : (isSignup
@@ -148,7 +148,7 @@ export function Login({ onLogin }: LoginProps) {
           </p>
 
           {error && (
-            <div className={`mb-5 p-3 rounded-lg text-sm ${error.includes('created') || error.includes('successful') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+            <div className={`mb-5 p-3 rounded-lg text-sm ${error.includes('created') || error.includes('successful') ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
               {error}
             </div>
           )}
@@ -156,7 +156,7 @@ export function Login({ onLogin }: LoginProps) {
           {isForgotPassword ? (
             <form onSubmit={handlePasswordReset} className="space-y-5">
               <div>
-                <label htmlFor="resetEmail" className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="resetEmail" className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1.5">
                   Email Address
                 </label>
                 <input
@@ -164,11 +164,11 @@ export function Login({ onLogin }: LoginProps) {
                   type="email"
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1a1c23] dark:border-white/10 dark:text-white dark:placeholder-slate-500"
                   placeholder="you@example.com"
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1.5">
+                <p className="text-xs text-gray-500 dark:text-slate-400 mt-1.5">
                   We'll send you a link to reset your password
                 </p>
               </div>
@@ -189,7 +189,7 @@ export function Login({ onLogin }: LoginProps) {
                     setError('');
                     setResetEmail('');
                   }}
-                  className="text-sm text-blue-600 hover:underline"
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   Back to sign in
                 </button>
@@ -200,7 +200,7 @@ export function Login({ onLogin }: LoginProps) {
             <form onSubmit={handleSubmit} className="space-y-5">
             {isSignup && (
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1.5">
                   Full Name
                 </label>
                 <input
@@ -208,7 +208,7 @@ export function Login({ onLogin }: LoginProps) {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1a1c23] dark:border-white/10 dark:text-white dark:placeholder-slate-500"
                   placeholder="John Doe"
                   required
                 />
@@ -216,7 +216,7 @@ export function Login({ onLogin }: LoginProps) {
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1.5">
                 Email Address
               </label>
               <input
@@ -224,14 +224,14 @@ export function Login({ onLogin }: LoginProps) {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1a1c23] dark:border-white/10 dark:text-white dark:placeholder-slate-500"
                 placeholder="partner@example.com"
                 required
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1.5">
                 Password
               </label>
               <div className="relative">
@@ -240,14 +240,14 @@ export function Login({ onLogin }: LoginProps) {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#1a1c23] dark:border-white/10 dark:text-white dark:placeholder-slate-500"
                   placeholder="Enter your password"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -262,7 +262,7 @@ export function Login({ onLogin }: LoginProps) {
                     setIsForgotPassword(true);
                     setError('');
                   }}
-                  className="text-xs text-blue-600 hover:underline"
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   Forgot password?
                 </button>
@@ -281,7 +281,7 @@ export function Login({ onLogin }: LoginProps) {
           )}
         </div>
 
-        <p className="text-center mt-4 text-sm text-gray-500">
+        <p className="text-center mt-4 text-sm text-gray-500 dark:text-slate-400">
           {isSignup ? 'Already have an account?' : 'New partner?'}{' '}
           <a
             href="#"
@@ -291,7 +291,7 @@ export function Login({ onLogin }: LoginProps) {
               setIsForgotPassword(false);
               setError('');
             }}
-            className="text-blue-600 hover:underline"
+            className="text-blue-600 dark:text-blue-400 hover:underline"
           >
             {isSignup ? 'Sign in →' : 'Request access →'}
           </a>

@@ -1,4 +1,5 @@
-@custom-variant dark (&:is(.dark *));
+/* System-based dark mode: `dark:` utilities follow the OS prefers-color-scheme. */
+@custom-variant dark (@media (prefers-color-scheme: dark));
 
 :root {
   --font-size: 16px;
@@ -126,6 +127,16 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* System dark mode: switch page chrome (html/body) to the Robinhood-style
+     near-black so the area behind the app matches when the OS is in dark mode. */
+  @media (prefers-color-scheme: dark) {
+    html,
+    body {
+      background-color: #0d0f14;
+      color: #ffffff;
+    }
   }
 
   /**
