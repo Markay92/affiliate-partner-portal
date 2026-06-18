@@ -280,3 +280,16 @@ select {
   background-size: 14px;
   padding-right: 2rem;
 }
+
+/* Stop iOS Safari from auto-zooming (and never zooming back out) when a form
+   field is focused. iOS only zooms when the focused control's font-size is
+   below 16px, so force >=16px on mobile. Un-layered so it beats Tailwind's
+   text-xs / text-sm utilities; only the on-screen text size changes, the
+   layout box is unaffected. */
+@media (max-width: 1023px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
