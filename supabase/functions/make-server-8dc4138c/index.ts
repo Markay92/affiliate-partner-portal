@@ -466,6 +466,36 @@ app.get("/make-server-8dc4138c/links", async (c) => {
       }
     }
 
+    // Real per-card stats for this affiliate, aggregated from the Airtable
+    // tracking table (the same source the Activity tab uses) so the Cards tab's
+    // clicks / conv% / earned reflect actual data instead of the legacy in-app
+    // click counter (which is only bumped by the /click + /conversion pixels and
+    // is effectively all zeros). "conversions" = paid approvals, so conv% is the
+    // approval rate and earned = CPA × conversions is correct.
+    const _normName = (s: string) => (s || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cardClicks: Record<string, number> = {};
+    const cardApprovals: Record<string, number> = {};
+    if (airtableToken) {
+      try {
+        const tracking = await getCachedTracking(airtableToken);
+        const ezrxRaw = (userData.ezrxRef || '').toString().trim();
+        const ezrxVal = ezrxRaw
+          ? (ezrxRaw.toLowerCase().startsWith('ezrxref-') ? ezrxRaw : `ezrxref-${ezrxRaw}`)
+          : '';
+        const ownIds = new Set([affiliateId, ezrxVal].filter(Boolean).map(s => s.toString().trim().toLowerCase()));
+        const mine = (v: unknown) => (Array.isArray(v) ? v : [v]).some(x => x != null && ownIds.has(x.toString().trim().toLowerCase()));
+        for (const rec of tracking) {
+          if (!mine(rec.fields['affiliate-id'])) continue;
+          const nm = _normName(rec.fields['Card Name'] || '');
+          if (!nm) continue;
+          cardClicks[nm]    = (cardClicks[nm]    || 0) + (parseInt(rec.fields['Clicks'])    || 0);
+          cardApprovals[nm] = (cardApprovals[nm] || 0) + (parseInt(rec.fields['Approvals']) || 0);
+        }
+      } catch (err: any) {
+        console.log('per-card stats aggregation error (non-fatal):', err.message);
+      }
+    }
+
     // Deduplicate by card name (keep first / most-recent per card after sort)
     const seen = new Set<string>();
     const links = [];
@@ -486,15 +516,19 @@ app.get("/make-server-8dc4138c/links", async (c) => {
       const urlSlug  = slug || cardName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       const url      = buildAffiliateUrl(urlSlug, affiliateId, cardName);
 
+      // Prefer real tracking-derived stats; fall back to the legacy click counter.
+      const nm   = _normName(cardName);
       const prev = clickMap[cardName] || { clicks: 0, conversions: 0 };
+      const clicks      = cardClicks[nm]    ?? prev.clicks;
+      const conversions = cardApprovals[nm] ?? prev.conversions;
 
       links.push({
         id: i + 1,
         name: cardName,
         bank: issuer,
         url,
-        clicks:      prev.clicks,
-        conversions: prev.conversions,
+        clicks,
+        conversions,
         commission:  bankCpa,   // bank CPA; affiliate cut calculated at display time
       });
     }
