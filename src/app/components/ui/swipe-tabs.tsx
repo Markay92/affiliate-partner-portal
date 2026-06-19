@@ -3,6 +3,7 @@ import {
   type ReactNode,
 } from 'react';
 import gsap from 'gsap';
+import { prefersReducedMotion } from './utils';
 
 /**
  * One tab panel. Rendered by <SwipeCarousel>; never renders on its own.
@@ -35,6 +36,8 @@ export function SwipeCarousel({
   const nodes = useRef<Record<string, HTMLDivElement | null>>({});
   const winsRef = useRef<{ rel: number; key: string }[]>([]);
   const animating = useRef(false);
+  const prevActive = useRef(active);
+  const fromSwipe = useRef(false);   // set when the active change came from a drag-commit
 
   // Latest props for the once-bound native listeners.
   const live = useRef({ order, active, onChange });
@@ -60,8 +63,23 @@ export function SwipeCarousel({
     }
   };
 
-  // Snap panels to their base positions whenever the active tab changes.
-  useLayoutEffect(() => { applyTransform(0); }, [active]);
+  // Re-base panels whenever the active tab changes. A swipe-commit already slid
+  // the strip, so it just re-bases. A programmatic change (nav click / jump) gets
+  // a springy slide-in: the incoming panel eases in from the side, nudges slightly
+  // past, then settles into place ("resistance → snap").
+  useLayoutEffect(() => {
+    const prev = prevActive.current;
+    prevActive.current = active;
+    applyTransform(0);
+    if (prev === active) return;
+    if (fromSwipe.current) { fromSwipe.current = false; return; }
+    const node = nodes.current[active];
+    if (!node || prefersReducedMotion()) return;
+    const dir = order.indexOf(active) >= order.indexOf(prev) ? 1 : -1;
+    gsap.fromTo(node,
+      { xPercent: dir * 14, opacity: 0, scale: 0.985 },
+      { xPercent: 0, opacity: 1, scale: 1, duration: 0.5, ease: 'back.out(1.5)', clearProps: 'transform,opacity', overwrite: true });
+  }, [active]);
 
   useEffect(() => {
     const vp = vpRef.current;
@@ -120,7 +138,7 @@ export function SwipeCarousel({
         gsap.to(proxy, {
           dx: dir * w, duration: 0.2, ease: 'power2.out',
           onUpdate: () => applyTransform(proxy.dx),
-          onComplete: () => { onChange(nextKey); animating.current = false; },
+          onComplete: () => { fromSwipe.current = true; onChange(nextKey); animating.current = false; },
         });
       } else {
         const proxy = { dx: s.dx };

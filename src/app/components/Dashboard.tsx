@@ -477,6 +477,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [chartMetric, setChartMetric] = useState<'approvals' | 'clicks' | 'earnings'>('approvals');
   const [scrolled, setScrolled] = useState(false);
 
+  // Sliding nav indicator — a single white pill that glides to the active tab.
+  const navListRef = useRef<HTMLDivElement>(null);
+  const navPillRef = useRef<HTMLSpanElement>(null);
+  const navPillReady = useRef(false);
+
   // Smoothly tween the Insights body open/closed (GSAP, from the design file)
   const toggleInsights = () => {
     const willOpen = !insightsOpen;
@@ -571,6 +576,32 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     });
     return () => mm.revert();
   }, [loading]);
+  // Glide the nav pill to the active tab. Springs on tab-change/mount; tracks
+  // quickly while labels collapse on scroll. Honors reduced-motion (instant).
+  useLayoutEffect(() => {
+    if (loading) return;
+    const list = navListRef.current, pill = navPillRef.current;
+    if (!list || !pill) return;
+    const place = (spring: boolean) => {
+      const a = list.querySelector('[data-state="active"]') as HTMLElement | null;
+      if (!a) return;
+      const x = a.offsetLeft, width = a.offsetWidth;
+      if (!navPillReady.current || prefersReducedMotion()) {
+        gsap.set(pill, { x, width, autoAlpha: 1 });
+        navPillReady.current = true;
+      } else {
+        gsap.to(pill, { x, width, autoAlpha: 1, overwrite: true,
+          duration: spring ? 0.55 : 0.2, ease: spring ? 'back.out(1.6)' : 'power3.out' });
+      }
+    };
+    place(true);
+    const ro = new ResizeObserver(() => place(false));
+    ro.observe(list);
+    const active = list.querySelector('[data-state="active"]') as HTMLElement | null;
+    if (active) ro.observe(active);
+    return () => ro.disconnect();
+  }, [activeTab, scrolled, loading]);
+
   const togglePanel = (key: string) => setVisiblePanels(prev => {
     const next = new Set(prev);
     next.has(key) ? next.delete(key) : next.add(key);
@@ -923,12 +954,14 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               <h1 className="hidden sm:block text-ink font-bold text-[16px] tracking-tight">Affiliate Portal</h1>
             </div>
             {/* Centered pill nav; labels are icon-only on mobile, collapse to icons on scroll */}
-            <Tabs.List className="flex items-center gap-0.5 bg-surface rounded-full p-1 flex-shrink-0 max-w-full overflow-x-auto ds-chips">
+            <Tabs.List ref={navListRef} className="relative flex items-center gap-0.5 bg-surface rounded-full p-1 flex-shrink-0 max-w-full overflow-x-auto ds-chips">
+              {/* Sliding active-tab pill (positioned by GSAP) */}
+              <span ref={navPillRef} aria-hidden className="invisible absolute top-1 bottom-1 left-0 rounded-full bg-white shadow-sm pointer-events-none" style={{ width: 0 }} />
               {navItems.map(({ key, label, Icon, badge }) => (
                 <Tabs.Trigger
                   key={key}
                   value={key}
-                  className="group relative flex items-center gap-2 px-3 h-8 rounded-full text-sm font-medium text-faint data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-ink data-[state=active]:font-semibold hover:text-ink transition-all whitespace-nowrap cursor-pointer"
+                  className="group relative z-10 flex items-center gap-2 px-3 h-8 rounded-full text-sm font-medium text-faint data-[state=active]:text-ink data-[state=active]:font-semibold hover:text-ink transition-colors whitespace-nowrap cursor-pointer"
                 >
                   <Icon className="w-4 h-4 flex-shrink-0 text-faint2 group-data-[state=active]:text-brand transition-colors" />
                   <span className={`overflow-hidden transition-all duration-300 max-w-[120px] opacity-100 ${activeTab === key ? 'inline-block' : 'hidden'} sm:inline-block ${scrolled ? 'sm:max-w-0 sm:opacity-0' : ''}`}>
