@@ -653,6 +653,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [expandedInvoices, setExpandedInvoices] = useState<Set<string>>(new Set());
 
   // ── Derived display data ────────────────────────────────────────────────────
+  // Affiliate's real earning for a tracking row = their per-card CPA rate (the
+  // same source the Cards tab uses) × approvals — NOT the gross bounty stored on
+  // the row. Joined by normalised card name. Approvals is 1 on approval rows and
+  // 0 on click/application rows, so non-approval rows correctly earn $0.
+  const _normCard = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const _cpaByCard = new Map(payouts.map(p => [_normCard(p.card), p.amount]));
+  const affiliateEarned = (t: { cardName: string; approvals: number }) =>
+    (_cpaByCard.get(_normCard(t.cardName)) ?? 0) * (t.approvals || 0);
+
   // Activity is organised by process date (when the lead was processed).
   const displayTracking = applySort(
     tracking.filter(t =>
@@ -688,7 +697,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       const key = decodeHtml(t.cardName || 'Unknown');
       if (!byCard[key]) byCard[key] = { name: key, approvals: 0, earnings: 0 };
       byCard[key].approvals += 1;
-      byCard[key].earnings  += t.totalEarnings || 0;
+      byCard[key].earnings  += affiliateEarned(t);
     });
     return Object.values(byCard).sort((a, b) => b.approvals - a.approvals || b.earnings - a.earnings).slice(0, 5);
   })();
@@ -881,7 +890,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const totalClicks       = _thisT.reduce((s, t) => s + (t.clicks       || 0), 0);
   const totalConversions  = _thisT.reduce((s, t) => s + (t.approvals    || 0), 0);
   const totalApplications = _thisT.reduce((s, t) => s + (t.applications || 0), 0);
-  const totalCommissions  = _thisT.reduce((s, t) => s + (t.totalEarnings|| 0), 0);
+  const totalCommissions  = _thisT.reduce((s, t) => s + affiliateEarned(t), 0);
   const totalPayouts      = payouts.reduce((s, p) => s + p.amount, 0);
   const avgEPC            = totalClicks > 0 ? totalCommissions / totalClicks : 0;
 
@@ -901,8 +910,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     _lastT.reduce((s, t) => s + (t.applications || 0), 0),
   );
   const commissionsPct   = _calcPct(
-    _thisT.reduce((s, t) => s + t.totalEarnings, 0),
-    _lastT.reduce((s, t) => s + t.totalEarnings, 0),
+    _thisT.reduce((s, t) => s + affiliateEarned(t), 0),
+    _lastT.reduce((s, t) => s + affiliateEarned(t), 0),
   );
 
   /** Coloured percentage badge shown under each stat card */
@@ -1202,7 +1211,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             monthMap[key].clicks      += t.clicks       || 0;
             monthMap[key].approvals   += t.approvals    || 0;
             monthMap[key].applications+= t.applications || 0;
-            monthMap[key].earnings    += t.totalEarnings|| 0;
+            monthMap[key].earnings    += affiliateEarned(t);
           });
           const monthlyData = Object.entries(monthMap).sort(([a],[b]) => a.localeCompare(b)).map(([,v]) => v);
 
@@ -1725,6 +1734,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <div>
                   {displayTracking.slice(0, activityVisible).map((item) => {
                     const dot = item.status === 'approval' ? 'var(--ds-pos)' : item.status === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
+                    const earned = affiliateEarned(item);
                     return (
                       <div key={item.id} className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150">
                         {/* Card name — flexible left column */}
@@ -1737,9 +1747,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         <span className="w-[112px] flex-shrink-0 text-right text-[13px] font-medium text-faint tabular-nums whitespace-nowrap">{formatDate(item.processDate || item.clickDate)}</span>
                         {/* Source (device · state) */}
                         <span className="hidden lg:block w-[160px] flex-shrink-0 text-right text-[13px] font-medium text-faint truncate">{item.state ? `${item.deviceType || '—'} · ${item.state}` : ''}</span>
-                        {/* Earnings */}
-                        <span className={`w-[76px] flex-shrink-0 text-right text-[13px] font-medium tabular-nums ${item.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>
-                          {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : '—'}
+                        {/* Earnings — affiliate's CPA-rate share (matches Cards), not gross */}
+                        <span className={`w-[76px] flex-shrink-0 text-right text-[13px] font-medium tabular-nums ${earned > 0 ? 'text-ink' : 'text-faint2'}`}>
+                          {earned > 0 ? `$${earned.toFixed(2)}` : '—'}
                         </span>
                       </div>
                     );
@@ -1839,17 +1849,20 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                           ) : (
                             <>
                               <div className="text-[11px] font-semibold text-faint2 uppercase tracking-[0.04em] pt-3 pb-1">Approvals ({items.length})</div>
-                              {items.map(item => (
+                              {items.map(item => {
+                                const earned = affiliateEarned(item);
+                                return (
                                 <div key={item.id} className="flex items-center gap-4 py-2.5 border-b border-hair2 last:border-b-0">
                                   <div className="flex-1 min-w-0">
                                     <div className="text-sm font-semibold text-ink truncate">{decodeHtml(item.cardName)}</div>
                                     <div className="text-xs text-faint mt-0.5">{formatDate(item.clickDate)} · {formatTime(item.clickTime)}</div>
                                   </div>
-                                  <div className={`text-sm font-bold tabular-nums flex-shrink-0 ${item.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>
-                                    {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : '—'}
+                                  <div className={`text-sm font-bold tabular-nums flex-shrink-0 ${earned > 0 ? 'text-ink' : 'text-faint2'}`}>
+                                    {earned > 0 ? `$${earned.toFixed(2)}` : '—'}
                                   </div>
                                 </div>
-                              ))}
+                                );
+                              })}
                             </>
                           )}
                         </div>
