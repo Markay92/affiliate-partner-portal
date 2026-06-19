@@ -213,7 +213,7 @@ function EmptyState({ icon: Icon, title, subtitle, action }: {
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center text-center px-6 py-16 sm:py-24 ds-rise">
+    <div className="flex flex-col items-center text-center px-6 py-16 sm:py-24">
       <div className="relative mb-5">
         <div className="absolute inset-0 -m-2.5 rounded-[22px] bg-brand-soft/70 blur-[3px]" aria-hidden />
         <div className="relative w-[64px] h-[64px] rounded-[18px] bg-gradient-to-b from-white to-brand-soft ring-1 ring-hair flex items-center justify-center shadow-[0_6px_16px_-8px_rgba(10,132,255,0.4)]">
@@ -604,6 +604,22 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     if (active) ro.observe(active);
     return () => ro.disconnect();
   }, [activeTab, scrolled, loading]);
+
+  // Real-time pill follow while swiping content: interpolate between the active
+  // tab and the tab being dragged toward (t = 0..1). Driven by SwipeCarousel.onDrag.
+  const moveNavPill = (target: string | null, t: number) => {
+    const list = navListRef.current, pill = navPillRef.current;
+    if (!list || !pill) return;
+    const activeEl = list.querySelector('[data-state="active"]') as HTMLElement | null;
+    if (!activeEl) return;
+    const NAV_ORDER = ['cards', 'activity', 'invoices', 'profile'];
+    const tabs = [...list.querySelectorAll('[role="tab"]')] as HTMLElement[];
+    const targetEl = target ? tabs[NAV_ORDER.indexOf(target)] : null;
+    const ax = activeEl.offsetLeft, aw = activeEl.offsetWidth;
+    if (!targetEl || prefersReducedMotion()) { gsap.set(pill, { x: ax, width: aw, autoAlpha: 1 }); return; }
+    const tx = targetEl.offsetLeft, tw = targetEl.offsetWidth;
+    gsap.set(pill, { x: ax + (tx - ax) * t, width: aw + (tw - aw) * t, autoAlpha: 1 });
+  };
 
   const togglePanel = (key: string) => setVisiblePanels(prev => {
     const next = new Set(prev);
@@ -1368,6 +1384,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           order={['cards', 'activity', 'invoices', 'profile']}
           active={activeTab}
           onChange={setActiveTab}
+          onDrag={moveNavPill}
           className="mt-2"
         >
 
