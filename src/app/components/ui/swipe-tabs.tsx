@@ -76,9 +76,13 @@ export function SwipeCarousel({
     const node = nodes.current[active];
     if (!node || prefersReducedMotion()) return;
     const dir = order.indexOf(active) >= order.indexOf(prev) ? 1 : -1;
-    gsap.fromTo(node,
-      { xPercent: dir * 14, opacity: 0, scale: 0.985 },
-      { xPercent: 0, opacity: 1, scale: 1, duration: 0.5, ease: 'back.out(1.5)', clearProps: 'transform,opacity', overwrite: true });
+    // Desktop: a quiet slide + fade. Mobile keeps a gentle spring/overshoot.
+    const mobile = window.innerWidth < 1024;
+    const from = mobile ? { xPercent: dir * 12, opacity: 0, scale: 0.99 } : { xPercent: dir * 4, opacity: 0 };
+    const to = mobile
+      ? { xPercent: 0, opacity: 1, scale: 1, duration: 0.44, ease: 'back.out(1.3)' }
+      : { xPercent: 0, opacity: 1, duration: 0.3, ease: 'power2.out' };
+    gsap.fromTo(node, from, { ...to, clearProps: 'transform,opacity', overwrite: true });
   }, [active]);
 
   useEffect(() => {

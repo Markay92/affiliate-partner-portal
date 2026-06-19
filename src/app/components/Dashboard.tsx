@@ -590,8 +590,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         gsap.set(pill, { x, width, autoAlpha: 1 });
         navPillReady.current = true;
       } else {
+        // Desktop: a quiet glide (no overshoot). Mobile keeps a gentle spring.
+        const mobile = window.innerWidth < 1024;
         gsap.to(pill, { x, width, autoAlpha: 1, overwrite: true,
-          duration: spring ? 0.55 : 0.2, ease: spring ? 'back.out(1.6)' : 'power3.out' });
+          duration: spring ? (mobile ? 0.5 : 0.32) : 0.2,
+          ease: spring ? (mobile ? 'back.out(1.4)' : 'power3.out') : 'power3.out' });
       }
     };
     place(true);
