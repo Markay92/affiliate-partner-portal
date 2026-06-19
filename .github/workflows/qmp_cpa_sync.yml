@@ -1,0 +1,33 @@
+name: QMP → Airtable CPA Sync
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: "0 14 1 * *"
+    - cron: "0 14 15 * *"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests pyairtable
+
+      - name: Run CPA sync
+        env:
+          QMP_EMAIL:          ${{ secrets.QMP_EMAIL }}
+          QMP_PASSWORD:       ${{ secrets.QMP_PASSWORD }}
+          AIRTABLE_TOKEN:     ${{ secrets.AIRTABLE_TOKEN }}
+          AIRTABLE_BASE_ID:   ${{ secrets.AIRTABLE_BASE_ID }}
+          AIRTABLE_CPA_TABLE: "CPA Report"
+        run: python qmp_cpa_sync.py
