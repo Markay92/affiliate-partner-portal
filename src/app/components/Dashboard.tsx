@@ -2,7 +2,11 @@ import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Spinner } from './ui/spinner';
+import { prefersReducedMotion } from './ui/utils';
 import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
 import {
   CreditCard,
   TrendingUp,
@@ -376,6 +380,7 @@ function CountUp({ value, format }: { value: number; format: (n: number) => stri
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    if (prefersReducedMotion()) { el.textContent = format(value); prev.current = value; return; }
     const obj = { v: prev.current };
     const tween = gsap.to(obj, {
       v: value, duration: 0.9, ease: 'power2.out',
@@ -472,13 +477,20 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [chartMetric, setChartMetric] = useState<'approvals' | 'clicks' | 'earnings'>('approvals');
   const [scrolled, setScrolled] = useState(false);
 
+  // Sliding nav indicator — a single white pill that glides to the active tab.
+  const navListRef = useRef<HTMLDivElement>(null);
+  const navPillRef = useRef<HTMLSpanElement>(null);
+  const navPillReady = useRef(false);
+
   // Smoothly tween the Insights body open/closed (GSAP, from the design file)
   const toggleInsights = () => {
     const willOpen = !insightsOpen;
     const el = insBodyRef.current;
     if (el) {
       gsap.killTweensOf(el);
-      if (willOpen) {
+      if (prefersReducedMotion()) {
+        gsap.set(el, willOpen ? { height: 'auto', opacity: 1 } : { height: 0, opacity: 0 });
+      } else if (willOpen) {
         gsap.set(el, { height: 'auto' });
         const h = el.offsetHeight;
         gsap.fromTo(el, { height: 0, opacity: 0 }, { height: h, opacity: 1, duration: 0.42, ease: 'power3.out', onComplete: () => gsap.set(el, { height: 'auto' }) });
@@ -495,7 +507,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     const el = perfBodyRef.current;
     if (el) {
       gsap.killTweensOf(el);
-      if (willOpen) {
+      if (prefersReducedMotion()) {
+        gsap.set(el, willOpen ? { height: 'auto', opacity: 1 } : { height: 0, opacity: 0 });
+      } else if (willOpen) {
         gsap.set(el, { height: 'auto' });
         const h = el.offsetHeight;
         gsap.fromTo(el, { height: 0, opacity: 0 }, { height: h, opacity: 1, duration: 0.42, ease: 'power3.out', onComplete: () => gsap.set(el, { height: 'auto' }) });
@@ -543,18 +557,54 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     return () => ro.disconnect();
   }, [loading, masterLink, linkBuilderIds.length]);
 
-  // GSAP entrance — staggered rise/fade of the main sections once data is in
+  // GSAP entrance — sections rise/fade as they scroll into view (ScrollTrigger).
+  // Gated through gsap.matchMedia so reduced-motion users get no hide/reveal at
+  // all (the matched callback simply never runs, leaving sections fully visible).
   useEffect(() => {
     if (loading) return;
-    const els = document.querySelectorAll('[data-anim]');
-    if (!els.length) return;
-    const ctx = gsap.context(() => {
-      gsap.from(els, {
-        y: 16, opacity: 0, duration: 0.55, stagger: 0.08, ease: 'power2.out', clearProps: 'all',
+    const mm = gsap.matchMedia();
+    mm.add('(prefers-reduced-motion: no-preference)', () => {
+      gsap.set('[data-anim]', { opacity: 0, y: 16 });
+      const triggers = ScrollTrigger.batch('[data-anim]', {
+        start: 'top 88%',
+        onEnter: (batch) => gsap.to(batch, {
+          opacity: 1, y: 0, duration: 0.55, stagger: 0.08, ease: 'power2.out', overwrite: true,
+        }),
       });
+      ScrollTrigger.refresh();
+      return () => triggers.forEach(t => t.kill());
     });
-    return () => ctx.revert();
+    return () => mm.revert();
   }, [loading]);
+  // Glide the nav pill to the active tab. Springs on tab-change/mount; tracks
+  // quickly while labels collapse on scroll. Honors reduced-motion (instant).
+  useLayoutEffect(() => {
+    if (loading) return;
+    const list = navListRef.current, pill = navPillRef.current;
+    if (!list || !pill) return;
+    const place = (spring: boolean) => {
+      const a = list.querySelector('[data-state="active"]') as HTMLElement | null;
+      if (!a) return;
+      const x = a.offsetLeft, width = a.offsetWidth;
+      if (!navPillReady.current || prefersReducedMotion()) {
+        gsap.set(pill, { x, width, autoAlpha: 1 });
+        navPillReady.current = true;
+      } else {
+        // Desktop: a quiet glide (no overshoot). Mobile keeps a gentle spring.
+        const mobile = window.innerWidth < 1024;
+        gsap.to(pill, { x, width, autoAlpha: 1, overwrite: true,
+          duration: spring ? (mobile ? 0.5 : 0.32) : 0.2,
+          ease: spring ? (mobile ? 'back.out(1.4)' : 'power3.out') : 'power3.out' });
+      }
+    };
+    place(true);
+    const ro = new ResizeObserver(() => place(false));
+    ro.observe(list);
+    const active = list.querySelector('[data-state="active"]') as HTMLElement | null;
+    if (active) ro.observe(active);
+    return () => ro.disconnect();
+  }, [activeTab, scrolled, loading]);
+
   const togglePanel = (key: string) => setVisiblePanels(prev => {
     const next = new Set(prev);
     next.has(key) ? next.delete(key) : next.add(key);
@@ -907,12 +957,14 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               <h1 className="hidden sm:block text-ink font-bold text-[16px] tracking-tight">Affiliate Portal</h1>
             </div>
             {/* Centered pill nav; labels are icon-only on mobile, collapse to icons on scroll */}
-            <Tabs.List className="flex items-center gap-0.5 bg-surface rounded-full p-1 flex-shrink-0 max-w-full overflow-x-auto ds-chips">
+            <Tabs.List ref={navListRef} className="relative flex items-center gap-0.5 bg-surface rounded-full p-1 flex-shrink-0 max-w-full overflow-x-auto ds-chips">
+              {/* Sliding active-tab pill (positioned by GSAP) */}
+              <span ref={navPillRef} aria-hidden className="invisible absolute top-1 bottom-1 left-0 rounded-full bg-white shadow-sm pointer-events-none" style={{ width: 0 }} />
               {navItems.map(({ key, label, Icon, badge }) => (
                 <Tabs.Trigger
                   key={key}
                   value={key}
-                  className="group relative flex items-center gap-2 px-3 h-8 rounded-full text-sm font-medium text-faint data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-ink data-[state=active]:font-semibold hover:text-ink transition-all whitespace-nowrap cursor-pointer"
+                  className="group relative z-10 flex items-center gap-2 px-3 h-8 rounded-full text-sm font-medium text-faint data-[state=active]:text-ink data-[state=active]:font-semibold hover:text-ink transition-colors whitespace-nowrap cursor-pointer"
                 >
                   <Icon className="w-4 h-4 flex-shrink-0 text-faint2 group-data-[state=active]:text-brand transition-colors" />
                   <span className={`overflow-hidden transition-all duration-300 max-w-[120px] opacity-100 ${activeTab === key ? 'inline-block' : 'hidden'} sm:inline-block ${scrolled ? 'sm:max-w-0 sm:opacity-0' : ''}`}>
