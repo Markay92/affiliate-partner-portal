@@ -78,11 +78,12 @@ export function SwipeCarousel({
     const node = nodes.current[active];
     if (!node || prefersReducedMotion()) return;
     const dir = order.indexOf(active) >= order.indexOf(prev) ? 1 : -1;
-    // Desktop: a quiet slide + fade. Mobile keeps a gentle spring/overshoot.
+    // Purely horizontal slide + fade — no scale (scaling a taller-than-viewport
+    // panel shifts the visible content vertically). Mobile keeps a gentle spring.
     const mobile = window.innerWidth < 1024;
-    const from = mobile ? { xPercent: dir * 12, opacity: 0, scale: 0.99 } : { xPercent: dir * 4, opacity: 0 };
+    const from = { xPercent: dir * (mobile ? 12 : 4), opacity: 0 };
     const to = mobile
-      ? { xPercent: 0, opacity: 1, scale: 1, duration: 0.44, ease: 'back.out(1.3)' }
+      ? { xPercent: 0, opacity: 1, duration: 0.44, ease: 'back.out(1.3)' }
       : { xPercent: 0, opacity: 1, duration: 0.3, ease: 'power2.out' };
     gsap.fromTo(node, from, { ...to, clearProps: 'transform,opacity', overwrite: true });
   }, [active]);
