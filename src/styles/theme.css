@@ -257,14 +257,11 @@
 }
 .ds-rise { animation: ds-rise 0.5s cubic-bezier(0.2, 0.6, 0.2, 1) both; }
 
-/* Tab panels ease in when their tab becomes active */
-[role="tabpanel"][data-state="active"] {
-  animation: ds-rise 0.4s cubic-bezier(0.2, 0.6, 0.2, 1) both;
-}
+/* Tab panels transition horizontally (handled in JS by SwipeCarousel) — no
+   vertical rise on tab change. */
 
 @media (prefers-reduced-motion: reduce) {
-  .ds-rise,
-  [role="tabpanel"][data-state="active"] { animation: none; }
+  .ds-rise { animation: none; }
 }
 
 /* Native <select> — clean custom chevron, hairline, design-system look.

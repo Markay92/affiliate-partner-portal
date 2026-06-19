@@ -24,11 +24,13 @@ interface SlideDef { key: string; className?: string; node: ReactNode }
  * [data-noswipe] are ignored.
  */
 export function SwipeCarousel({
-  order, active, onChange, className, children,
+  order, active, onChange, onDrag, className, children,
 }: {
   order: string[];
   active: string;
   onChange: (key: string) => void;
+  /** Live drag feedback so the nav can track the swipe: target tab + progress 0..1. */
+  onDrag?: (target: string | null, t: number) => void;
   className?: string;
   children: ReactNode;
 }) {
@@ -40,8 +42,8 @@ export function SwipeCarousel({
   const fromSwipe = useRef(false);   // set when the active change came from a drag-commit
 
   // Latest props for the once-bound native listeners.
-  const live = useRef({ order, active, onChange });
-  live.current = { order, active, onChange };
+  const live = useRef({ order, active, onChange, onDrag });
+  live.current = { order, active, onChange, onDrag };
 
   // Build key -> content map from <Slide> children.
   const defs: SlideDef[] = Children.toArray(children)
@@ -120,11 +122,15 @@ export function SwipeCarousel({
       if (atEnd) dx *= 0.25; // rubber-band at the ends
       st.dx = dx;
       applyTransform(dx);
+      // Let the nav indicator follow the drag in real time.
+      const w = vp.clientWidth || 1;
+      const target = atEnd ? null : (goingNext ? order[i + 1] : order[i - 1]);
+      live.current.onDrag?.(target, target ? Math.min(1, Math.abs(dx) / w) : 0);
     };
 
     const onEnd = (e: TouchEvent) => {
       const s = st; st = null;
-      if (!s || s.skip || !s.horiz) { gsap.to({}, { duration: 0 }); applyTransform(0); return; }
+      if (!s || s.skip || !s.horiz) { applyTransform(0); live.current.onDrag?.(null, 0); return; }
       const { order, active, onChange } = live.current;
       const i = order.indexOf(active);
       const w = vp.clientWidth || 1;
@@ -133,6 +139,7 @@ export function SwipeCarousel({
       const dt = Math.max(1, e.timeStamp - s.t);
       const velocity = Math.abs(s.dx) / dt; // px per ms
       const commit = !atEnd && (Math.abs(s.dx) > Math.min(110, w * 0.3) || velocity > 0.5);
+      const target = atEnd ? null : (goingNext ? order[i + 1] : order[i - 1]);
 
       if (commit) {
         const nextKey = goingNext ? order[i + 1] : order[i - 1];
@@ -141,14 +148,14 @@ export function SwipeCarousel({
         const proxy = { dx: s.dx };
         gsap.to(proxy, {
           dx: dir * w, duration: 0.2, ease: 'power2.out',
-          onUpdate: () => applyTransform(proxy.dx),
+          onUpdate: () => { applyTransform(proxy.dx); live.current.onDrag?.(nextKey, Math.min(1, Math.abs(proxy.dx) / w)); },
           onComplete: () => { fromSwipe.current = true; onChange(nextKey); animating.current = false; },
         });
       } else {
         const proxy = { dx: s.dx };
         gsap.to(proxy, {
           dx: 0, duration: 0.3, ease: 'power3.out',
-          onUpdate: () => applyTransform(proxy.dx),
+          onUpdate: () => { applyTransform(proxy.dx); live.current.onDrag?.(target, target ? Math.min(1, Math.abs(proxy.dx) / w) : 0); },
         });
       }
     };
