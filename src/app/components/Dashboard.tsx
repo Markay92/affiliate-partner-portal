@@ -394,6 +394,10 @@ function CountUp({ value, format }: { value: number; format: (n: number) => stri
 
 const PAGE_SIZE = 25;
 
+// Single source of truth for tab order — drives the carousel `order`, the nav
+// render order, and the pill's swipe interpolation. Keep these in sync via this.
+const NAV_ORDER = ['cards', 'activity', 'invoices', 'profile'] as const;
+
 // ── Dashboard component ───────────────────────────────────────────────────────
 
 export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) {
@@ -558,9 +562,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   }, [loading, masterLink, linkBuilderIds.length]);
 
   // GSAP entrance — sections fade in as they scroll into view (ScrollTrigger).
-  // Fade only, no vertical rise. Gated through gsap.matchMedia so reduced-motion
-  // users get no hide/reveal at all (the callback never runs → sections visible).
-  useEffect(() => {
+  // Fade only, no vertical rise. useLayoutEffect so the initial hide happens
+  // before paint (no flash of visible-then-hidden). Gated through gsap.matchMedia
+  // so reduced-motion users get no hide/reveal (callback never runs → visible).
+  useLayoutEffect(() => {
     if (loading) return;
     const mm = gsap.matchMedia();
     mm.add('(prefers-reduced-motion: no-preference)', () => {
@@ -621,7 +626,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     if (!list || !pill) return;
     const activeEl = list.querySelector('[data-state="active"]') as HTMLElement | null;
     if (!activeEl) return;
-    const NAV_ORDER = ['cards', 'activity', 'invoices', 'profile'];
     const tabs = [...list.querySelectorAll('[role="tab"]')] as HTMLElement[];
     const targetEl = target ? tabs[NAV_ORDER.indexOf(target)] : null;
     const ax = activeEl.offsetLeft, aw = activeEl.offsetWidth;
@@ -965,12 +969,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     );
   }
 
-  const navItems = [
-    { key: 'cards',    label: 'Cards',       Icon: CreditCard, badge: 0 },
-    { key: 'activity', label: 'Activity',    Icon: Activity,   badge: 0 },
-    { key: 'invoices', label: 'Invoices',    Icon: FileText,   badge: invoices.length },
-    { key: 'profile',  label: 'Profile',     Icon: User,       badge: 0 },
-  ] as const;
+  const navMeta = {
+    cards:    { label: 'Cards',    Icon: CreditCard, badge: 0 },
+    activity: { label: 'Activity', Icon: Activity,   badge: 0 },
+    invoices: { label: 'Invoices', Icon: FileText,   badge: invoices.length },
+    profile:  { label: 'Profile',  Icon: User,       badge: 0 },
+  } as const;
+  const navItems = NAV_ORDER.map(key => ({ key, ...navMeta[key] }));
 
   return (
     <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="min-h-screen bg-canvas">
@@ -1390,7 +1395,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
         {/* Tab panels — the tab nav lives in the header. Real swipe carousel on mobile. */}
         <SwipeCarousel
-          order={['cards', 'activity', 'invoices', 'profile']}
+          order={[...NAV_ORDER]}
           active={activeTab}
           onChange={setActiveTab}
           onDrag={moveNavPill}

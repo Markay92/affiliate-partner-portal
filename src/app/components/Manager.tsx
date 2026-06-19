@@ -471,9 +471,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   }, []);
 
   // GSAP entrance — sections fade in as they scroll into view (ScrollTrigger).
-  // Fade only, no vertical rise. Gated through gsap.matchMedia so reduced-motion
-  // users get no hide/reveal at all (the callback never runs → sections visible).
-  useEffect(() => {
+  // Fade only, no vertical rise. useLayoutEffect so the initial hide happens
+  // before paint (no flash of visible-then-hidden). Gated through gsap.matchMedia
+  // so reduced-motion users get no hide/reveal (callback never runs → visible).
+  useLayoutEffect(() => {
     if (loading) return;
     const mm = gsap.matchMedia();
     mm.add('(prefers-reduced-motion: no-preference)', () => {

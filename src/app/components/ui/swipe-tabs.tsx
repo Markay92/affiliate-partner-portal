@@ -92,7 +92,6 @@ export function SwipeCarousel({
     const vp = vpRef.current;
     if (!vp) return;
     const isMobile = () => window.innerWidth < 1024;
-    const relOf = (k: string) => winsRef.current.find(w => w.key === k)?.rel;
 
     let st: { x: number; y: number; t: number; decided: boolean; horiz: boolean; skip: boolean; dx: number } | null = null;
 
