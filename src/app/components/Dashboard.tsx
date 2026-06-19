@@ -557,22 +557,31 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     return () => ro.disconnect();
   }, [loading, masterLink, linkBuilderIds.length]);
 
-  // GSAP entrance — sections rise/fade as they scroll into view (ScrollTrigger).
-  // Gated through gsap.matchMedia so reduced-motion users get no hide/reveal at
-  // all (the matched callback simply never runs, leaving sections fully visible).
+  // GSAP entrance — sections fade in as they scroll into view (ScrollTrigger).
+  // Fade only, no vertical rise. Gated through gsap.matchMedia so reduced-motion
+  // users get no hide/reveal at all (the callback never runs → sections visible).
   useEffect(() => {
     if (loading) return;
     const mm = gsap.matchMedia();
     mm.add('(prefers-reduced-motion: no-preference)', () => {
-      gsap.set('[data-anim]', { opacity: 0, y: 16 });
+      gsap.set('[data-anim]', { opacity: 0 });
       const triggers = ScrollTrigger.batch('[data-anim]', {
-        start: 'top 88%',
+        start: 'top 92%',
         onEnter: (batch) => gsap.to(batch, {
-          opacity: 1, y: 0, duration: 0.55, stagger: 0.08, ease: 'power2.out', overwrite: true,
+          opacity: 1, duration: 0.5, stagger: 0.08, ease: 'power1.out', overwrite: true,
         }),
       });
       ScrollTrigger.refresh();
-      return () => triggers.forEach(t => t.kill());
+      // Safety: never leave an in-view section hidden if its trigger didn't fire.
+      // gsap.set is synchronous (no rAF dependency) so it reveals even if stuck.
+      const fallback = setTimeout(() => {
+        document.querySelectorAll<HTMLElement>('[data-anim]').forEach(el => {
+          if (el.getBoundingClientRect().top < window.innerHeight && parseFloat(getComputedStyle(el).opacity) < 0.5) {
+            gsap.set(el, { opacity: 1 });
+          }
+        });
+      }, 1200);
+      return () => { clearTimeout(fallback); triggers.forEach(t => t.kill()); };
     });
     return () => mm.revert();
   }, [loading]);
