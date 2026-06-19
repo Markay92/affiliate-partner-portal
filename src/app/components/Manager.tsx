@@ -35,7 +35,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { SwipeCarousel, Slide } from './ui/swipe-tabs';
 import { Spinner } from './ui/spinner';
-import { prefersReducedMotion } from './ui/utils';
+import { prefersReducedMotion, prettyCardName } from './ui/utils';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -1611,7 +1611,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       {mostApprovedCards.map((c, idx) => (
                         <div key={c.name} className="flex items-center gap-3.5 py-2.5 border-b border-hair2">
                           <span className="text-[13px] font-medium text-faint2 w-3.5 flex-shrink-0 tabular-nums">{idx + 1}</span>
-                          <span className="text-[13px] font-medium text-ink truncate flex-1 min-w-0">{c.name}</span>
+                          <span className="text-[13px] font-medium text-ink truncate flex-1 min-w-0">{prettyCardName(c.name)}</span>
                           <span className="text-sm font-bold text-ink flex-shrink-0 tabular-nums">{c.approvals}</span>
                         </div>
                       ))}
@@ -1917,7 +1917,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                             // Single row renderer — used in both flat and grouped modes
                             const TrackRow = ({ a, indent }: { a: any; indent?: boolean }) => (
                               <div key={a.id} className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
-                                <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{a.cardName || '—'}</span>
+                                <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{prettyCardName(a.cardName) || '—'}</span>
                                 <span className="hidden sm:inline-flex items-center gap-1.5 w-[100px] flex-shrink-0 text-[13px] font-medium text-faint capitalize"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dotColor(a.status) }} />{a.status}</span>
                                 <span className="hidden lg:block w-[136px] flex-shrink-0 text-right text-[13px] font-medium text-faint truncate">{a.memberName}</span>
                                 <span className="hidden md:block w-[116px] flex-shrink-0 text-right text-[13px] font-medium text-faint tabular-nums whitespace-nowrap">{formatDate(a.clickDate)}</span>
@@ -2197,7 +2197,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
                 const CpaRow = ({ rate, indent }: { rate: any; indent?: boolean }) => (
                   <div className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
-                    <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{rate.card}</span>
+                    <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{prettyCardName(rate.card)}</span>
                     <span className="hidden sm:block w-[120px] lg:w-[140px] flex-shrink-0 text-right text-[13px] font-medium text-subtle truncate">{rate.issuer || '—'}</span>
                     <span className="hidden md:block w-[116px] flex-shrink-0 text-right text-[13px] font-medium text-faint tabular-nums whitespace-nowrap">{rate.date ? formatDate(rate.date) : ''}</span>
                     <span className="hidden lg:flex items-center justify-end w-[96px] flex-shrink-0">
@@ -2493,7 +2493,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                         {cards.map((c: any) => (
                                           <div key={c.id} className="flex items-center gap-4 py-2.5 border-b border-hair2 last:border-b-0">
                                             <div className="flex-1 min-w-0">
-                                              <div className="text-sm font-semibold text-ink truncate">{c.cardName}</div>
+                                              <div className="text-sm font-semibold text-ink truncate">{prettyCardName(c.cardName)}</div>
                                               <div className="text-xs text-faint mt-0.5">{formatDate(c.clickDate)}</div>
                                             </div>
                                             <div className={`text-sm font-bold tabular-nums flex-shrink-0 ${c.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>{c.totalEarnings > 0 ? `$${c.totalEarnings.toFixed(2)}` : '—'}</div>

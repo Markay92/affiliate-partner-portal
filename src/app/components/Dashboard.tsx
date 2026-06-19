@@ -2,7 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Spinner } from './ui/spinner';
-import { prefersReducedMotion } from './ui/utils';
+import { prefersReducedMotion, prettyCardName } from './ui/utils';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -128,17 +128,8 @@ function var2Param(ref: string): string {
 }
 
 /** Decode common HTML entities in card names coming from external APIs */
-function decodeHtml(str: string): string {
-  return str
-    .replace(/&amp;/g,   '&')
-    .replace(/&reg;/g,   '®')
-    .replace(/&trade;/g, '™')
-    .replace(/&copy;/g,  '©')
-    .replace(/&lt;/g,    '<')
-    .replace(/&gt;/g,    '>')
-    .replace(/&quot;/g,  '"')
-    .replace(/&#(\d+);/g, (_, c) => String.fromCharCode(Number(c)));
-}
+// Card-name display normalizer (HTML entities + (R)/(TM)/(SM)/(C) → symbols).
+const decodeHtml = prettyCardName;
 
 /** Parse date strings without UTC-shift issues for YYYY-MM-DD values */
 function parseLocalDate(str: string): Date {
@@ -1728,7 +1719,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     return (
                       <div key={item.id} className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150">
                         {/* Card name — flexible left column */}
-                        <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{item.cardName || '—'}</span>
+                        <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{decodeHtml(item.cardName) || '—'}</span>
                         {/* Status */}
                         <span className="hidden sm:inline-flex items-center gap-1.5 w-[100px] flex-shrink-0 text-[13px] font-medium text-faint capitalize">
                           <span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dot }} />{item.status}
