@@ -2,7 +2,11 @@ import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Spinner } from './ui/spinner';
+import { prefersReducedMotion } from './ui/utils';
 import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
 import {
   CreditCard,
   TrendingUp,
@@ -376,6 +380,7 @@ function CountUp({ value, format }: { value: number; format: (n: number) => stri
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    if (prefersReducedMotion()) { el.textContent = format(value); prev.current = value; return; }
     const obj = { v: prev.current };
     const tween = gsap.to(obj, {
       v: value, duration: 0.9, ease: 'power2.out',
@@ -478,7 +483,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     const el = insBodyRef.current;
     if (el) {
       gsap.killTweensOf(el);
-      if (willOpen) {
+      if (prefersReducedMotion()) {
+        gsap.set(el, willOpen ? { height: 'auto', opacity: 1 } : { height: 0, opacity: 0 });
+      } else if (willOpen) {
         gsap.set(el, { height: 'auto' });
         const h = el.offsetHeight;
         gsap.fromTo(el, { height: 0, opacity: 0 }, { height: h, opacity: 1, duration: 0.42, ease: 'power3.out', onComplete: () => gsap.set(el, { height: 'auto' }) });
@@ -495,7 +502,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     const el = perfBodyRef.current;
     if (el) {
       gsap.killTweensOf(el);
-      if (willOpen) {
+      if (prefersReducedMotion()) {
+        gsap.set(el, willOpen ? { height: 'auto', opacity: 1 } : { height: 0, opacity: 0 });
+      } else if (willOpen) {
         gsap.set(el, { height: 'auto' });
         const h = el.offsetHeight;
         gsap.fromTo(el, { height: 0, opacity: 0 }, { height: h, opacity: 1, duration: 0.42, ease: 'power3.out', onComplete: () => gsap.set(el, { height: 'auto' }) });
@@ -543,17 +552,24 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     return () => ro.disconnect();
   }, [loading, masterLink, linkBuilderIds.length]);
 
-  // GSAP entrance — staggered rise/fade of the main sections once data is in
+  // GSAP entrance — sections rise/fade as they scroll into view (ScrollTrigger).
+  // Gated through gsap.matchMedia so reduced-motion users get no hide/reveal at
+  // all (the matched callback simply never runs, leaving sections fully visible).
   useEffect(() => {
     if (loading) return;
-    const els = document.querySelectorAll('[data-anim]');
-    if (!els.length) return;
-    const ctx = gsap.context(() => {
-      gsap.from(els, {
-        y: 16, opacity: 0, duration: 0.55, stagger: 0.08, ease: 'power2.out', clearProps: 'all',
+    const mm = gsap.matchMedia();
+    mm.add('(prefers-reduced-motion: no-preference)', () => {
+      gsap.set('[data-anim]', { opacity: 0, y: 16 });
+      const triggers = ScrollTrigger.batch('[data-anim]', {
+        start: 'top 88%',
+        onEnter: (batch) => gsap.to(batch, {
+          opacity: 1, y: 0, duration: 0.55, stagger: 0.08, ease: 'power2.out', overwrite: true,
+        }),
       });
+      ScrollTrigger.refresh();
+      return () => triggers.forEach(t => t.kill());
     });
-    return () => ctx.revert();
+    return () => mm.revert();
   }, [loading]);
   const togglePanel = (key: string) => setVisiblePanels(prev => {
     const next = new Set(prev);
