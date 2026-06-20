@@ -1189,7 +1189,7 @@ app.get("/make-server-8dc4138c/user", async (c) => {
 app.put("/make-server-8dc4138c/user", async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
-    const { email, name, phone, address, city, state, zip, country } = await c.req.json();
+    const { email, name, phone, address, city, state, zip, country, currentPassword } = await c.req.json();
 
     const impersonationToken = c.req.header('X-Impersonation-Token');
     const { user, error } = await getUserFromToken(accessToken, impersonationToken);
@@ -1197,11 +1197,33 @@ app.put("/make-server-8dc4138c/user", async (c) => {
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
-    // Update email in Supabase Auth if it changed
+    const isImpersonation = (impersonationToken || accessToken || '').startsWith('imp_');
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL'),
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
     );
+
+    // Require the current password to save any profile change.
+    // Skipped for manager impersonation sessions, which don't have the affiliate's password.
+    if (!isImpersonation) {
+      if (!currentPassword) {
+        return c.json({ error: 'Current password is required to save changes' }, 400);
+      }
+
+      if (!user.email) {
+        return c.json({ error: 'Unable to verify password for this account' }, 400);
+      }
+
+      const { error: pwError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+
+      if (pwError) {
+        return c.json({ error: 'Current password is incorrect' }, 401);
+      }
+    }
 
     if (email && email !== user.email) {
       const { error: emailError } = await supabase.auth.admin.updateUserById(

@@ -13,6 +13,10 @@ export function Profile({ accessToken }: ProfileProps) {
   const [saving, setSaving] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+
+  const isImpersonation = accessToken?.startsWith('imp_');
 
   const [formData, setFormData] = useState({
     email: '',
@@ -80,8 +84,15 @@ export function Profile({ accessToken }: ProfileProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
     setSuccessMessage('');
+    setErrorMessage('');
+
+    if (!isImpersonation && !currentPassword) {
+      setErrorMessage('Please enter your current password to save changes.');
+      return;
+    }
+
+    setSaving(true);
 
     try {
       const response = await fetch(
@@ -92,18 +103,23 @@ export function Profile({ accessToken }: ProfileProps) {
           body: JSON.stringify({
             ...formData,
             name: `${formData.firstName} ${formData.lastName}`.trim(),
+            currentPassword,
           })
         }
       );
 
-      const data = await response.json();
-      if (data.success) {
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.success) {
         setUserData(data.user);
+        setCurrentPassword('');
         setSuccessMessage('Profile updated successfully!');
         setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        setErrorMessage(data.error || 'Failed to update profile. Please try again.');
       }
     } catch (error) {
       console.error('Error updating profile:', error);
+      setErrorMessage('Something went wrong. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -174,6 +190,12 @@ export function Profile({ accessToken }: ProfileProps) {
         {successMessage && (
           <div className="mb-5 p-3.5 bg-emerald-50 text-emerald-800 rounded-xl text-sm ring-1 ring-emerald-200/60">
             {successMessage}
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="mb-5 p-3.5 bg-red-50 text-red-700 rounded-xl text-sm ring-1 ring-red-200/60">
+            {errorMessage}
           </div>
         )}
 
@@ -304,6 +326,21 @@ export function Profile({ accessToken }: ProfileProps) {
                 placeholder="United States"
               />
             </div>
+
+            {!isImpersonation && (
+              <div className="pt-2 border-t border-hair">
+                <label htmlFor="currentPassword" className={labelCls}>Current Password *</label>
+                <input
+                  id="currentPassword" type="password" required
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className={inputCls}
+                  placeholder="Enter your current password to save"
+                />
+                <p className="text-xs text-faint mt-1.5">For your security, confirm your current password to save any changes</p>
+              </div>
+            )}
 
             <div className="pt-2">
               <button
