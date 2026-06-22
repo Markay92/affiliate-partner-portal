@@ -1500,9 +1500,18 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 const isAdded = card.cardId && linkBuilderIds.includes(card.cardId);
                 const linkFull = !isAdded && linkBuilderIds.length >= LINK_MAX;
                 const af = fmtAnnualFee(card.annualFee);
-                const hasDetails = card.introBonus || card.bonusMilesFull || af || card.introAprRate;
+                const hasDetails = card.imageUrl || card.introBonus || card.bonusMilesFull || af || card.introAprRate;
                 const detailContent = (
                   <>
+                    {card.imageUrl && (
+                      <img
+                        src={card.imageUrl}
+                        alt={card.name}
+                        loading="lazy"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                        className="block h-12 w-auto object-contain rounded-md mb-2.5"
+                      />
+                    )}
                     {(card.introBonus || card.bonusMilesFull) && <span className="block text-[10.5px] font-bold uppercase tracking-[0.05em] text-faint2 mb-1">Intro bonus</span>}
                     {card.introBonus && <span className="block text-[12.5px] text-ink leading-snug">{card.introBonus}</span>}
                     {card.bonusMilesFull && <span className="block text-[12px] text-faint leading-snug mt-1.5">{card.bonusMilesFull}</span>}
