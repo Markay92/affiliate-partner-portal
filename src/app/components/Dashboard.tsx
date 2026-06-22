@@ -1457,23 +1457,18 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   );
                 })()}
               </div>
-              <div className="flex items-center gap-[18px]">
-                <span className="text-xs font-semibold tracking-[0.04em] uppercase text-faint2">{displayCards.length} cards</span>
-                <button
-                  onClick={() => setCardsSort(s => s.field === 'earned' ? { field: 'earned', dir: s.dir === 'asc' ? 'desc' : 'asc' } : { field: 'earned', dir: 'desc' })}
-                  className={`inline-flex items-center gap-1 text-[13px] cursor-pointer transition-colors ${cardsSort.field === 'earned' ? 'text-ink font-bold' : 'text-faint2 font-medium hover:text-subtle'}`}>
-                  Earned{cardsSort.field === 'earned' && <span className="text-[11px]">{cardsSort.dir === 'asc' ? '↑' : '↓'}</span>}
-                </button>
-              </div>
+              <span className="text-xs font-semibold tracking-[0.04em] uppercase text-faint2">{displayCards.length} cards</span>
             </div>
-            {/* Column headers — aligned to the card rows; Conv / Payout sort on click */}
+            {/* Column headers — aligned to the card rows; click a metric to sort */}
             <div className="flex items-center gap-[18px] pt-3 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
               <span className="flex-1 min-w-0">Card</span>
               <span className="hidden sm:block w-[120px] lg:w-[150px] text-right">Issuer</span>
               <div className="flex items-baseline gap-3 sm:gap-4 flex-shrink-0">
-                {([['conv', 'Conv'], ['cpa', 'Payout']] as const).map(([key, label]) => {
+                {([['earned', 'Earned'], ['conv', 'Conv'], ['cpa', 'Payout']] as const).map(([key, label]) => {
                   const on = cardsSort.field === key;
-                  const wcls = key === 'conv' ? 'hidden sm:inline-flex sm:min-w-[74px]' : 'inline-flex sm:min-w-[72px]';
+                  const wcls = key === 'earned' ? 'hidden md:inline-flex md:min-w-[72px]'
+                    : key === 'conv' ? 'hidden sm:inline-flex sm:min-w-[74px]'
+                    : 'inline-flex sm:min-w-[72px]';
                   return (
                     <button key={key}
                       onClick={() => setCardsSort(s => s.field === key ? { field: key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { field: key, dir: 'desc' })}
@@ -1554,6 +1549,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </div>
                     <span className="hidden sm:block w-[120px] lg:w-[150px] flex-shrink-0 text-right text-[13px] font-medium text-subtle truncate">{card.issuer || '—'}</span>
                     <div className="flex items-baseline gap-3 sm:gap-4 flex-shrink-0">
+                      <span className="hidden md:inline-block md:min-w-[72px] text-right text-[13px] font-medium text-ink tabular-nums whitespace-nowrap">{card.earned > 0 ? `$${Math.round(card.earned).toLocaleString()}` : '—'}</span>
                       <span className={`hidden sm:inline-block sm:min-w-[74px] text-right text-[13px] font-medium tabular-nums whitespace-nowrap ${card.conv >= 3 ? 'text-brand' : 'text-faint'}`}>{card.conv.toFixed(1)}% conv</span>
                       <span className="inline-block sm:min-w-[72px] text-right text-[13px] font-medium text-ink tracking-[-0.02em] tabular-nums whitespace-nowrap">
                         {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : '—'}
