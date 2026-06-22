@@ -1091,6 +1091,11 @@ async function getCachedCardList(token: string, force = false): Promise<any[]> {
 
 // Force-refresh every dashboard snapshot (used by the "Refresh data" action).
 async function refreshAllSnapshots(token: string): Promise<{ tracking: number; invoices: number; cards: number; syncedAt: number }> {
+  // Also clear the enrichment caches (CPA rates + Card Rating) so a manager
+  // "Refresh data" actually refreshes card IDs / payouts / card metadata — not
+  // just the tracking/invoice/card snapshots. Without this, a stale 30-day Card
+  // Rating cache left cards without their cardId even after syncing.
+  await Promise.all([kv.del(CPA_CACHE_KEY), kv.del(CARD_RATING_CACHE_KEY)]);
   const [tracking, invoices, cards] = await Promise.all([
     getCachedTracking(token, true),
     getCachedInvoiceRecords(token, true),
