@@ -1722,6 +1722,14 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               )
             ) : (
               <>
+                {/* Column headers */}
+                <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
+                  <span className="flex-1 min-w-0">Card</span>
+                  <span className="hidden sm:block w-[100px]">Status</span>
+                  <span className="w-[112px] text-right">Date</span>
+                  <span className="hidden lg:block w-[160px] text-right">Source</span>
+                  <span className="w-[76px] text-right">Earned</span>
+                </div>
                 <div>
                   {displayTracking.slice(0, activityVisible).map((item) => {
                     const dot = item.status === 'approval' ? 'var(--ds-pos)' : item.status === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
@@ -1804,6 +1812,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               />
             ) : (
               <>
+              {/* Column headers */}
+              <div className="flex items-center gap-3 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
+                <span className="w-3.5 flex-shrink-0" aria-hidden />
+                <span className="flex-1 min-w-0">Month</span>
+                <span className="hidden sm:block w-[116px] text-right">Date</span>
+                <span className="w-[68px] sm:w-[84px] text-right">Appr.</span>
+                <span className="hidden md:block w-[112px] text-right">Status</span>
+                <span className="w-[88px] text-right">Amount</span>
+              </div>
               <div>
                 {invoices.slice(0, invoicesVisible).map(inv => {
                   const isExpanded = expandedInvoices.has(inv.id);

@@ -1714,6 +1714,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
             <div className="mt-1">
               <div className="px-5 pt-4"><LastUpdated ts={lastUpdated.affiliates} /></div>
               <div>
+                {/* Column headers */}
+                <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
+                  <span className="w-8 flex-shrink-0" aria-hidden />
+                  <span className="flex-1 min-w-0">Affiliate</span>
+                  <span className="hidden lg:block w-[180px] text-right">Email</span>
+                  <span className="hidden md:block w-[88px] text-right">ID</span>
+                  <span className="hidden sm:block w-[72px] text-right">Appr.</span>
+                  <span className="hidden sm:block w-[78px] text-right">Split</span>
+                  <span className="w-[84px] text-right">Earned</span>
+                  <span className="w-8 flex-shrink-0" aria-hidden />
+                </div>
                 {(() => {
                   const pagedUsers = displayUsers.slice(0, affiliatesVisible);
                   if (affiliateGroupBy) {
@@ -1912,6 +1923,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 return (
                   <>
                     <div>
+                      {/* Column headers */}
+                      <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
+                        <span className="flex-1 min-w-0">Card</span>
+                        <span className="hidden sm:block w-[100px]">Status</span>
+                        <span className="hidden lg:block w-[136px] text-right">Member</span>
+                        <span className="hidden md:block w-[116px] text-right">Date</span>
+                        <span className="hidden xl:block w-[150px] text-right">Source</span>
+                        <span className="w-[76px] text-right">Earned</span>
+                      </div>
                       {(() => {
                             const dotColor = (s: string) => s === 'approval' ? 'var(--ds-pos)' : s === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
                             // Single row renderer — used in both flat and grouped modes
@@ -2223,6 +2243,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   <div className="overflow-x-auto">
                     <div className="px-5 py-2"><LastUpdated ts={lastUpdated.cpa} /></div>
                     <div>
+                        {/* Column headers */}
+                        <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
+                          <span className="flex-1 min-w-0">Card</span>
+                          <span className="hidden sm:block w-[120px] lg:w-[140px] text-right">Issuer</span>
+                          <span className="hidden md:block w-[116px] text-right">Date</span>
+                          <span className="hidden lg:block w-[96px] text-right">Card ID</span>
+                          {cpaAffiliateFilter !== 'all' && <span className="hidden sm:block w-[104px] text-right">Payout</span>}
+                          <span className="w-[64px] text-right">CPA</span>
+                        </div>
                         {cpaGroupBy ? (
                           // Grouped by issuer with collapse/expand
                           (() => {
@@ -2431,6 +2460,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   <div className="overflow-x-auto">
                     <div className="px-5 py-2"><LastUpdated ts={lastUpdated.invoices} /></div>
                     <div>
+                        {/* Column headers */}
+                        <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
+                          <span className="flex-1 min-w-0 pl-6">Affiliate</span>
+                          <span className="hidden sm:block w-[96px] text-right">Month</span>
+                          <span className="w-[64px] text-right">Appr.</span>
+                          <span className="hidden md:block w-[112px] text-right">Status</span>
+                          <span className="w-[92px] text-right">Amount</span>
+                          <span className="w-8 flex-shrink-0" aria-hidden />
+                        </div>
                         {(() => {
                           const InvRow = ({ inv, indent }: { inv: any; indent?: boolean }) => {
                             const busy = updatingInvoice === inv.id;
