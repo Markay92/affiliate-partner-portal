@@ -2,7 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Spinner } from './ui/spinner';
-import { prefersReducedMotion } from './ui/utils';
+import { prefersReducedMotion, prettyCardName } from './ui/utils';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -32,12 +32,12 @@ import {
   X,
   Plus,
   Check,
-  MoreHorizontal,
   Gift,
   Sparkles,
   Monitor,
   Smartphone,
   MapPin,
+  GripVertical,
 } from 'lucide-react';
 import React from 'react';
 import { ComposedChart, LineChart, Line, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } from 'recharts';
@@ -133,17 +133,8 @@ function var2Param(ref: string): string {
 }
 
 /** Decode common HTML entities in card names coming from external APIs */
-function decodeHtml(str: string): string {
-  return str
-    .replace(/&amp;/g,   '&')
-    .replace(/&reg;/g,   '®')
-    .replace(/&trade;/g, '™')
-    .replace(/&copy;/g,  '©')
-    .replace(/&lt;/g,    '<')
-    .replace(/&gt;/g,    '>')
-    .replace(/&quot;/g,  '"')
-    .replace(/&#(\d+);/g, (_, c) => String.fromCharCode(Number(c)));
-}
+// Card-name display normalizer (HTML entities + (R)/(TM)/(SM)/(C) → symbols).
+const decodeHtml = prettyCardName;
 
 /** Parse date strings without UTC-shift issues for YYYY-MM-DD values */
 function parseLocalDate(str: string): Date {
@@ -431,12 +422,14 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [linkBuilderIds, setLinkBuilderIds] = useState<string[]>([]);
   // Featured-cards panel (the boost chip in the link bar) open/closed.
   const [boostOpen, setBoostOpen] = useState(false);
+  // Card id currently being drag-reordered in the featured panel.
+  const [dragFeatId, setDragFeatId] = useState<string | null>(null);
   // Which card's bonus/details popover is tapped open (mobile — desktop uses hover).
   const [bonusOpenId, setBonusOpenId] = useState<string | number | null>(null);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState('');
   const [activeTab, setActiveTab]   = useState('cards');   // controlled tabs (drives nav menu)
-  const [navOpen,   setNavOpen]     = useState(false);     // mobile ellipsis nav menu
+  const [userMenuOpen, setUserMenuOpen] = useState(false); // user chip dropdown (profile/refresh/logout)
 
   // Activity tab (Airtable API Output)
   const [trackingFilter,       setTrackingFilter]       = useState<DateFilter>('week');
@@ -658,6 +651,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [expandedInvoices, setExpandedInvoices] = useState<Set<string>>(new Set());
 
   // ── Derived display data ────────────────────────────────────────────────────
+  // Affiliate's real earning for a tracking row = their per-card CPA rate (the
+  // same source the Cards tab uses) × approvals — NOT the gross bounty stored on
+  // the row. Joined by normalised card name. Approvals is 1 on approval rows and
+  // 0 on click/application rows, so non-approval rows correctly earn $0.
+  const _normCard = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const _cpaByCard = new Map(payouts.map(p => [_normCard(p.card), p.amount]));
+  const affiliateEarned = (t: { cardName: string; approvals: number }) =>
+    (_cpaByCard.get(_normCard(t.cardName)) ?? 0) * (t.approvals || 0);
+
   // Activity is organised by process date (when the lead was processed).
   const displayTracking = applySort(
     tracking.filter(t =>
@@ -693,7 +695,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       const key = decodeHtml(t.cardName || 'Unknown');
       if (!byCard[key]) byCard[key] = { name: key, approvals: 0, earnings: 0 };
       byCard[key].approvals += 1;
-      byCard[key].earnings  += t.totalEarnings || 0;
+      byCard[key].earnings  += affiliateEarned(t);
     });
     return Object.values(byCard).sort((a, b) => b.approvals - a.approvals || b.earnings - a.earnings).slice(0, 5);
   })();
@@ -886,7 +888,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const totalClicks       = _thisT.reduce((s, t) => s + (t.clicks       || 0), 0);
   const totalConversions  = _thisT.reduce((s, t) => s + (t.approvals    || 0), 0);
   const totalApplications = _thisT.reduce((s, t) => s + (t.applications || 0), 0);
-  const totalCommissions  = _thisT.reduce((s, t) => s + (t.totalEarnings|| 0), 0);
+  const totalCommissions  = _thisT.reduce((s, t) => s + affiliateEarned(t), 0);
   const totalPayouts      = payouts.reduce((s, p) => s + p.amount, 0);
   const avgEPC            = totalClicks > 0 ? totalCommissions / totalClicks : 0;
 
@@ -906,8 +908,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     _lastT.reduce((s, t) => s + (t.applications || 0), 0),
   );
   const commissionsPct   = _calcPct(
-    _thisT.reduce((s, t) => s + t.totalEarnings, 0),
-    _lastT.reduce((s, t) => s + t.totalEarnings, 0),
+    _thisT.reduce((s, t) => s + affiliateEarned(t), 0),
+    _lastT.reduce((s, t) => s + affiliateEarned(t), 0),
   );
 
   /** Coloured percentage badge shown under each stat card */
@@ -980,7 +982,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     invoices: { label: 'Invoices', Icon: FileText,   badge: invoices.length },
     profile:  { label: 'Profile',  Icon: User,       badge: 0 },
   } as const;
-  const navItems = NAV_ORDER.map(key => ({ key, ...navMeta[key] }));
+  // Profile is reachable from the user menu, not the centre pill nav.
+  const navItems = NAV_ORDER.filter(key => key !== 'profile').map(key => ({ key, ...navMeta[key] }));
 
   return (
     <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="min-h-screen bg-canvas">
@@ -1012,45 +1015,26 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               ))}
             </Tabs.List>
             <div className="flex items-center gap-2 flex-1 justify-end">
-              {/* Desktop: inline utility actions */}
-              <button
-                onClick={fetchData}
-                className="hidden sm:block p-2 text-faint hover:text-brand hover:bg-surface active:scale-95 rounded-lg transition-all duration-150 cursor-pointer"
-                title="Refresh data"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
-              {(firstName || userEmail) && (
-                <span className="hidden sm:flex items-center gap-2 text-subtle text-sm pl-1 pr-3 py-1 rounded-full">
-                  <span className="w-7 h-7 rounded-full bg-brand text-white text-[12px] font-bold flex items-center justify-center flex-shrink-0">
-                    {(firstName || userEmail).charAt(0).toUpperCase()}
-                  </span>
-                  {firstName ? `Hi, ${firstName}` : userEmail}
-                </span>
-              )}
-              <button
-                onClick={onLogout}
-                className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-faint hover:text-neg active:scale-95 rounded-lg transition-all duration-150 text-sm font-medium cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Logout</span>
-              </button>
-
-              {/* Mobile: ellipsis menu — refresh & logout collapse in here */}
-              <div className="relative sm:hidden">
+              {/* User chip → dropdown with profile, refresh & logout */}
+              <div className="relative">
                 <button
-                  onClick={() => setNavOpen(o => !o)}
-                  aria-label="Menu"
-                  className="flex items-center justify-center w-10 h-10 -mr-2 rounded-lg text-subtle hover:text-ink hover:bg-surface active:scale-95 transition-all cursor-pointer"
+                  onClick={() => setUserMenuOpen(o => !o)}
+                  aria-haspopup="menu"
+                  aria-expanded={userMenuOpen}
+                  className="flex items-center gap-2 pl-1 pr-1.5 sm:pr-2.5 py-1 rounded-full text-subtle text-sm hover:bg-surface active:scale-95 transition-all duration-150 cursor-pointer"
                 >
-                  <MoreHorizontal className="w-5 h-5" />
+                  <span className="w-7 h-7 rounded-full bg-brand text-white text-[12px] font-bold flex items-center justify-center flex-shrink-0">
+                    {(firstName || userEmail || '?').charAt(0).toUpperCase()}
+                  </span>
+                  <span className="hidden sm:inline whitespace-nowrap">{firstName ? `Hi, ${firstName}` : userEmail}</span>
+                  <ChevronDown className={`hidden sm:block w-4 h-4 text-faint2 transition-transform duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
-                {navOpen && (
+                {userMenuOpen && (
                   <>
-                    <div className="fixed inset-0 z-20" onClick={() => setNavOpen(false)} />
-                    <div className="absolute right-0 mt-1 w-52 bg-white rounded-2xl shadow-lg ring-1 ring-ink/10 z-30 overflow-hidden py-1.5 ds-rise">
+                    <div className="fixed inset-0 z-20" onClick={() => setUserMenuOpen(false)} />
+                    <div className="absolute right-0 mt-1.5 w-52 bg-white rounded-2xl shadow-lg ring-1 ring-ink/10 z-30 overflow-hidden py-1.5 ds-rise">
                       {(firstName || userEmail) && (
-                        <div className="flex items-center gap-2.5 px-4 py-2.5 mb-1 border-b border-hair">
+                        <div className="flex items-center gap-2.5 px-4 py-2.5 mb-1 border-b border-hair sm:hidden">
                           <span className="w-7 h-7 rounded-full bg-brand text-white text-[12px] font-bold flex items-center justify-center flex-shrink-0">
                             {(firstName || userEmail).charAt(0).toUpperCase()}
                           </span>
@@ -1058,13 +1042,20 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         </div>
                       )}
                       <button
-                        onClick={() => { setNavOpen(false); fetchData(); }}
+                        onClick={() => { setUserMenuOpen(false); setActiveTab('profile'); }}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium hover:bg-surface transition-colors ${activeTab === 'profile' ? 'text-brand' : 'text-subtle'}`}
+                      >
+                        <User className="w-4 h-4 text-faint2" /> Profile
+                      </button>
+                      <button
+                        onClick={() => { setUserMenuOpen(false); fetchData(); }}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-subtle font-medium hover:bg-surface transition-colors"
                       >
                         <RefreshCw className="w-4 h-4 text-faint2" /> Refresh data
                       </button>
+                      <div className="my-1 border-t border-hair" />
                       <button
-                        onClick={() => { setNavOpen(false); onLogout(); }}
+                        onClick={() => { setUserMenuOpen(false); onLogout(); }}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neg font-medium hover:bg-surface transition-colors"
                       >
                         <LogOut className="w-4 h-4" /> Logout
@@ -1157,10 +1148,35 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   {featured.length > 0 ? (
                     <>
                       <div className="max-h-[280px] overflow-y-auto border-t border-hair2">
-                        {featured.map(c => (
-                          <div key={c.cardId} className="flex items-center gap-3 px-4 py-2.5 border-b border-hair2 last:border-b-0">
+                        {featured.map((c) => (
+                          <div
+                            key={c.cardId}
+                            data-feat-id={c.cardId}
+                            className={`flex items-center gap-2 px-3 py-2.5 border-b border-hair2 last:border-b-0 transition-colors ${dragFeatId === c.cardId ? 'bg-brand-soft' : ''}`}>
+                            {/* Drag handle — hold and drag to set the order in your link */}
+                            <button
+                              type="button"
+                              onPointerDown={(e) => { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); setDragFeatId(c.cardId); }}
+                              onPointerMove={(e) => {
+                                if (dragFeatId == null) return;
+                                const over = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement)?.closest('[data-feat-id]')?.getAttribute('data-feat-id');
+                                if (over && over !== dragFeatId) {
+                                  setLinkBuilderIds(prev => {
+                                    const a = [...prev];
+                                    const from = a.indexOf(dragFeatId), to = a.indexOf(over);
+                                    if (from < 0 || to < 0) return prev;
+                                    a.splice(to, 0, a.splice(from, 1)[0]);
+                                    return a;
+                                  });
+                                }
+                              }}
+                              onPointerUp={(e) => { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); setDragFeatId(null); }}
+                              onPointerCancel={() => setDragFeatId(null)}
+                              title="Drag to reorder"
+                              style={{ touchAction: 'none' }}
+                              className="flex-shrink-0 -ml-1 p-1 text-faint2 hover:text-subtle cursor-grab active:cursor-grabbing"><GripVertical className="w-4 h-4" /></button>
                             <div className="flex-1 min-w-0">
-                              <div className="text-[13px] font-medium text-ink truncate">{c.name}</div>
+                              <div className="text-[13px] font-medium text-ink truncate">{prettyCardName(c.name)}</div>
                               <div className="text-[12px] text-faint truncate">{c.issuer || '—'}</div>
                             </div>
                             <span className="text-[13px] font-medium text-pos tabular-nums flex-shrink-0">{c.cpa > 0 ? `$${c.cpa.toLocaleString()}` : '—'}</span>
@@ -1207,7 +1223,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             monthMap[key].clicks      += t.clicks       || 0;
             monthMap[key].approvals   += t.approvals    || 0;
             monthMap[key].applications+= t.applications || 0;
-            monthMap[key].earnings    += t.totalEarnings|| 0;
+            monthMap[key].earnings    += affiliateEarned(t);
           });
           const monthlyData = Object.entries(monthMap).sort(([a],[b]) => a.localeCompare(b)).map(([,v]) => v);
 
@@ -1525,10 +1541,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   </>
                 );
                 return (
-                  <div className="flex items-center gap-[18px] py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150"
+                  <div className="flex items-center gap-[18px] py-2.5 border-b border-hair2 last:border-b-0 hover:bg-surface transition-colors duration-150"
                     style={{ paddingLeft: indent ? 24 : 0 }}>
                     <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                      <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate">{card.name}</span>
+                      <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate">{prettyCardName(card.name)}</span>
                       {hasDetails && (
                         <span className="relative group/bn flex-shrink-0 leading-none">
                           <button
@@ -1550,7 +1566,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                               <div className="fixed inset-0 z-[60] bg-black/30" />
                               <div className="fixed left-4 right-4 bottom-6 z-[61] p-4 rounded-2xl bg-white shadow-xl ring-1 ring-ink/10 text-left normal-case" onClick={(e) => e.stopPropagation()}>
                                 <div className="flex items-start justify-between gap-3 mb-1">
-                                  <span className="text-[14px] font-bold text-ink leading-snug">{card.name}</span>
+                                  <span className="text-[14px] font-bold text-ink leading-snug">{prettyCardName(card.name)}</span>
                                   <button onClick={() => setBonusOpenId(null)} className="flex-shrink-0 -mt-0.5 -mr-1 p-1 text-faint2"><X className="w-4 h-4" /></button>
                                 </div>
                                 {detailContent}
@@ -1617,19 +1633,22 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 const order = Object.keys(groups).sort((a, b) => sub(groups[b]) - sub(groups[a]));
                 return (
                   <div>
-                    {order.map(issuer => {
+                    {order.map((issuer, gi) => {
                       const items = groups[issuer];
                       const open = !cardsCollapsed.has(issuer);
                       const toggle = () => setCardsCollapsed(prev => { const next = new Set(prev); next.has(issuer) ? next.delete(issuer) : next.add(issuer); return next; });
                       return (
                         <React.Fragment key={`g-${issuer}`}>
-                          <div onClick={toggle} className="flex items-center gap-[11px] pt-5 pb-3 border-t border-hair2 cursor-pointer hover:opacity-70 transition-opacity select-none">
+                          <div onClick={toggle} className={`flex items-center gap-[11px] cursor-pointer hover:opacity-70 transition-all duration-200 select-none ${gi === 0 ? '' : 'border-t border-hair2'} ${open ? 'pt-4 pb-2.5' : 'py-2'}`}>
                             <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${open ? 'rotate-90' : ''}`} strokeWidth={2.6} />
                             <span className="text-[12.5px] font-bold text-ink tracking-[0.03em] uppercase">{issuer}</span>
-                            <span className="text-[12px] font-semibold text-faint2 tabular-nums">{items.length}</span>
-                            <span className="ml-auto text-[15px] font-bold text-brand tracking-[-0.02em] tabular-nums">${Math.round(sub(items)).toLocaleString()}</span>
                           </div>
-                          {open && items.map(card => <CardRow key={card.id} card={card} indent />)}
+                          {/* Smooth expand/collapse via grid 0fr↔1fr */}
+                          <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                            <div className="overflow-hidden min-h-0">
+                              {items.map(card => <CardRow key={card.id} card={card} indent />)}
+                            </div>
+                          </div>
                         </React.Fragment>
                       );
                     })}
@@ -1758,10 +1777,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <div>
                   {displayTracking.slice(0, activityVisible).map((item) => {
                     const dot = item.status === 'approval' ? 'var(--ds-pos)' : item.status === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
+                    const earned = affiliateEarned(item);
                     return (
                       <div key={item.id} className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150">
                         {/* Card name — flexible left column */}
-                        <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{item.cardName || '—'}</span>
+                        <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{decodeHtml(item.cardName) || '—'}</span>
                         {/* Status */}
                         <span className="hidden sm:inline-flex items-center gap-1.5 w-[100px] flex-shrink-0 text-[13px] font-medium text-faint capitalize">
                           <span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dot }} />{item.status}
@@ -1780,9 +1800,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                             ? <><MapPin className="w-3.5 h-3.5 flex-shrink-0 text-faint2" /><span className="truncate">{item.country && item.country !== 'US' ? `${item.state} · ${item.country}` : item.state}</span></>
                             : <span className="text-faint2">—</span>}
                         </span>
-                        {/* Earnings */}
-                        <span className={`w-[76px] flex-shrink-0 text-right text-[13px] font-medium tabular-nums ${item.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>
-                          {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : '—'}
+                        {/* Earnings — affiliate's CPA-rate share (matches Cards), not gross */}
+                        <span className={`w-[76px] flex-shrink-0 text-right text-[13px] font-medium tabular-nums ${earned > 0 ? 'text-ink' : 'text-faint2'}`}>
+                          {earned > 0 ? `$${earned.toFixed(2)}` : '—'}
                         </span>
                       </div>
                     );
@@ -1891,17 +1911,20 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                           ) : (
                             <>
                               <div className="text-[11px] font-semibold text-faint2 uppercase tracking-[0.04em] pt-3 pb-1">Approvals ({items.length})</div>
-                              {items.map(item => (
+                              {items.map(item => {
+                                const earned = affiliateEarned(item);
+                                return (
                                 <div key={item.id} className="flex items-center gap-4 py-2.5 border-b border-hair2 last:border-b-0">
                                   <div className="flex-1 min-w-0">
                                     <div className="text-sm font-semibold text-ink truncate">{decodeHtml(item.cardName)}</div>
                                     <div className="text-xs text-faint mt-0.5">{formatDate(item.clickDate)} · {formatTime(item.clickTime)}</div>
                                   </div>
-                                  <div className={`text-sm font-bold tabular-nums flex-shrink-0 ${item.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>
-                                    {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : '—'}
+                                  <div className={`text-sm font-bold tabular-nums flex-shrink-0 ${earned > 0 ? 'text-ink' : 'text-faint2'}`}>
+                                    {earned > 0 ? `$${earned.toFixed(2)}` : '—'}
                                   </div>
                                 </div>
-                              ))}
+                                );
+                              })}
                             </>
                           )}
                         </div>
