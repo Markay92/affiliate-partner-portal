@@ -466,6 +466,36 @@ app.get("/make-server-8dc4138c/links", async (c) => {
       }
     }
 
+    // Real per-card stats for this affiliate, aggregated from the Airtable
+    // tracking table (the same source the Activity tab uses) so the Cards tab's
+    // clicks / conv% / earned reflect actual data instead of the legacy in-app
+    // click counter (which is only bumped by the /click + /conversion pixels and
+    // is effectively all zeros). "conversions" = paid approvals, so conv% is the
+    // approval rate and earned = CPA × conversions is correct.
+    const _normName = (s: string) => (s || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cardClicks: Record<string, number> = {};
+    const cardApprovals: Record<string, number> = {};
+    if (airtableToken) {
+      try {
+        const tracking = await getCachedTracking(airtableToken);
+        const ezrxRaw = (userData.ezrxRef || '').toString().trim();
+        const ezrxVal = ezrxRaw
+          ? (ezrxRaw.toLowerCase().startsWith('ezrxref-') ? ezrxRaw : `ezrxref-${ezrxRaw}`)
+          : '';
+        const ownIds = new Set([affiliateId, ezrxVal].filter(Boolean).map(s => s.toString().trim().toLowerCase()));
+        const mine = (v: unknown) => (Array.isArray(v) ? v : [v]).some(x => x != null && ownIds.has(x.toString().trim().toLowerCase()));
+        for (const rec of tracking) {
+          if (!mine(rec.fields['affiliate-id'])) continue;
+          const nm = _normName(rec.fields['Card Name'] || '');
+          if (!nm) continue;
+          cardClicks[nm]    = (cardClicks[nm]    || 0) + (parseInt(rec.fields['Clicks'])    || 0);
+          cardApprovals[nm] = (cardApprovals[nm] || 0) + (parseInt(rec.fields['Approvals']) || 0);
+        }
+      } catch (err: any) {
+        console.log('per-card stats aggregation error (non-fatal):', err.message);
+      }
+    }
+
     // Deduplicate by card name (keep first / most-recent per card after sort)
     const seen = new Set<string>();
     const links = [];
@@ -486,15 +516,19 @@ app.get("/make-server-8dc4138c/links", async (c) => {
       const urlSlug  = slug || cardName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       const url      = buildAffiliateUrl(urlSlug, affiliateId, cardName);
 
+      // Prefer real tracking-derived stats; fall back to the legacy click counter.
+      const nm   = _normName(cardName);
       const prev = clickMap[cardName] || { clicks: 0, conversions: 0 };
+      const clicks      = cardClicks[nm]    ?? prev.clicks;
+      const conversions = cardApprovals[nm] ?? prev.conversions;
 
       links.push({
         id: i + 1,
         name: cardName,
         bank: issuer,
         url,
-        clicks:      prev.clicks,
-        conversions: prev.conversions,
+        clicks,
+        conversions,
         commission:  bankCpa,   // bank CPA; affiliate cut calculated at display time
       });
     }
@@ -681,7 +715,9 @@ app.get("/make-server-8dc4138c/tracking", async (c) => {
       applications: parseInt(record.fields['Applications']) || 0,
       approvals: parseInt(record.fields['Approvals']) || 0,
       deviceType: record.fields['Device Type'] || '',
-      state: record.fields['State'] || ''
+      state: record.fields['State'] || '',
+      stateCode: record.fields['State Code'] || '',
+      country: record.fields['Country Code'] || ''
     }));
 
     return c.json({ tracking, syncedAt: await kv.get(SYNCED_AT_KEY) });
@@ -754,11 +790,13 @@ const CR_FIELD = {
   bonusMilesFull:  'fldrIpusy3mUt3S0T', // BonusMilesFull
 };
 
-// Strip trademark markers BEFORE removing non-alphanumerics so "(R)" and "®"
-// don't become a stray "r" that breaks fuzzy name matching.
+// Strip ALL trademark markers BEFORE removing non-alphanumerics so the same card
+// matches whether it's written with (R)/(TM)/(SM)/(C) or ®/™/℠/© or nothing.
+// Otherwise e.g. "...Cash(SM) Credit Card" left a stray "sm" that never matched
+// the Card Rating record "...Cash(R) Credit Card", dropping its cardId.
 function normCardName(s: string): string {
   return s.toLowerCase()
-    .replace(/\(r\)|\(tm\)|®|™/gi, ' ')
+    .replace(/\(r\)|\(tm\)|\(sm\)|\(c\)|®|™|℠|©/gi, ' ')
     .replace(/[^a-z0-9]/g, '');
 }
 
@@ -1053,6 +1091,11 @@ async function getCachedCardList(token: string, force = false): Promise<any[]> {
 
 // Force-refresh every dashboard snapshot (used by the "Refresh data" action).
 async function refreshAllSnapshots(token: string): Promise<{ tracking: number; invoices: number; cards: number; syncedAt: number }> {
+  // Also clear the enrichment caches (CPA rates + Card Rating) so a manager
+  // "Refresh data" actually refreshes card IDs / payouts / card metadata — not
+  // just the tracking/invoice/card snapshots. Without this, a stale 30-day Card
+  // Rating cache left cards without their cardId even after syncing.
+  await Promise.all([kv.del(CPA_CACHE_KEY), kv.del(CARD_RATING_CACHE_KEY)]);
   const [tracking, invoices, cards] = await Promise.all([
     getCachedTracking(token, true),
     getCachedInvoiceRecords(token, true),
@@ -1649,7 +1692,9 @@ app.get("/make-server-8dc4138c/manager/tracking-activity", async (c) => {
       applications: parseInt(record.fields['Applications']) || 0,
       approvals: parseInt(record.fields['Approvals']) || 0,
       deviceType: record.fields['Device Type'] || '',
-      state: record.fields['State'] || ''
+      state: record.fields['State'] || '',
+      stateCode: record.fields['State Code'] || '',
+      country: record.fields['Country Code'] || ''
     }));
 
     // Aggregate per-affiliate stats and write to KV so the Affiliates tab
