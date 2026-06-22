@@ -1176,7 +1176,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                               style={{ touchAction: 'none' }}
                               className="flex-shrink-0 -ml-1 p-1 text-faint2 hover:text-subtle cursor-grab active:cursor-grabbing"><GripVertical className="w-4 h-4" /></button>
                             <div className="flex-1 min-w-0">
-                              <div className="text-[13px] font-medium text-ink truncate">{c.name}</div>
+                              <div className="text-[13px] font-medium text-ink truncate">{prettyCardName(c.name)}</div>
                               <div className="text-[12px] text-faint truncate">{c.issuer || '—'}</div>
                             </div>
                             <span className="text-[13px] font-medium text-pos tabular-nums flex-shrink-0">{c.cpa > 0 ? `$${c.cpa.toLocaleString()}` : '—'}</span>
@@ -1541,10 +1541,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   </>
                 );
                 return (
-                  <div className="flex items-center gap-[18px] py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150"
+                  <div className="flex items-center gap-[18px] py-2.5 border-b border-hair2 last:border-b-0 hover:bg-surface transition-colors duration-150"
                     style={{ paddingLeft: indent ? 24 : 0 }}>
                     <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                      <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate">{card.name}</span>
+                      <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate">{prettyCardName(card.name)}</span>
                       {hasDetails && (
                         <span className="relative group/bn flex-shrink-0 leading-none">
                           <button
@@ -1566,7 +1566,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                               <div className="fixed inset-0 z-[60] bg-black/30" />
                               <div className="fixed left-4 right-4 bottom-6 z-[61] p-4 rounded-2xl bg-white shadow-xl ring-1 ring-ink/10 text-left normal-case" onClick={(e) => e.stopPropagation()}>
                                 <div className="flex items-start justify-between gap-3 mb-1">
-                                  <span className="text-[14px] font-bold text-ink leading-snug">{card.name}</span>
+                                  <span className="text-[14px] font-bold text-ink leading-snug">{prettyCardName(card.name)}</span>
                                   <button onClick={() => setBonusOpenId(null)} className="flex-shrink-0 -mt-0.5 -mr-1 p-1 text-faint2"><X className="w-4 h-4" /></button>
                                 </div>
                                 {detailContent}
@@ -1642,7 +1642,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                           <div onClick={toggle} className={`flex items-center gap-[11px] cursor-pointer hover:opacity-70 transition-all duration-200 select-none ${gi === 0 ? '' : 'border-t border-hair2'} ${open ? 'pt-4 pb-2.5' : 'py-2'}`}>
                             <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${open ? 'rotate-90' : ''}`} strokeWidth={2.6} />
                             <span className="text-[12.5px] font-bold text-ink tracking-[0.03em] uppercase">{issuer}</span>
-                            <span className="text-[12px] font-semibold text-faint2 tabular-nums">{items.length}</span>
                           </div>
                           {/* Smooth expand/collapse via grid 0fr↔1fr */}
                           <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
