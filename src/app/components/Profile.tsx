@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Save, Copy, CheckCircle } from 'lucide-react';
+import { User, Save, Copy, CheckCircle, Lock, X } from 'lucide-react';
 import { Spinner } from './ui/spinner';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 
@@ -15,6 +15,9 @@ export function Profile({ accessToken }: ProfileProps) {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
+  // Profile fields are locked (read-only) until the user unlocks editing.
+  const [unlocked, setUnlocked] = useState(false);
+  const [showUnlock, setShowUnlock] = useState(false);
 
   const isImpersonation = accessToken?.startsWith('imp_');
 
@@ -112,6 +115,8 @@ export function Profile({ accessToken }: ProfileProps) {
       if (response.ok && data.success) {
         setUserData(data.user);
         setCurrentPassword('');
+        setUnlocked(false);          // re-lock after a successful save
+        setShowUnlock(false);
         setSuccessMessage('Profile updated successfully!');
         setTimeout(() => setSuccessMessage(''), 3000);
       } else {
@@ -123,6 +128,29 @@ export function Profile({ accessToken }: ProfileProps) {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Reset the form back to the saved values.
+  const resetForm = () => {
+    if (!userData) return;
+    const np = (userData.name || '').trim().split(/\s+/);
+    setFormData({
+      email: userData.email || '', firstName: np[0] || '', lastName: np.slice(1).join(' ') || '',
+      phone: userData.phone || '', address: userData.address || '', city: userData.city || '',
+      state: userData.state || '', zip: userData.zip || '', country: userData.country || '',
+    });
+  };
+
+  const startEdit = () => {
+    setErrorMessage(''); setSuccessMessage('');
+    if (isImpersonation) setUnlocked(true);   // manager edit — no password needed
+    else setShowUnlock(true);                  // affiliate — confirm password to unlock
+  };
+
+  const cancelEdit = () => {
+    setUnlocked(false); setShowUnlock(false); setCurrentPassword('');
+    setErrorMessage('');
+    resetForm();
   };
 
   const copyAffiliateId = async () => {
@@ -143,7 +171,7 @@ export function Profile({ accessToken }: ProfileProps) {
     }
   };
 
-  const inputCls = "w-full px-3.5 py-2.5 rounded-lg border border-hair focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-sm text-ink bg-white";
+  const inputCls = "w-full px-3.5 py-2.5 rounded-lg border border-hair focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand text-sm text-ink bg-white disabled:bg-surface disabled:text-subtle disabled:border-hair2 disabled:cursor-not-allowed transition-colors";
   const labelCls = "block text-sm font-medium text-subtle mb-1.5";
 
   if (loading) {
@@ -221,9 +249,21 @@ export function Profile({ accessToken }: ProfileProps) {
 
         {/* Contact Form */}
         <div>
-          <h3 className="text-[17px] font-bold text-ink tracking-[-0.01em] mb-4">Contact information</h3>
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h3 className="text-[17px] font-bold text-ink tracking-[-0.01em]">Contact information</h3>
+            {!unlocked && !showUnlock && (
+              <button type="button" onClick={startEdit}
+                className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg border border-hair text-[13px] font-medium text-subtle hover:border-brand hover:text-brand transition-colors cursor-pointer flex-shrink-0">
+                <Lock className="w-3.5 h-3.5" /> Edit
+              </button>
+            )}
+            {unlocked && (
+              <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-brand flex-shrink-0"><span className="w-1.5 h-1.5 rounded-full bg-brand" />Editing unlocked</span>
+            )}
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <fieldset disabled={!unlocked} className="space-y-4 border-0 p-0 m-0 min-w-0">
             {/* Email */}
             <div>
               <label htmlFor="email" className={labelCls}>Email Address *</label>
@@ -326,8 +366,10 @@ export function Profile({ accessToken }: ProfileProps) {
                 placeholder="United States"
               />
             </div>
+            </fieldset>
 
-            {!isImpersonation && (
+            {/* Password — required to unlock editing and to save (affiliates only) */}
+            {!isImpersonation && (showUnlock || unlocked) && (
               <div className="pt-2 border-t border-hair">
                 <label htmlFor="currentPassword" className={labelCls}>Current Password *</label>
                 <input
@@ -336,21 +378,35 @@ export function Profile({ accessToken }: ProfileProps) {
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   className={inputCls}
-                  placeholder="Enter your current password to save"
+                  placeholder="Enter your current password"
+                  onKeyDown={(e) => { if (e.key === 'Enter' && showUnlock && currentPassword) { e.preventDefault(); setUnlocked(true); setShowUnlock(false); } }}
                 />
-                <p className="text-xs text-faint mt-1.5">For your security, confirm your current password to save any changes</p>
+                <p className="text-xs text-faint mt-1.5">Confirm your current password to edit and save your profile.</p>
               </div>
             )}
 
-            <div className="pt-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex items-center gap-2 px-5 py-2.5 bg-brand text-white rounded-lg hover:bg-brand-dark transition-colors disabled:opacity-50 text-sm font-medium"
-              >
-                <Save className="w-4 h-4" />
-                {saving ? 'Saving…' : 'Save Changes'}
-              </button>
+            <div className="pt-3 flex items-center gap-2">
+              {showUnlock && !unlocked && (
+                <>
+                  <button type="button" disabled={!currentPassword} onClick={() => { setUnlocked(true); setShowUnlock(false); }}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand text-white rounded-lg hover:bg-brand-dark transition-colors disabled:opacity-50 text-sm font-medium cursor-pointer">
+                    <Lock className="w-4 h-4" /> Unlock editing
+                  </button>
+                  <button type="button" onClick={() => { setShowUnlock(false); setCurrentPassword(''); }}
+                    className="px-4 py-2.5 rounded-lg text-sm font-medium text-subtle hover:bg-surface transition-colors cursor-pointer">Cancel</button>
+                </>
+              )}
+              {unlocked && (
+                <>
+                  <button type="submit" disabled={saving}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-brand text-white rounded-lg hover:bg-brand-dark transition-colors disabled:opacity-50 text-sm font-medium cursor-pointer">
+                    <Save className="w-4 h-4" />
+                    {saving ? 'Saving…' : 'Save Changes'}
+                  </button>
+                  <button type="button" onClick={cancelEdit}
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium text-subtle hover:bg-surface transition-colors cursor-pointer"><X className="w-4 h-4" /> Cancel</button>
+                </>
+              )}
             </div>
           </form>
         </div>
