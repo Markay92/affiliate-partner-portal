@@ -27,6 +27,9 @@ import {
   MousePointerClick,
   Copy,
   MoreHorizontal,
+  Monitor,
+  Smartphone,
+  MapPin,
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -1714,6 +1717,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
             <div className="mt-1">
               <div className="px-5 pt-4"><LastUpdated ts={lastUpdated.affiliates} /></div>
               <div>
+                {/* Column headers */}
+                <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
+                  <span className="w-8 flex-shrink-0" aria-hidden />
+                  <span className="flex-1 min-w-0">Affiliate</span>
+                  <span className="hidden lg:block w-[180px] text-right">Email</span>
+                  <span className="hidden md:block w-[88px] text-right">ID</span>
+                  <span className="hidden sm:block w-[72px] text-right">Appr.</span>
+                  <span className="hidden sm:block w-[78px] text-right">Split</span>
+                  <span className="w-[84px] text-right">Earned</span>
+                  <span className="w-8 flex-shrink-0" aria-hidden />
+                </div>
                 {(() => {
                   const pagedUsers = displayUsers.slice(0, affiliatesVisible);
                   if (affiliateGroupBy) {
@@ -1912,6 +1926,16 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 return (
                   <>
                     <div>
+                      {/* Column headers */}
+                      <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
+                        <span className="flex-1 min-w-0">Card</span>
+                        <span className="hidden sm:block w-[100px]">Status</span>
+                        <span className="hidden lg:block w-[136px] text-right">Member</span>
+                        <span className="hidden md:block w-[116px] text-right">Date</span>
+                        <span className="hidden lg:block w-[104px] text-right">Device</span>
+                        <span className="hidden xl:block w-[132px] text-right">Location</span>
+                        <span className="w-[76px] text-right">Earned</span>
+                      </div>
                       {(() => {
                             const dotColor = (s: string) => s === 'approval' ? 'var(--ds-pos)' : s === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
                             // Single row renderer — used in both flat and grouped modes
@@ -1921,7 +1945,16 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                 <span className="hidden sm:inline-flex items-center gap-1.5 w-[100px] flex-shrink-0 text-[13px] font-medium text-faint capitalize"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dotColor(a.status) }} />{a.status}</span>
                                 <span className="hidden lg:block w-[136px] flex-shrink-0 text-right text-[13px] font-medium text-faint truncate">{a.memberName}</span>
                                 <span className="hidden md:block w-[116px] flex-shrink-0 text-right text-[13px] font-medium text-faint tabular-nums whitespace-nowrap">{formatDate(a.clickDate)}</span>
-                                <span className="hidden xl:block w-[150px] flex-shrink-0 text-right text-[13px] font-medium text-faint truncate">{a.state ? `${a.deviceType || '—'} · ${a.state}` : ''}</span>
+                                <span className="hidden lg:inline-flex items-center justify-end gap-1.5 w-[104px] flex-shrink-0 text-[13px] font-medium text-faint capitalize">
+                                  {a.deviceType
+                                    ? <>{/^mob|phone/i.test(a.deviceType) ? <Smartphone className="w-3.5 h-3.5 flex-shrink-0 text-faint2" /> : <Monitor className="w-3.5 h-3.5 flex-shrink-0 text-faint2" />}{a.deviceType}</>
+                                    : '—'}
+                                </span>
+                                <span title={[a.state, a.stateCode, a.country].filter(Boolean).join(', ')} className="hidden xl:inline-flex items-center justify-end gap-1 w-[132px] flex-shrink-0 text-[13px] font-medium text-faint min-w-0">
+                                  {a.state
+                                    ? <><MapPin className="w-3.5 h-3.5 flex-shrink-0 text-faint2" /><span className="truncate">{a.country && a.country !== 'US' ? `${a.state} · ${a.country}` : a.state}</span></>
+                                    : <span className="text-faint2">—</span>}
+                                </span>
                                 <span className={`w-[76px] flex-shrink-0 text-right text-[13px] font-medium tabular-nums ${a.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>{a.totalEarnings > 0 ? `$${a.totalEarnings.toFixed(2)}` : '—'}</span>
                               </div>
                             );
@@ -2223,6 +2256,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   <div className="overflow-x-auto">
                     <div className="px-5 py-2"><LastUpdated ts={lastUpdated.cpa} /></div>
                     <div>
+                        {/* Column headers */}
+                        <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
+                          <span className="flex-1 min-w-0">Card</span>
+                          <span className="hidden sm:block w-[120px] lg:w-[140px] text-right">Issuer</span>
+                          <span className="hidden md:block w-[116px] text-right">Date</span>
+                          <span className="hidden lg:block w-[96px] text-right">Card ID</span>
+                          {cpaAffiliateFilter !== 'all' && <span className="hidden sm:block w-[104px] text-right">Payout</span>}
+                          <span className="w-[64px] text-right">CPA</span>
+                        </div>
                         {cpaGroupBy ? (
                           // Grouped by issuer with collapse/expand
                           (() => {
@@ -2431,6 +2473,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   <div className="overflow-x-auto">
                     <div className="px-5 py-2"><LastUpdated ts={lastUpdated.invoices} /></div>
                     <div>
+                        {/* Column headers */}
+                        <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
+                          <span className="flex-1 min-w-0 pl-6">Affiliate</span>
+                          <span className="hidden sm:block w-[96px] text-right">Month</span>
+                          <span className="w-[64px] text-right">Appr.</span>
+                          <span className="hidden md:block w-[112px] text-right">Status</span>
+                          <span className="w-[92px] text-right">Amount</span>
+                          <span className="w-8 flex-shrink-0" aria-hidden />
+                        </div>
                         {(() => {
                           const InvRow = ({ inv, indent }: { inv: any; indent?: boolean }) => {
                             const busy = updatingInvoice === inv.id;

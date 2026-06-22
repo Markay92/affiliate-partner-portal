@@ -35,6 +35,9 @@ import {
   MoreHorizontal,
   Gift,
   Sparkles,
+  Monitor,
+  Smartphone,
+  MapPin,
 } from 'lucide-react';
 import React from 'react';
 import { ComposedChart, LineChart, Line, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } from 'recharts';
@@ -102,6 +105,8 @@ interface TrackingItem {
   approvals: number;
   deviceType: string;
   state: string;
+  stateCode?: string;
+  country?: string;
 }
 
 // ── Filter / sort types & helpers ────────────────────────────────────────────
@@ -1457,19 +1462,28 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   );
                 })()}
               </div>
-              <div className="flex items-center gap-[18px]">
-                <span className="text-xs font-semibold tracking-[0.04em] uppercase text-faint2">{displayCards.length} cards</span>
+              <span className="text-xs font-semibold tracking-[0.04em] uppercase text-faint2">{displayCards.length} cards</span>
+            </div>
+            {/* Column headers — aligned to the card rows; click a metric to sort */}
+            <div className="flex items-center gap-[18px] pt-3 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
+              <span className="flex-1 min-w-0">Card</span>
+              <span className="hidden sm:block w-[120px] lg:w-[150px] text-right">Issuer</span>
+              <div className="flex items-baseline gap-3 sm:gap-4 flex-shrink-0">
                 {([['earned', 'Earned'], ['conv', 'Conv'], ['cpa', 'Payout']] as const).map(([key, label]) => {
                   const on = cardsSort.field === key;
+                  const wcls = key === 'earned' ? 'hidden md:inline-flex md:min-w-[72px]'
+                    : key === 'conv' ? 'hidden sm:inline-flex sm:min-w-[74px]'
+                    : 'inline-flex sm:min-w-[72px]';
                   return (
                     <button key={key}
                       onClick={() => setCardsSort(s => s.field === key ? { field: key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { field: key, dir: 'desc' })}
-                      className={`inline-flex items-center gap-1 text-[13px] cursor-pointer transition-colors ${on ? 'text-ink font-bold' : 'text-faint2 font-medium hover:text-subtle'}`}>
-                      {label}{on && <span className="text-[11px]">{cardsSort.dir === 'asc' ? '↑' : '↓'}</span>}
+                      className={`${wcls} items-center justify-end gap-0.5 text-[11px] font-semibold text-right uppercase tracking-[0.05em] cursor-pointer transition-colors ${on ? 'text-ink' : 'text-faint2 hover:text-subtle'}`}>
+                      {label}{on && <span className="text-[10px]">{cardsSort.dir === 'asc' ? '↑' : '↓'}</span>}
                     </button>
                   );
                 })}
               </div>
+              <span className="w-[26px] flex-shrink-0" aria-hidden />
             </div>
             </div>
 
@@ -1540,6 +1554,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </div>
                     <span className="hidden sm:block w-[120px] lg:w-[150px] flex-shrink-0 text-right text-[13px] font-medium text-subtle truncate">{card.issuer || '—'}</span>
                     <div className="flex items-baseline gap-3 sm:gap-4 flex-shrink-0">
+                      <span className="hidden md:inline-block md:min-w-[72px] text-right text-[13px] font-medium text-ink tabular-nums whitespace-nowrap">{card.earned > 0 ? `$${Math.round(card.earned).toLocaleString()}` : '—'}</span>
                       <span className={`hidden sm:inline-block sm:min-w-[74px] text-right text-[13px] font-medium tabular-nums whitespace-nowrap ${card.conv >= 3 ? 'text-brand' : 'text-faint'}`}>{card.conv.toFixed(1)}% conv</span>
                       <span className="inline-block sm:min-w-[72px] text-right text-[13px] font-medium text-ink tracking-[-0.02em] tabular-nums whitespace-nowrap">
                         {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : '—'}
@@ -1722,6 +1737,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               )
             ) : (
               <>
+                {/* Column headers */}
+                <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
+                  <span className="flex-1 min-w-0">Card</span>
+                  <span className="hidden sm:block w-[100px]">Status</span>
+                  <span className="w-[112px] text-right">Date</span>
+                  <span className="hidden md:block w-[110px] text-right">Device</span>
+                  <span className="hidden lg:block w-[150px] text-right">Location</span>
+                  <span className="w-[76px] text-right">Earned</span>
+                </div>
                 <div>
                   {displayTracking.slice(0, activityVisible).map((item) => {
                     const dot = item.status === 'approval' ? 'var(--ds-pos)' : item.status === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
@@ -1735,8 +1759,18 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         </span>
                         {/* Process date */}
                         <span className="w-[112px] flex-shrink-0 text-right text-[13px] font-medium text-faint tabular-nums whitespace-nowrap">{formatDate(item.processDate || item.clickDate)}</span>
-                        {/* Source (device · state) */}
-                        <span className="hidden lg:block w-[160px] flex-shrink-0 text-right text-[13px] font-medium text-faint truncate">{item.state ? `${item.deviceType || '—'} · ${item.state}` : ''}</span>
+                        {/* Device */}
+                        <span className="hidden md:inline-flex items-center justify-end gap-1.5 w-[110px] flex-shrink-0 text-[13px] font-medium text-faint capitalize">
+                          {item.deviceType
+                            ? <>{/^mob|phone/i.test(item.deviceType) ? <Smartphone className="w-3.5 h-3.5 flex-shrink-0 text-faint2" /> : <Monitor className="w-3.5 h-3.5 flex-shrink-0 text-faint2" />}{item.deviceType}</>
+                            : '—'}
+                        </span>
+                        {/* Location */}
+                        <span title={[item.state, item.stateCode, item.country].filter(Boolean).join(', ')} className="hidden lg:inline-flex items-center justify-end gap-1 w-[150px] flex-shrink-0 text-[13px] font-medium text-faint min-w-0">
+                          {item.state
+                            ? <><MapPin className="w-3.5 h-3.5 flex-shrink-0 text-faint2" /><span className="truncate">{item.country && item.country !== 'US' ? `${item.state} · ${item.country}` : item.state}</span></>
+                            : <span className="text-faint2">—</span>}
+                        </span>
                         {/* Earnings */}
                         <span className={`w-[76px] flex-shrink-0 text-right text-[13px] font-medium tabular-nums ${item.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>
                           {item.totalEarnings > 0 ? `$${item.totalEarnings.toFixed(2)}` : '—'}
@@ -1804,6 +1838,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               />
             ) : (
               <>
+              {/* Column headers */}
+              <div className="flex items-center gap-3 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
+                <span className="w-3.5 flex-shrink-0" aria-hidden />
+                <span className="flex-1 min-w-0">Month</span>
+                <span className="hidden sm:block w-[116px] text-right">Date</span>
+                <span className="w-[68px] sm:w-[84px] text-right">Appr.</span>
+                <span className="hidden md:block w-[112px] text-right">Status</span>
+                <span className="w-[88px] text-right">Amount</span>
+              </div>
               <div>
                 {invoices.slice(0, invoicesVisible).map(inv => {
                   const isExpanded = expandedInvoices.has(inv.id);
