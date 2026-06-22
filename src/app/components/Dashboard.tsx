@@ -1472,7 +1472,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   return (
                     <button key={key}
                       onClick={() => setCardsSort(s => s.field === key ? { field: key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { field: key, dir: 'desc' })}
-                      className={`${wcls} items-center justify-end gap-0.5 text-right uppercase tracking-[0.05em] cursor-pointer transition-colors ${on ? 'text-ink' : 'text-faint2 hover:text-subtle'}`}>
+                      className={`${wcls} items-center justify-end gap-0.5 text-[11px] font-semibold text-right uppercase tracking-[0.05em] cursor-pointer transition-colors ${on ? 'text-ink' : 'text-faint2 hover:text-subtle'}`}>
                       {label}{on && <span className="text-[10px]">{cardsSort.dir === 'asc' ? '↑' : '↓'}</span>}
                     </button>
                   );
