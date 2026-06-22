@@ -1157,8 +1157,21 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   {featured.length > 0 ? (
                     <>
                       <div className="max-h-[280px] overflow-y-auto border-t border-hair2">
-                        {featured.map(c => (
-                          <div key={c.cardId} className="flex items-center gap-3 px-4 py-2.5 border-b border-hair2 last:border-b-0">
+                        {featured.map((c, idx) => (
+                          <div key={c.cardId} className="flex items-center gap-2.5 px-4 py-2.5 border-b border-hair2 last:border-b-0">
+                            {/* Reorder — position in the link is the order here */}
+                            <div className="flex flex-col flex-shrink-0 -my-1">
+                              <button
+                                disabled={idx === 0}
+                                onClick={() => setLinkBuilderIds(prev => { const a = [...prev]; const i = a.indexOf(c.cardId); if (i > 0) { [a[i - 1], a[i]] = [a[i], a[i - 1]]; } return a; })}
+                                title="Move up"
+                                className="flex items-center justify-center w-5 h-4 text-faint2 hover:text-brand disabled:opacity-25 disabled:hover:text-faint2 disabled:cursor-default transition-colors cursor-pointer"><ChevronUp className="w-3.5 h-3.5" strokeWidth={2.5} /></button>
+                              <button
+                                disabled={idx === featured.length - 1}
+                                onClick={() => setLinkBuilderIds(prev => { const a = [...prev]; const i = a.indexOf(c.cardId); if (i < a.length - 1) { [a[i], a[i + 1]] = [a[i + 1], a[i]]; } return a; })}
+                                title="Move down"
+                                className="flex items-center justify-center w-5 h-4 text-faint2 hover:text-brand disabled:opacity-25 disabled:hover:text-faint2 disabled:cursor-default transition-colors cursor-pointer"><ChevronDown className="w-3.5 h-3.5" strokeWidth={2.5} /></button>
+                            </div>
                             <div className="flex-1 min-w-0">
                               <div className="text-[13px] font-medium text-ink truncate">{c.name}</div>
                               <div className="text-[12px] text-faint truncate">{c.issuer || '—'}</div>
@@ -1623,13 +1636,17 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       const toggle = () => setCardsCollapsed(prev => { const next = new Set(prev); next.has(issuer) ? next.delete(issuer) : next.add(issuer); return next; });
                       return (
                         <React.Fragment key={`g-${issuer}`}>
-                          <div onClick={toggle} className="flex items-center gap-[11px] pt-5 pb-3 border-t border-hair2 cursor-pointer hover:opacity-70 transition-opacity select-none">
+                          <div onClick={toggle} className={`flex items-center gap-[11px] border-t border-hair2 cursor-pointer hover:opacity-70 transition-all duration-200 select-none ${open ? 'pt-4 pb-2.5' : 'py-2'}`}>
                             <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${open ? 'rotate-90' : ''}`} strokeWidth={2.6} />
                             <span className="text-[12.5px] font-bold text-ink tracking-[0.03em] uppercase">{issuer}</span>
                             <span className="text-[12px] font-semibold text-faint2 tabular-nums">{items.length}</span>
-                            <span className="ml-auto text-[15px] font-bold text-brand tracking-[-0.02em] tabular-nums">${Math.round(sub(items)).toLocaleString()}</span>
                           </div>
-                          {open && items.map(card => <CardRow key={card.id} card={card} indent />)}
+                          {/* Smooth expand/collapse via grid 0fr↔1fr */}
+                          <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                            <div className="overflow-hidden min-h-0">
+                              {items.map(card => <CardRow key={card.id} card={card} indent />)}
+                            </div>
+                          </div>
                         </React.Fragment>
                       );
                     })}
