@@ -38,6 +38,7 @@ import {
   Monitor,
   Smartphone,
   MapPin,
+  GripVertical,
 } from 'lucide-react';
 import React from 'react';
 import { ComposedChart, LineChart, Line, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } from 'recharts';
@@ -431,6 +432,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [linkBuilderIds, setLinkBuilderIds] = useState<string[]>([]);
   // Featured-cards panel (the boost chip in the link bar) open/closed.
   const [boostOpen, setBoostOpen] = useState(false);
+  // Card id currently being drag-reordered in the featured panel.
+  const [dragFeatId, setDragFeatId] = useState<string | null>(null);
   // Which card's bonus/details popover is tapped open (mobile — desktop uses hover).
   const [bonusOpenId, setBonusOpenId] = useState<string | number | null>(null);
   const [loading, setLoading]       = useState(true);
@@ -1157,21 +1160,33 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   {featured.length > 0 ? (
                     <>
                       <div className="max-h-[280px] overflow-y-auto border-t border-hair2">
-                        {featured.map((c, idx) => (
-                          <div key={c.cardId} className="flex items-center gap-2.5 px-4 py-2.5 border-b border-hair2 last:border-b-0">
-                            {/* Reorder — position in the link is the order here */}
-                            <div className="flex flex-col flex-shrink-0 -my-1">
-                              <button
-                                disabled={idx === 0}
-                                onClick={() => setLinkBuilderIds(prev => { const a = [...prev]; const i = a.indexOf(c.cardId); if (i > 0) { [a[i - 1], a[i]] = [a[i], a[i - 1]]; } return a; })}
-                                title="Move up"
-                                className="flex items-center justify-center w-5 h-4 text-faint2 hover:text-brand disabled:opacity-25 disabled:hover:text-faint2 disabled:cursor-default transition-colors cursor-pointer"><ChevronUp className="w-3.5 h-3.5" strokeWidth={2.5} /></button>
-                              <button
-                                disabled={idx === featured.length - 1}
-                                onClick={() => setLinkBuilderIds(prev => { const a = [...prev]; const i = a.indexOf(c.cardId); if (i < a.length - 1) { [a[i], a[i + 1]] = [a[i + 1], a[i]]; } return a; })}
-                                title="Move down"
-                                className="flex items-center justify-center w-5 h-4 text-faint2 hover:text-brand disabled:opacity-25 disabled:hover:text-faint2 disabled:cursor-default transition-colors cursor-pointer"><ChevronDown className="w-3.5 h-3.5" strokeWidth={2.5} /></button>
-                            </div>
+                        {featured.map((c) => (
+                          <div
+                            key={c.cardId}
+                            data-feat-id={c.cardId}
+                            className={`flex items-center gap-2 px-3 py-2.5 border-b border-hair2 last:border-b-0 transition-colors ${dragFeatId === c.cardId ? 'bg-brand-soft' : ''}`}>
+                            {/* Drag handle — hold and drag to set the order in your link */}
+                            <button
+                              type="button"
+                              onPointerDown={(e) => { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); setDragFeatId(c.cardId); }}
+                              onPointerMove={(e) => {
+                                if (dragFeatId == null) return;
+                                const over = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement)?.closest('[data-feat-id]')?.getAttribute('data-feat-id');
+                                if (over && over !== dragFeatId) {
+                                  setLinkBuilderIds(prev => {
+                                    const a = [...prev];
+                                    const from = a.indexOf(dragFeatId), to = a.indexOf(over);
+                                    if (from < 0 || to < 0) return prev;
+                                    a.splice(to, 0, a.splice(from, 1)[0]);
+                                    return a;
+                                  });
+                                }
+                              }}
+                              onPointerUp={(e) => { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); setDragFeatId(null); }}
+                              onPointerCancel={() => setDragFeatId(null)}
+                              title="Drag to reorder"
+                              style={{ touchAction: 'none' }}
+                              className="flex-shrink-0 -ml-1 p-1 text-faint2 hover:text-subtle cursor-grab active:cursor-grabbing"><GripVertical className="w-4 h-4" /></button>
                             <div className="flex-1 min-w-0">
                               <div className="text-[13px] font-medium text-ink truncate">{c.name}</div>
                               <div className="text-[12px] text-faint truncate">{c.issuer || '—'}</div>
@@ -1630,13 +1645,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 const order = Object.keys(groups).sort((a, b) => sub(groups[b]) - sub(groups[a]));
                 return (
                   <div>
-                    {order.map(issuer => {
+                    {order.map((issuer, gi) => {
                       const items = groups[issuer];
                       const open = !cardsCollapsed.has(issuer);
                       const toggle = () => setCardsCollapsed(prev => { const next = new Set(prev); next.has(issuer) ? next.delete(issuer) : next.add(issuer); return next; });
                       return (
                         <React.Fragment key={`g-${issuer}`}>
-                          <div onClick={toggle} className={`flex items-center gap-[11px] border-t border-hair2 cursor-pointer hover:opacity-70 transition-all duration-200 select-none ${open ? 'pt-4 pb-2.5' : 'py-2'}`}>
+                          <div onClick={toggle} className={`flex items-center gap-[11px] cursor-pointer hover:opacity-70 transition-all duration-200 select-none ${gi === 0 ? '' : 'border-t border-hair2'} ${open ? 'pt-4 pb-2.5' : 'py-2'}`}>
                             <ChevronRight className={`w-3.5 h-3.5 text-faint transition-transform duration-200 ${open ? 'rotate-90' : ''}`} strokeWidth={2.6} />
                             <span className="text-[12.5px] font-bold text-ink tracking-[0.03em] uppercase">{issuer}</span>
                             <span className="text-[12px] font-semibold text-faint2 tabular-nums">{items.length}</span>
