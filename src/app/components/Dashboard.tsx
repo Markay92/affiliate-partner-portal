@@ -1459,17 +1459,31 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
               <div className="flex items-center gap-[18px]">
                 <span className="text-xs font-semibold tracking-[0.04em] uppercase text-faint2">{displayCards.length} cards</span>
-                {([['earned', 'Earned'], ['conv', 'Conv'], ['cpa', 'Payout']] as const).map(([key, label]) => {
+                <button
+                  onClick={() => setCardsSort(s => s.field === 'earned' ? { field: 'earned', dir: s.dir === 'asc' ? 'desc' : 'asc' } : { field: 'earned', dir: 'desc' })}
+                  className={`inline-flex items-center gap-1 text-[13px] cursor-pointer transition-colors ${cardsSort.field === 'earned' ? 'text-ink font-bold' : 'text-faint2 font-medium hover:text-subtle'}`}>
+                  Earned{cardsSort.field === 'earned' && <span className="text-[11px]">{cardsSort.dir === 'asc' ? '↑' : '↓'}</span>}
+                </button>
+              </div>
+            </div>
+            {/* Column headers — aligned to the card rows; Conv / Payout sort on click */}
+            <div className="flex items-center gap-[18px] pt-3 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
+              <span className="flex-1 min-w-0">Card</span>
+              <span className="hidden sm:block w-[120px] lg:w-[150px] text-right">Issuer</span>
+              <div className="flex items-baseline gap-3 sm:gap-4 flex-shrink-0">
+                {([['conv', 'Conv'], ['cpa', 'Payout']] as const).map(([key, label]) => {
                   const on = cardsSort.field === key;
+                  const wcls = key === 'conv' ? 'hidden sm:inline-flex sm:min-w-[74px]' : 'inline-flex sm:min-w-[72px]';
                   return (
                     <button key={key}
                       onClick={() => setCardsSort(s => s.field === key ? { field: key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { field: key, dir: 'desc' })}
-                      className={`inline-flex items-center gap-1 text-[13px] cursor-pointer transition-colors ${on ? 'text-ink font-bold' : 'text-faint2 font-medium hover:text-subtle'}`}>
-                      {label}{on && <span className="text-[11px]">{cardsSort.dir === 'asc' ? '↑' : '↓'}</span>}
+                      className={`${wcls} items-center justify-end gap-0.5 text-right uppercase tracking-[0.05em] cursor-pointer transition-colors ${on ? 'text-ink' : 'text-faint2 hover:text-subtle'}`}>
+                      {label}{on && <span className="text-[10px]">{cardsSort.dir === 'asc' ? '↑' : '↓'}</span>}
                     </button>
                   );
                 })}
               </div>
+              <span className="w-[26px] flex-shrink-0" aria-hidden />
             </div>
             </div>
 
