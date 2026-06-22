@@ -32,7 +32,6 @@ import {
   X,
   Plus,
   Check,
-  MoreHorizontal,
   Gift,
   Sparkles,
   Monitor,
@@ -436,7 +435,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState('');
   const [activeTab, setActiveTab]   = useState('cards');   // controlled tabs (drives nav menu)
-  const [navOpen,   setNavOpen]     = useState(false);     // mobile ellipsis nav menu
+  const [userMenuOpen, setUserMenuOpen] = useState(false); // user chip dropdown (profile/refresh/logout)
 
   // Activity tab (Airtable API Output)
   const [trackingFilter,       setTrackingFilter]       = useState<DateFilter>('week');
@@ -980,7 +979,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     invoices: { label: 'Invoices', Icon: FileText,   badge: invoices.length },
     profile:  { label: 'Profile',  Icon: User,       badge: 0 },
   } as const;
-  const navItems = NAV_ORDER.map(key => ({ key, ...navMeta[key] }));
+  // Profile is reachable from the user menu, not the centre pill nav.
+  const navItems = NAV_ORDER.filter(key => key !== 'profile').map(key => ({ key, ...navMeta[key] }));
 
   return (
     <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="min-h-screen bg-canvas">
@@ -1012,45 +1012,26 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               ))}
             </Tabs.List>
             <div className="flex items-center gap-2 flex-1 justify-end">
-              {/* Desktop: inline utility actions */}
-              <button
-                onClick={fetchData}
-                className="hidden sm:block p-2 text-faint hover:text-brand hover:bg-surface active:scale-95 rounded-lg transition-all duration-150 cursor-pointer"
-                title="Refresh data"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
-              {(firstName || userEmail) && (
-                <span className="hidden sm:flex items-center gap-2 text-subtle text-sm pl-1 pr-3 py-1 rounded-full">
-                  <span className="w-7 h-7 rounded-full bg-brand text-white text-[12px] font-bold flex items-center justify-center flex-shrink-0">
-                    {(firstName || userEmail).charAt(0).toUpperCase()}
-                  </span>
-                  {firstName ? `Hi, ${firstName}` : userEmail}
-                </span>
-              )}
-              <button
-                onClick={onLogout}
-                className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-faint hover:text-neg active:scale-95 rounded-lg transition-all duration-150 text-sm font-medium cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Logout</span>
-              </button>
-
-              {/* Mobile: ellipsis menu — refresh & logout collapse in here */}
-              <div className="relative sm:hidden">
+              {/* User chip → dropdown with profile, refresh & logout */}
+              <div className="relative">
                 <button
-                  onClick={() => setNavOpen(o => !o)}
-                  aria-label="Menu"
-                  className="flex items-center justify-center w-10 h-10 -mr-2 rounded-lg text-subtle hover:text-ink hover:bg-surface active:scale-95 transition-all cursor-pointer"
+                  onClick={() => setUserMenuOpen(o => !o)}
+                  aria-haspopup="menu"
+                  aria-expanded={userMenuOpen}
+                  className="flex items-center gap-2 pl-1 pr-1.5 sm:pr-2.5 py-1 rounded-full text-subtle text-sm hover:bg-surface active:scale-95 transition-all duration-150 cursor-pointer"
                 >
-                  <MoreHorizontal className="w-5 h-5" />
+                  <span className="w-7 h-7 rounded-full bg-brand text-white text-[12px] font-bold flex items-center justify-center flex-shrink-0">
+                    {(firstName || userEmail || '?').charAt(0).toUpperCase()}
+                  </span>
+                  <span className="hidden sm:inline whitespace-nowrap">{firstName ? `Hi, ${firstName}` : userEmail}</span>
+                  <ChevronDown className={`hidden sm:block w-4 h-4 text-faint2 transition-transform duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
-                {navOpen && (
+                {userMenuOpen && (
                   <>
-                    <div className="fixed inset-0 z-20" onClick={() => setNavOpen(false)} />
-                    <div className="absolute right-0 mt-1 w-52 bg-white rounded-2xl shadow-lg ring-1 ring-ink/10 z-30 overflow-hidden py-1.5 ds-rise">
+                    <div className="fixed inset-0 z-20" onClick={() => setUserMenuOpen(false)} />
+                    <div className="absolute right-0 mt-1.5 w-52 bg-white rounded-2xl shadow-lg ring-1 ring-ink/10 z-30 overflow-hidden py-1.5 ds-rise">
                       {(firstName || userEmail) && (
-                        <div className="flex items-center gap-2.5 px-4 py-2.5 mb-1 border-b border-hair">
+                        <div className="flex items-center gap-2.5 px-4 py-2.5 mb-1 border-b border-hair sm:hidden">
                           <span className="w-7 h-7 rounded-full bg-brand text-white text-[12px] font-bold flex items-center justify-center flex-shrink-0">
                             {(firstName || userEmail).charAt(0).toUpperCase()}
                           </span>
@@ -1058,13 +1039,20 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         </div>
                       )}
                       <button
-                        onClick={() => { setNavOpen(false); fetchData(); }}
+                        onClick={() => { setUserMenuOpen(false); setActiveTab('profile'); }}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium hover:bg-surface transition-colors ${activeTab === 'profile' ? 'text-brand' : 'text-subtle'}`}
+                      >
+                        <User className="w-4 h-4 text-faint2" /> Profile
+                      </button>
+                      <button
+                        onClick={() => { setUserMenuOpen(false); fetchData(); }}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-subtle font-medium hover:bg-surface transition-colors"
                       >
                         <RefreshCw className="w-4 h-4 text-faint2" /> Refresh data
                       </button>
+                      <div className="my-1 border-t border-hair" />
                       <button
-                        onClick={() => { setNavOpen(false); onLogout(); }}
+                        onClick={() => { setUserMenuOpen(false); onLogout(); }}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-neg font-medium hover:bg-surface transition-colors"
                       >
                         <LogOut className="w-4 h-4" /> Logout
