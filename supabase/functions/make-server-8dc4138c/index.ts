@@ -790,11 +790,13 @@ const CR_FIELD = {
   bonusMilesFull:  'fldrIpusy3mUt3S0T', // BonusMilesFull
 };
 
-// Strip trademark markers BEFORE removing non-alphanumerics so "(R)" and "®"
-// don't become a stray "r" that breaks fuzzy name matching.
+// Strip ALL trademark markers BEFORE removing non-alphanumerics so the same card
+// matches whether it's written with (R)/(TM)/(SM)/(C) or ®/™/℠/© or nothing.
+// Otherwise e.g. "...Cash(SM) Credit Card" left a stray "sm" that never matched
+// the Card Rating record "...Cash(R) Credit Card", dropping its cardId.
 function normCardName(s: string): string {
   return s.toLowerCase()
-    .replace(/\(r\)|\(tm\)|®|™/gi, ' ')
+    .replace(/\(r\)|\(tm\)|\(sm\)|\(c\)|®|™|℠|©/gi, ' ')
     .replace(/[^a-z0-9]/g, '');
 }
 
