@@ -715,7 +715,9 @@ app.get("/make-server-8dc4138c/tracking", async (c) => {
       applications: parseInt(record.fields['Applications']) || 0,
       approvals: parseInt(record.fields['Approvals']) || 0,
       deviceType: record.fields['Device Type'] || '',
-      state: record.fields['State'] || ''
+      state: record.fields['State'] || '',
+      stateCode: record.fields['State Code'] || '',
+      country: record.fields['Country Code'] || ''
     }));
 
     return c.json({ tracking, syncedAt: await kv.get(SYNCED_AT_KEY) });
@@ -1661,7 +1663,9 @@ app.get("/make-server-8dc4138c/manager/tracking-activity", async (c) => {
       applications: parseInt(record.fields['Applications']) || 0,
       approvals: parseInt(record.fields['Approvals']) || 0,
       deviceType: record.fields['Device Type'] || '',
-      state: record.fields['State'] || ''
+      state: record.fields['State'] || '',
+      stateCode: record.fields['State Code'] || '',
+      country: record.fields['Country Code'] || ''
     }));
 
     // Aggregate per-affiliate stats and write to KV so the Affiliates tab
