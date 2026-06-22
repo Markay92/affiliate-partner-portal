@@ -105,6 +105,8 @@ interface TrackingItem {
   approvals: number;
   deviceType: string;
   state: string;
+  stateCode?: string;
+  country?: string;
 }
 
 // ── Filter / sort types & helpers ────────────────────────────────────────────
@@ -1764,9 +1766,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                             : '—'}
                         </span>
                         {/* Location */}
-                        <span className="hidden lg:inline-flex items-center justify-end gap-1 w-[150px] flex-shrink-0 text-[13px] font-medium text-faint min-w-0">
+                        <span title={[item.state, item.stateCode, item.country].filter(Boolean).join(', ')} className="hidden lg:inline-flex items-center justify-end gap-1 w-[150px] flex-shrink-0 text-[13px] font-medium text-faint min-w-0">
                           {item.state
-                            ? <><MapPin className="w-3.5 h-3.5 flex-shrink-0 text-faint2" /><span className="truncate">{item.state}</span></>
+                            ? <><MapPin className="w-3.5 h-3.5 flex-shrink-0 text-faint2" /><span className="truncate">{item.country && item.country !== 'US' ? `${item.state} · ${item.country}` : item.state}</span></>
                             : <span className="text-faint2">—</span>}
                         </span>
                         {/* Earnings */}

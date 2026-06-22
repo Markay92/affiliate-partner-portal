@@ -27,6 +27,9 @@ import {
   MousePointerClick,
   Copy,
   MoreHorizontal,
+  Monitor,
+  Smartphone,
+  MapPin,
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -1929,7 +1932,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                         <span className="hidden sm:block w-[100px]">Status</span>
                         <span className="hidden lg:block w-[136px] text-right">Member</span>
                         <span className="hidden md:block w-[116px] text-right">Date</span>
-                        <span className="hidden xl:block w-[150px] text-right">Source</span>
+                        <span className="hidden lg:block w-[104px] text-right">Device</span>
+                        <span className="hidden xl:block w-[132px] text-right">Location</span>
                         <span className="w-[76px] text-right">Earned</span>
                       </div>
                       {(() => {
@@ -1941,7 +1945,16 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                                 <span className="hidden sm:inline-flex items-center gap-1.5 w-[100px] flex-shrink-0 text-[13px] font-medium text-faint capitalize"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dotColor(a.status) }} />{a.status}</span>
                                 <span className="hidden lg:block w-[136px] flex-shrink-0 text-right text-[13px] font-medium text-faint truncate">{a.memberName}</span>
                                 <span className="hidden md:block w-[116px] flex-shrink-0 text-right text-[13px] font-medium text-faint tabular-nums whitespace-nowrap">{formatDate(a.clickDate)}</span>
-                                <span className="hidden xl:block w-[150px] flex-shrink-0 text-right text-[13px] font-medium text-faint truncate">{a.state ? `${a.deviceType || '—'} · ${a.state}` : ''}</span>
+                                <span className="hidden lg:inline-flex items-center justify-end gap-1.5 w-[104px] flex-shrink-0 text-[13px] font-medium text-faint capitalize">
+                                  {a.deviceType
+                                    ? <>{/^mob|phone/i.test(a.deviceType) ? <Smartphone className="w-3.5 h-3.5 flex-shrink-0 text-faint2" /> : <Monitor className="w-3.5 h-3.5 flex-shrink-0 text-faint2" />}{a.deviceType}</>
+                                    : '—'}
+                                </span>
+                                <span title={[a.state, a.stateCode, a.country].filter(Boolean).join(', ')} className="hidden xl:inline-flex items-center justify-end gap-1 w-[132px] flex-shrink-0 text-[13px] font-medium text-faint min-w-0">
+                                  {a.state
+                                    ? <><MapPin className="w-3.5 h-3.5 flex-shrink-0 text-faint2" /><span className="truncate">{a.country && a.country !== 'US' ? `${a.state} · ${a.country}` : a.state}</span></>
+                                    : <span className="text-faint2">—</span>}
+                                </span>
                                 <span className={`w-[76px] flex-shrink-0 text-right text-[13px] font-medium tabular-nums ${a.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>{a.totalEarnings > 0 ? `$${a.totalEarnings.toFixed(2)}` : '—'}</span>
                               </div>
                             );
