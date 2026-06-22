@@ -1509,7 +1509,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         alt={card.name}
                         loading="lazy"
                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                        className="block w-full max-h-[124px] object-contain rounded-lg mb-3"
+                        className="block h-12 w-auto object-contain rounded-md mb-2.5"
                       />
                     )}
                     {(card.introBonus || card.bonusMilesFull) && <span className="block text-[10.5px] font-bold uppercase tracking-[0.05em] text-faint2 mb-1">Intro bonus</span>}
