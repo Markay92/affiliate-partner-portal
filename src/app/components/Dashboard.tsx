@@ -46,6 +46,7 @@ import * as Tabs from '@radix-ui/react-tabs';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { Profile } from './Profile';
 import { SwipeCarousel, Slide } from './ui/swipe-tabs';
+import { SearchBox } from './ui/search-box';
 
 interface DashboardProps {
   userEmail: string;
@@ -198,6 +199,22 @@ function LastUpdated({ ts }: { ts?: number }) {
       <RefreshCw className="w-3 h-3" />
       Last updated {formatLastUpdated(ts)}
     </p>
+  );
+}
+
+/** Per-tab header: big title with a "last updated · N items" subline beneath it.
+ *  Shared by every tab so the header reads as a stable element while the filters
+ *  below it swap per tab. */
+function TabHead({ title, ts, count, noun }: { title: string; ts?: number; count: number; noun: string }) {
+  return (
+    <div className="pt-1 pb-3">
+      <h2 className="text-[20px] font-bold text-ink tracking-[-0.025em] leading-none">{title}</h2>
+      <div className="flex items-center gap-2 mt-2 text-[12px] text-faint">
+        <LastUpdated ts={ts} />
+        <span className="text-hair2" aria-hidden>|</span>
+        <span className="font-medium tabular-nums">{count.toLocaleString()} {noun}</span>
+      </div>
+    </div>
   );
 }
 
@@ -449,6 +466,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const boostPanelRef = useRef<HTMLDivElement>(null); // the popover itself (open/close tween)
   const boostListRef = useRef<HTMLDivElement>(null);  // the scroll list (FLIP reorder)
   const flipState = useRef<any>(null);                // captured row positions before a reorder
+  const flipTween = useRef<any>(null);                // in-flight FLIP tween (killed before a new one)
   // Card id currently being drag-reordered in the featured panel.
   const [dragFeatId, setDragFeatId] = useState<string | null>(null);
   // Which card's bonus/details popover is tapped open (mobile — desktop uses hover).
@@ -473,6 +491,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [cardsSearch,       setCardsSearch]       = useState('');
   const [cardsGroupBy,      setCardsGroupBy]      = useState(false);
   const [cardsCollapsed,    setCardsCollapsed]    = useState<Set<string>>(new Set());
+  const [typeMenuOpen,      setTypeMenuOpen]      = useState(false);          // "More" type-filter overflow menu
+  const typeMenuRef = useRef<HTMLDivElement>(null);
 
   // Pagination
   const [cardsVisible,    setCardsVisible]    = useState(PAGE_SIZE);
@@ -596,6 +616,16 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     return () => document.removeEventListener('mousedown', handler);
   }, [boostOpen]);
 
+  // Close the "More" card-type overflow menu on an outside click.
+  useEffect(() => {
+    if (!typeMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (typeMenuRef.current && !typeMenuRef.current.contains(e.target as Node)) setTypeMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [typeMenuOpen]);
+
   // Open/close animation for the featured panel — slide + fade from the chip,
   // staying mounted through the close tween so the exit is visible.
   useLayoutEffect(() => {
@@ -621,7 +651,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   // from its old slot to its new one (the dragged row is lifted via CSS).
   useLayoutEffect(() => {
     if (!flipState.current) return;
-    Flip.from(flipState.current, { duration: 0.3, ease: 'power2.inOut' });
+    flipTween.current?.kill();   // never stack two slides — that's the flicker
+    flipTween.current = Flip.from(flipState.current, { duration: 0.26, ease: 'power2.out' });
     flipState.current = null;
   }, [linkBuilderIds]);
 
@@ -1226,20 +1257,28 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                               onPointerDown={(e) => { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); setDragFeatId(c.cardId); }}
                               onPointerMove={(e) => {
                                 if (dragFeatId == null) return;
-                                const over = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement)?.closest('[data-feat-id]')?.getAttribute('data-feat-id');
-                                if (over && over !== dragFeatId) {
-                                  // Snapshot row positions so FLIP can animate the slide.
-                                  if (boostListRef.current && !prefersReducedMotion()) {
-                                    flipState.current = Flip.getState(boostListRef.current.querySelectorAll('[data-feat-id]'));
-                                  }
-                                  setLinkBuilderIds(prev => {
-                                    const a = [...prev];
-                                    const from = a.indexOf(dragFeatId), to = a.indexOf(over);
-                                    if (from < 0 || to < 0) return prev;
-                                    a.splice(to, 0, a.splice(from, 1)[0]);
-                                    return a;
-                                  });
+                                const overEl = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement)?.closest('[data-feat-id]') as HTMLElement | null;
+                                const over = overEl?.getAttribute('data-feat-id');
+                                if (!over || over === dragFeatId) return;
+                                const fromIdx = linkBuilderIds.indexOf(dragFeatId);
+                                const toIdx = linkBuilderIds.indexOf(over);
+                                if (fromIdx < 0 || toIdx < 0) return;
+                                // Only swap once the pointer passes the target row's midpoint —
+                                // hysteresis that stops the rapid back-and-forth reorder (the flicker).
+                                const rect = overEl!.getBoundingClientRect();
+                                const pastMid = e.clientY > rect.top + rect.height / 2;
+                                if ((toIdx > fromIdx && !pastMid) || (toIdx < fromIdx && pastMid)) return;
+                                // Snapshot row positions so FLIP can animate the slide.
+                                if (boostListRef.current && !prefersReducedMotion()) {
+                                  flipState.current = Flip.getState(boostListRef.current.querySelectorAll('[data-feat-id]'));
                                 }
+                                setLinkBuilderIds(prev => {
+                                  const a = [...prev];
+                                  const from = a.indexOf(dragFeatId), to = a.indexOf(over);
+                                  if (from < 0 || to < 0) return prev;
+                                  a.splice(to, 0, a.splice(from, 1)[0]);
+                                  return a;
+                                });
                               }}
                               onPointerUp={(e) => { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); setDragFeatId(null); }}
                               onPointerCancel={() => setDragFeatId(null)}
@@ -1482,9 +1521,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           );
         })()}
 
-        {/* Last updated — one line, same spot above every tab */}
-        <div className="mt-5 px-0.5"><LastUpdated ts={lastUpdated} /></div>
-
         {/* Tab panels — the tab nav lives in the header. Real swipe carousel on mobile. */}
         <SwipeCarousel
           order={[...NAV_ORDER]}
@@ -1497,33 +1533,54 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           {/* ── Cards Tab (Robinhood-style filters + list) ── */}
           <Slide tabKey="cards">
           <div>
-            <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas pt-6 pb-1">
-            {/* Search */}
-            <div className="relative mb-[13px]">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[17px] h-[17px] text-faint pointer-events-none" />
-              <input type="text" placeholder="Search cards or issuers" value={cardsSearch}
-                onChange={e => { setCardsSearch(e.target.value); setCardsVisible(PAGE_SIZE); }}
-                className="w-full h-[42px] pl-10 pr-3.5 border border-line rounded-[10px] bg-white text-[14.5px] text-ink outline-none transition focus:border-brand focus:ring-[3px] focus:ring-brand/15" />
-            </div>
-
-            {/* Type chips — smaller, under the search */}
-            {cardTypes.length > 0 && (
-              <div className="ds-chips flex items-center gap-5 overflow-x-auto mb-[14px] -mx-1 px-1">
-                {(['all', ...cardTypes]).map(type => (
-                  <FilterChip key={type} active={cardsTypeFilter === type}
-                    onClick={() => { setCardsTypeFilter(type); setCardsVisible(PAGE_SIZE); }}>
-                    {type === 'all' ? 'All types' : type}
-                  </FilterChip>
-                ))}
+            <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas pt-5 pb-1">
+            <TabHead title="Cards" ts={lastUpdated} count={displayCards.length} noun="cards" />
+            {/* Condensed toolbar — search + type filters (left) · group (right) */}
+            <div className="flex items-center justify-between gap-4 flex-wrap pb-2.5">
+              <div className="relative flex items-center gap-5 pl-11 min-h-9 flex-1 min-w-0">
+                <SearchBox value={cardsSearch} onChange={v => { setCardsSearch(v); setCardsVisible(PAGE_SIZE); }} placeholder="Search cards or issuers" />
+                {cardTypes.length > 0 && (() => {
+                  const visibleTypes = cardTypes.slice(0, 4);               // All types + 4 = 5 selectable
+                  const hasMore = cardTypes.length > visibleTypes.length;
+                  const moreActive = cardsTypeFilter !== 'all' && !visibleTypes.includes(cardsTypeFilter);
+                  return (
+                    <>
+                      <div className="ds-chips flex items-center gap-5 overflow-x-auto -mx-1 px-1 min-w-0">
+                        {(['all', ...visibleTypes]).map(type => (
+                          <FilterChip key={type} active={cardsTypeFilter === type}
+                            onClick={() => { setCardsTypeFilter(type); setCardsVisible(PAGE_SIZE); }}>
+                            {type === 'all' ? 'All types' : type}
+                          </FilterChip>
+                        ))}
+                      </div>
+                      {hasMore && (
+                        <div ref={typeMenuRef} className="relative flex-shrink-0">
+                          <FilterChip active={typeMenuOpen || moreActive} onClick={() => setTypeMenuOpen(o => !o)}>
+                            {moreActive ? cardsTypeFilter : 'See more'}
+                            <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${typeMenuOpen ? 'rotate-180' : ''}`} />
+                          </FilterChip>
+                          {typeMenuOpen && (
+                            <div className="absolute right-0 top-full mt-2 z-30 w-[220px] max-w-[calc(100vw-32px)] bg-white rounded-2xl border border-hair shadow-[0_16px_44px_rgba(15,23,42,0.16)] py-1.5 max-h-[300px] overflow-y-auto">
+                              {(['all', ...cardTypes]).map(type => {
+                                const on = cardsTypeFilter === type;
+                                return (
+                                  <button key={type}
+                                    onClick={() => { setCardsTypeFilter(type); setCardsVisible(PAGE_SIZE); setTypeMenuOpen(false); }}
+                                    className={`flex items-center justify-between gap-2 w-full px-4 py-2 text-[13px] text-left transition-colors cursor-pointer ${on ? 'text-brand font-semibold' : 'text-subtle font-medium hover:bg-surface'}`}>
+                                    <span className="truncate">{type === 'all' ? 'All types' : type}</span>
+                                    {on && <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
-            )}
-
-            {/* Bold divider */}
-            <div className="h-[1.5px] bg-ink" />
-
-            {/* Group-by + count + sort tabs */}
-            <div className="flex items-center justify-between gap-3.5 flex-wrap pt-[15px] pb-1.5">
-              <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-4 flex-shrink-0">
                 <FilterChip active={cardsGroupBy} onClick={() => {
                   const next = !cardsGroupBy;
                   setCardsGroupBy(next);
@@ -1543,7 +1600,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   );
                 })()}
               </div>
-              <span className="text-xs font-semibold tracking-[0.04em] uppercase text-faint2">{displayCards.length} cards</span>
             </div>
             {/* Column headers — aligned to the card rows; click a metric to sort */}
             <div className="flex items-center gap-[18px] pt-3 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
@@ -1774,8 +1830,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           {/* ── Activity Tab ── */}
           <Slide tabKey="activity">
             {/* Sticky controls */}
-            <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas border-b border-hair py-3">
-            <div className="flex flex-wrap items-center gap-3 mb-3">
+            <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas border-b border-hair pt-5 pb-3">
+            <TabHead title="Activity" ts={lastUpdated} count={displayTracking.length} noun="records" />
+            <div className="space-y-2.5">
               <FilterBar
                 filter={trackingFilter}
                 setFilter={v => { setTrackingFilter(v); setActivityVisible(activityPageSize); }}
@@ -1784,23 +1841,23 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 customTo={trackingCustomTo}
                 setCustomTo={v => { setTrackingCustomTo(v); setActivityVisible(activityPageSize); }}
               />
-            </div>
-            <div className="flex flex-wrap items-center gap-5">
-              <span className="text-xs font-medium text-faint mr-0">Status</span>
-              {[
-                { value: 'all',         label: 'All' },
-                { value: 'click',       label: 'Click' },
-                { value: 'application', label: 'Application' },
-                { value: 'approval',    label: 'Approval' },
-              ].map(({ value, label }) => (
-                <FilterChip
-                  key={value}
-                  active={trackingStatusFilter === value}
-                  onClick={() => { setTrackingStatusFilter(value); setActivityVisible(activityPageSize); }}
-                >
-                  {label}
-                </FilterChip>
-              ))}
+              <div className="flex flex-wrap items-center gap-5">
+                <span className="text-xs font-medium text-faint">Status</span>
+                {[
+                  { value: 'all',         label: 'All' },
+                  { value: 'click',       label: 'Click' },
+                  { value: 'application', label: 'Application' },
+                  { value: 'approval',    label: 'Approval' },
+                ].map(({ value, label }) => (
+                  <FilterChip
+                    key={value}
+                    active={trackingStatusFilter === value}
+                    onClick={() => { setTrackingStatusFilter(value); setActivityVisible(activityPageSize); }}
+                  >
+                    {label}
+                  </FilterChip>
+                ))}
+              </div>
             </div>
             </div>
 
@@ -1914,20 +1971,25 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           </Slide>
 
           {/* ── Invoices Tab ── */}
-          <Slide tabKey="invoices" className="pt-6">
+          <Slide tabKey="invoices">
             {invoices.length === 0 ? (
-              <EmptyState
-                icon={FileText}
-                title="No invoices yet"
-                subtitle="Your monthly payout statements will appear here once your referrals start getting approved. Feature some cards on your link to get things moving."
-                action={
-                  <button onClick={() => setActiveTab('cards')} className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full bg-brand text-white text-[13px] font-semibold hover:bg-brand-dark active:scale-95 transition-all shadow-sm cursor-pointer">
-                    <CreditCard className="w-3.5 h-3.5" /> Browse cards
-                  </button>
-                }
-              />
+              <div className="pt-6">
+                <TabHead title="Invoices" ts={lastUpdated} count={0} noun="invoices" />
+                <EmptyState
+                  icon={FileText}
+                  title="No invoices yet"
+                  subtitle="Your monthly payout statements will appear here once your referrals start getting approved. Feature some cards on your link to get things moving."
+                  action={
+                    <button onClick={() => setActiveTab('cards')} className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full bg-brand text-white text-[13px] font-semibold hover:bg-brand-dark active:scale-95 transition-all shadow-sm cursor-pointer">
+                      <CreditCard className="w-3.5 h-3.5" /> Browse cards
+                    </button>
+                  }
+                />
+              </div>
             ) : (
               <>
+              <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas pt-5 pb-1">
+              <TabHead title="Invoices" ts={lastUpdated} count={invoices.length} noun="invoices" />
               {/* Column headers */}
               <div className="flex items-center gap-3 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
                 <span className="w-3.5 flex-shrink-0" aria-hidden />
@@ -1936,6 +1998,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <span className="w-[68px] sm:w-[84px] text-right">Appr.</span>
                 <span className="hidden md:block w-[112px] text-right">Status</span>
                 <span className="w-[88px] text-right">Amount</span>
+              </div>
               </div>
               <div>
                 {invoices.slice(0, invoicesVisible).map(inv => {
