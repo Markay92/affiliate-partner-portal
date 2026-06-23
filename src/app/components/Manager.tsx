@@ -302,9 +302,10 @@ function SortTh({
   return (
     <th
       onClick={() => onSort(field)}
-      className={`py-3.5 px-6 text-faint text-xs font-semibold cursor-pointer select-none hover:bg-surface transition-colors text-${align}`}
+      aria-sort={sort.field === field ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      className={`py-3 px-4 text-faint text-xs font-semibold cursor-pointer select-none hover:text-subtle transition-colors duration-150 text-${align}`}
     >
-      <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''}`}>
+      <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''} ${sort.field === field ? 'text-brand' : ''}`}>
         {label}{icon}
       </span>
     </th>
@@ -326,9 +327,10 @@ function SortThSm({
   return (
     <th
       onClick={() => onSort(field)}
-      className={`py-3 px-4 text-faint text-xs font-semibold cursor-pointer select-none hover:bg-surface transition-colors text-${align}`}
+      aria-sort={sort.field === field ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      className={`py-3 px-4 text-faint text-xs font-semibold cursor-pointer select-none hover:text-subtle transition-colors duration-150 text-${align}`}
     >
-      <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''}`}>
+      <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''} ${sort.field === field ? 'text-brand' : ''}`}>
         {label}{icon}
       </span>
     </th>

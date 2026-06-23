@@ -422,6 +422,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [linkBuilderIds, setLinkBuilderIds] = useState<string[]>([]);
   // Featured-cards panel (the boost chip in the link bar) open/closed.
   const [boostOpen, setBoostOpen] = useState(false);
+  // Ref on the link bar (chip + panel) so a click outside it closes the panel.
+  const boostRef = useRef<HTMLDivElement>(null);
   // Card id currently being drag-reordered in the featured panel.
   const [dragFeatId, setDragFeatId] = useState<string | null>(null);
   // Which card's bonus/details popover is tapped open (mobile — desktop uses hover).
@@ -432,7 +434,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [userMenuOpen, setUserMenuOpen] = useState(false); // user chip dropdown (profile/refresh/logout)
 
   // Activity tab (Airtable API Output)
-  const [trackingFilter,       setTrackingFilter]       = useState<DateFilter>('week');
+  const [trackingFilter,       setTrackingFilter]       = useState<DateFilter>('month');
   const [trackingCustomFrom,   setTrackingCustomFrom]   = useState('');
   const [trackingCustomTo,     setTrackingCustomTo]     = useState('');
   const [trackingSort,         setTrackingSort]         = useState<SortState>({ field: 'processDate', dir: 'desc' });
@@ -558,6 +560,16 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     ro.observe(el);
     return () => ro.disconnect();
   }, [loading, masterLink, linkBuilderIds.length]);
+
+  // Close the featured-cards panel when clicking anywhere outside the link bar.
+  useEffect(() => {
+    if (!boostOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (boostRef.current && !boostRef.current.contains(e.target as Node)) setBoostOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [boostOpen]);
 
   // GSAP entrance — sections fade in as they scroll into view (ScrollTrigger).
   // Fade only, no vertical rise. useLayoutEffect so the initial hide happens
@@ -1105,7 +1117,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             className="sticky top-[60px] z-20 mb-5 -mx-4 sm:-mx-6 lg:-mx-8 bg-white/95 backdrop-blur-md border-b border-hair"
           >
           {/* Compact referral link bar — single line, with a "featured" boost chip */}
-          <div className="relative flex items-center gap-3 py-2.5 px-4 sm:px-6 lg:px-8">
+          <div ref={boostRef} className="relative flex items-center gap-3 py-2.5 px-4 sm:px-6 lg:px-8">
             <Link2 className="w-4 h-4 text-faint2 flex-shrink-0" />
             <span className="font-mono-ds text-[13px] font-medium text-ink truncate flex-1 min-w-0">
               {displayLink}
@@ -1139,7 +1151,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             {/* Featured-cards panel */}
             {boostOpen && (
               <>
-                <div className="fixed inset-0 z-10" onClick={() => setBoostOpen(false)} />
                 <div className="absolute right-4 sm:right-6 lg:right-8 top-full mt-2 z-20 w-[340px] max-w-[calc(100vw-32px)] bg-white rounded-2xl border border-hair shadow-[0_16px_44px_rgba(15,23,42,0.16)] overflow-hidden">
                   <div className="flex items-center justify-between gap-2 px-4 pt-3.5 pb-2.5">
                     <span className="text-[13.5px] font-semibold text-ink">Featured on your link</span>
@@ -1147,12 +1158,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   </div>
                   {featured.length > 0 ? (
                     <>
-                      <div className="max-h-[280px] overflow-y-auto border-t border-hair2">
+                      <div className="max-h-[280px] overflow-y-auto scroll-smooth border-t border-hair2" style={{ WebkitOverflowScrolling: 'touch' }}>
                         {featured.map((c) => (
                           <div
                             key={c.cardId}
                             data-feat-id={c.cardId}
-                            className={`flex items-center gap-2 px-3 py-2.5 border-b border-hair2 last:border-b-0 transition-colors ${dragFeatId === c.cardId ? 'bg-brand-soft' : ''}`}>
+                            style={{ transition: 'transform 0.2s ease, background-color 0.2s ease' }}
+                            className={`flex items-center gap-2 px-3 py-2.5 border-b border-hair2 last:border-b-0 ${dragFeatId === c.cardId ? 'bg-brand-soft scale-[1.01] shadow-sm' : ''}`}>
                             {/* Drag handle — hold and drag to set the order in your link */}
                             <button
                               type="button"
