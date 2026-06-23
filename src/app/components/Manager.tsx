@@ -287,6 +287,25 @@ function FilterBar({
   );
 }
 
+// Minimal text chip — the single shared style for every inline filter / sort /
+// group selector across all tabs (active = brand bold, inactive = faint medium).
+function FilterChip({ active, onClick, title, children }: {
+  active?: boolean; onClick: () => void; title?: string; children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] py-0.5 cursor-pointer transition-colors ${
+        active ? 'text-brand font-bold' : 'text-faint font-medium hover:text-subtle'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function SortTh({
   label, field, sort, onSort, align = 'left',
 }: {
@@ -302,9 +321,10 @@ function SortTh({
   return (
     <th
       onClick={() => onSort(field)}
-      className={`py-3.5 px-6 text-faint text-xs font-semibold cursor-pointer select-none hover:bg-surface transition-colors text-${align}`}
+      aria-sort={sort.field === field ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      className={`py-3 px-4 text-faint text-xs font-semibold cursor-pointer select-none hover:text-subtle transition-colors duration-150 text-${align}`}
     >
-      <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''}`}>
+      <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''} ${sort.field === field ? 'text-brand' : ''}`}>
         {label}{icon}
       </span>
     </th>
@@ -326,9 +346,10 @@ function SortThSm({
   return (
     <th
       onClick={() => onSort(field)}
-      className={`py-3 px-4 text-faint text-xs font-semibold cursor-pointer select-none hover:bg-surface transition-colors text-${align}`}
+      aria-sort={sort.field === field ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      className={`py-3 px-4 text-faint text-xs font-semibold cursor-pointer select-none hover:text-subtle transition-colors duration-150 text-${align}`}
     >
-      <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''}`}>
+      <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''} ${sort.field === field ? 'text-brand' : ''}`}>
         {label}{icon}
       </span>
     </th>
@@ -1662,19 +1683,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   />
                 </div>
 
-                <div className="flex items-center gap-2 ml-auto">
+                <div className="flex items-center gap-4 ml-auto">
                   {/* Group by Commission Rate toggle */}
-                  <button
+                  <FilterChip
+                    active={affiliateGroupBy}
                     onClick={() => { const next = !affiliateGroupBy; setAffiliateGroupBy(next); setAffiliateCollapsed(next ? new Set(displayUsers.map((u: any) => String(u.commissionRate || 50) + '%')) : new Set()); setAffiliatesVisible(PAGE_SIZE); }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all duration-150 cursor-pointer ${
-                      affiliateGroupBy
-                        ? 'bg-brand text-white border-brand shadow-sm'
-                        : 'text-subtle bg-white border-hair hover:border-brand hover:text-brand'
-                    }`}
                   >
                     <Layers className="w-3.5 h-3.5" />
                     Group by Rate
-                  </button>
+                  </FilterChip>
                   {affiliateGroupBy && users.length > 0 && (() => {
                     const allRates = Array.from(new Set(displayUsers.map((u: any) => String(u.commissionRate || 50) + '%')));
                     const allCollapsed = allRates.every(r => affiliateCollapsed.has(r));
@@ -1822,28 +1839,23 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </p>
                     <div className="mt-1"><LastUpdated ts={lastUpdated.tracking} /></div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {/* Group by segmented control */}
-                    <div className="flex items-center gap-0.5 bg-white border border-hair rounded-xl p-1 text-xs font-medium">
-                      {([
-                        { value: 'none',      label: 'No Group' },
-                        { value: 'month',     label: 'Month' },
-                        { value: 'affiliate', label: 'Affiliate' },
-                      ] as { value: 'none'|'month'|'affiliate'; label: string }[]).map(({ value, label }) => (
-                        <button
-                          key={value}
-                          onClick={() => { setTrackingGroupBy(value); setTrackingCollapsed(value === 'none' ? new Set() : new Set(displayTrackingActivity.map((a: any) => value === 'month' ? (() => { const d = parseLocalDate(a.clickDate); return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })() : (a.affiliateId || 'unknown')))); setTrackingVisible(trackingPageSize); }}
-                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all duration-150 cursor-pointer ${
-                            trackingGroupBy === value
-                              ? 'bg-brand text-white shadow-sm'
-                              : 'text-faint hover:text-subtle hover:bg-surface'
-                          }`}
-                        >
-                          {value !== 'none' && <Layers className="w-3 h-3" />}
-                          {label}
-                        </button>
-                      ))}
-                    </div>
+                  <div className="flex items-center gap-4">
+                    {/* Group by — text chips */}
+                    <span className="text-xs font-medium text-faint">Group</span>
+                    {([
+                      { value: 'none',      label: 'None' },
+                      { value: 'month',     label: 'Month' },
+                      { value: 'affiliate', label: 'Affiliate' },
+                    ] as { value: 'none'|'month'|'affiliate'; label: string }[]).map(({ value, label }) => (
+                      <FilterChip
+                        key={value}
+                        active={trackingGroupBy === value}
+                        onClick={() => { setTrackingGroupBy(value); setTrackingCollapsed(value === 'none' ? new Set() : new Set(displayTrackingActivity.map((a: any) => value === 'month' ? (() => { const d = parseLocalDate(a.clickDate); return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })() : (a.affiliateId || 'unknown')))); setTrackingVisible(trackingPageSize); }}
+                      >
+                        {value !== 'none' && <Layers className="w-3 h-3" />}
+                        {label}
+                      </FilterChip>
+                    ))}
                     {trackingGroupBy !== 'none' && displayTrackingActivity.length > 0 && (() => {
                       const allKeys = Array.from(new Set(displayTrackingActivity.map((a: any) =>
                         trackingGroupBy === 'month'
@@ -1876,25 +1888,21 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 />
 
                 {/* Status filter */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-medium text-faint mr-1">Status:</span>
+                <div className="flex flex-wrap items-center gap-5">
+                  <span className="text-xs font-medium text-faint">Status</span>
                   {[
                     { value: 'all',         label: 'All' },
                     { value: 'click',       label: 'Click' },
                     { value: 'application', label: 'Application' },
                     { value: 'approval',    label: 'Approval' },
                   ].map(({ value, label }) => (
-                    <button
+                    <FilterChip
                       key={value}
+                      active={mgTrackingStatusFilter === value}
                       onClick={() => { setMgTrackingStatusFilter(value); setTrackingVisible(trackingPageSize); }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
-                        mgTrackingStatusFilter === value
-                          ? 'bg-brand text-white shadow-sm'
-                          : 'text-subtle bg-white border border-hair hover:border-brand hover:text-brand'
-                      }`}
                     >
                       {label}
-                    </button>
+                    </FilterChip>
                   ))}
                 </div>
 
@@ -2119,20 +2127,16 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </select>
                   </div>
 
-                  <div className="flex items-center gap-2 ml-auto">
+                  <div className="flex items-center gap-4 ml-auto">
                     {/* Group by issuer toggle */}
-                    <button
-                      onClick={() => { const next = !cpaGroupBy; setCpaGroupBy(next); setCpaCollapsed(next ? new Set(cpaRates.map(r => r.issuer || 'Other')) : new Set()); }}
+                    <FilterChip
+                      active={cpaGroupBy}
                       title="Group by issuer"
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all duration-150 cursor-pointer ${
-                        cpaGroupBy
-                          ? 'bg-brand text-white border-brand shadow-sm'
-                          : 'text-subtle bg-white border-hair hover:border-brand hover:text-brand'
-                      }`}
+                      onClick={() => { const next = !cpaGroupBy; setCpaGroupBy(next); setCpaCollapsed(next ? new Set(cpaRates.map(r => r.issuer || 'Other')) : new Set()); }}
                     >
                       <Layers className="w-3.5 h-3.5" />
                       Group by Issuer
-                    </button>
+                    </FilterChip>
                     {/* Collapse All / Expand All — only when grouped */}
                     {cpaGroupBy && cpaRates.length > 0 && (() => {
                       const allIssuers = Array.from(new Set(cpaRates.map(r => r.issuer || 'Other')));
@@ -2174,26 +2178,22 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       </select>
                     </div>
 
-                    {/* CPA range pills */}
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-medium text-faint">Payout:</span>
+                    {/* CPA range — text chips */}
+                    <div className="flex items-center gap-4">
+                      <span className="text-xs font-medium text-faint">Payout</span>
                       {([
                         { value: 'all',    label: 'All' },
                         { value: 'lt100',  label: '<$100' },
                         { value: '100-299', label: '$100–$299' },
                         { value: '300plus', label: '$300+' },
                       ]).map(({ value, label }) => (
-                        <button
+                        <FilterChip
                           key={value}
+                          active={cpaCpaRange === value}
                           onClick={() => { setCpaCpaRange(value); setCpaVisible(cpaPageSize); }}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
-                            cpaCpaRange === value
-                              ? 'bg-brand text-white shadow-sm'
-                              : 'text-subtle bg-white border border-hair hover:border-brand hover:text-brand'
-                          }`}
                         >
                           {label}
-                        </button>
+                        </FilterChip>
                       ))}
                     </div>
 
@@ -2406,28 +2406,23 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  {/* Group by segmented control */}
-                  <div className="flex items-center gap-0.5 bg-white border border-hair rounded-xl p-1 text-xs font-medium">
-                    {([
-                      { value: 'none',      label: 'No Group' },
-                      { value: 'month',     label: 'Month' },
-                      { value: 'affiliate', label: 'Affiliate' },
-                    ] as { value: 'none'|'month'|'affiliate'; label: string }[]).map(({ value, label }) => (
-                      <button
-                        key={value}
-                        onClick={() => { setInvoiceGroupBy(value); setInvoiceCollapsed(value === 'none' ? new Set() : new Set(invoices.map((inv: any) => value === 'month' ? (inv.date?.substring(0, 7) || inv.month || 'unknown') : (inv.email || 'unknown')))); setInvoicesVisible(PAGE_SIZE); }}
-                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all duration-150 cursor-pointer ${
-                          invoiceGroupBy === value
-                            ? 'bg-brand text-white shadow-sm'
-                            : 'text-faint hover:text-subtle hover:bg-surface'
-                        }`}
-                      >
-                        {value !== 'none' && <Layers className="w-3 h-3" />}
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                <div className="flex items-center gap-4">
+                  {/* Group by — text chips */}
+                  <span className="text-xs font-medium text-faint">Group</span>
+                  {([
+                    { value: 'none',      label: 'None' },
+                    { value: 'month',     label: 'Month' },
+                    { value: 'affiliate', label: 'Affiliate' },
+                  ] as { value: 'none'|'month'|'affiliate'; label: string }[]).map(({ value, label }) => (
+                    <FilterChip
+                      key={value}
+                      active={invoiceGroupBy === value}
+                      onClick={() => { setInvoiceGroupBy(value); setInvoiceCollapsed(value === 'none' ? new Set() : new Set(invoices.map((inv: any) => value === 'month' ? (inv.date?.substring(0, 7) || inv.month || 'unknown') : (inv.email || 'unknown')))); setInvoicesVisible(PAGE_SIZE); }}
+                    >
+                      {value !== 'none' && <Layers className="w-3 h-3" />}
+                      {label}
+                    </FilterChip>
+                  ))}
                   {invoiceGroupBy !== 'none' && (() => {
                     const allKeys = Array.from(new Set((applySort(
                       invoices.filter((inv: any) =>

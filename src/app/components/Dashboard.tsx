@@ -5,8 +5,9 @@ import { Spinner } from './ui/spinner';
 import { prefersReducedMotion, prettyCardName } from './ui/utils';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { Flip } from 'gsap/Flip';
 
-gsap.registerPlugin(ScrollTrigger);
+gsap.registerPlugin(ScrollTrigger, Flip);
 import {
   CreditCard,
   TrendingUp,
@@ -344,6 +345,25 @@ function FilterBar({
   );
 }
 
+// Minimal text chip — the single shared style for every inline filter / sort /
+// group selector across all tabs (active = brand bold, inactive = faint medium).
+function FilterChip({ active, onClick, title, children }: {
+  active?: boolean; onClick: () => void; title?: string; children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] py-0.5 cursor-pointer transition-colors ${
+        active ? 'text-brand font-bold' : 'text-faint font-medium hover:text-subtle'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 function SortTh({
   label, field, sort, onSort, align = 'left',
 }: {
@@ -422,6 +442,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [linkBuilderIds, setLinkBuilderIds] = useState<string[]>([]);
   // Featured-cards panel (the boost chip in the link bar) open/closed.
   const [boostOpen, setBoostOpen] = useState(false);
+  // Kept mounted through the close animation, then unmounted.
+  const [boostRender, setBoostRender] = useState(false);
+  // Ref on the link bar (chip + panel) so a click outside it closes the panel.
+  const boostRef = useRef<HTMLDivElement>(null);
+  const boostPanelRef = useRef<HTMLDivElement>(null); // the popover itself (open/close tween)
+  const boostListRef = useRef<HTMLDivElement>(null);  // the scroll list (FLIP reorder)
+  const flipState = useRef<any>(null);                // captured row positions before a reorder
   // Card id currently being drag-reordered in the featured panel.
   const [dragFeatId, setDragFeatId] = useState<string | null>(null);
   // Which card's bonus/details popover is tapped open (mobile — desktop uses hover).
@@ -432,7 +459,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [userMenuOpen, setUserMenuOpen] = useState(false); // user chip dropdown (profile/refresh/logout)
 
   // Activity tab (Airtable API Output)
-  const [trackingFilter,       setTrackingFilter]       = useState<DateFilter>('week');
+  const [trackingFilter,       setTrackingFilter]       = useState<DateFilter>('month');
   const [trackingCustomFrom,   setTrackingCustomFrom]   = useState('');
   const [trackingCustomTo,     setTrackingCustomTo]     = useState('');
   const [trackingSort,         setTrackingSort]         = useState<SortState>({ field: 'processDate', dir: 'desc' });
@@ -558,6 +585,45 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     ro.observe(el);
     return () => ro.disconnect();
   }, [loading, masterLink, linkBuilderIds.length]);
+
+  // Close the featured-cards panel when clicking anywhere outside the link bar.
+  useEffect(() => {
+    if (!boostOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (boostRef.current && !boostRef.current.contains(e.target as Node)) setBoostOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [boostOpen]);
+
+  // Open/close animation for the featured panel — slide + fade from the chip,
+  // staying mounted through the close tween so the exit is visible.
+  useLayoutEffect(() => {
+    const el = boostPanelRef.current;
+    if (boostOpen) {
+      if (!boostRender) { setBoostRender(true); return; }   // mount, then re-run to animate in
+      if (!el) return;
+      gsap.killTweensOf(el);
+      if (prefersReducedMotion()) { gsap.set(el, { opacity: 1, y: 0, scale: 1 }); return; }
+      gsap.fromTo(el,
+        { opacity: 0, y: -6, scale: 0.96, transformOrigin: 'top right' },
+        { opacity: 1, y: 0, scale: 1, duration: 0.22, ease: 'power3.out' });
+    } else {
+      if (!boostRender) return;
+      if (!el || prefersReducedMotion()) { setBoostRender(false); return; }
+      gsap.killTweensOf(el);
+      gsap.to(el, { opacity: 0, y: -6, scale: 0.96, transformOrigin: 'top right', duration: 0.15, ease: 'power2.in',
+        onComplete: () => setBoostRender(false) });
+    }
+  }, [boostOpen, boostRender]);
+
+  // FLIP — when the featured order changes via drag, slide every row smoothly
+  // from its old slot to its new one (the dragged row is lifted via CSS).
+  useLayoutEffect(() => {
+    if (!flipState.current) return;
+    Flip.from(flipState.current, { duration: 0.3, ease: 'power2.inOut' });
+    flipState.current = null;
+  }, [linkBuilderIds]);
 
   // GSAP entrance — sections fade in as they scroll into view (ScrollTrigger).
   // Fade only, no vertical rise. useLayoutEffect so the initial hide happens
@@ -1105,7 +1171,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             className="sticky top-[60px] z-20 mb-5 -mx-4 sm:-mx-6 lg:-mx-8 bg-white/95 backdrop-blur-md border-b border-hair"
           >
           {/* Compact referral link bar — single line, with a "featured" boost chip */}
-          <div className="relative flex items-center gap-3 py-2.5 px-4 sm:px-6 lg:px-8">
+          <div ref={boostRef} className="relative flex items-center gap-3 py-2.5 px-4 sm:px-6 lg:px-8">
             <Link2 className="w-4 h-4 text-faint2 flex-shrink-0" />
             <span className="font-mono-ds text-[13px] font-medium text-ink truncate flex-1 min-w-0">
               {displayLink}
@@ -1137,22 +1203,23 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             </a>
 
             {/* Featured-cards panel */}
-            {boostOpen && (
+            {boostRender && (
               <>
-                <div className="fixed inset-0 z-10" onClick={() => setBoostOpen(false)} />
-                <div className="absolute right-4 sm:right-6 lg:right-8 top-full mt-2 z-20 w-[340px] max-w-[calc(100vw-32px)] bg-white rounded-2xl border border-hair shadow-[0_16px_44px_rgba(15,23,42,0.16)] overflow-hidden">
+                <div
+                  ref={boostPanelRef}
+                  className="absolute right-4 sm:right-6 lg:right-8 top-full mt-2 z-20 w-[340px] max-w-[calc(100vw-32px)] bg-white rounded-2xl border border-hair shadow-[0_16px_44px_rgba(15,23,42,0.16)] overflow-hidden will-change-transform">
                   <div className="flex items-center justify-between gap-2 px-4 pt-3.5 pb-2.5">
                     <span className="text-[13.5px] font-semibold text-ink">Featured on your link</span>
                     <span className="text-[12px] font-medium text-faint tabular-nums">{featuredCount} / {LINK_MAX}</span>
                   </div>
                   {featured.length > 0 ? (
                     <>
-                      <div className="max-h-[280px] overflow-y-auto border-t border-hair2">
+                      <div ref={boostListRef} className="max-h-[280px] overflow-y-auto scroll-smooth border-t border-hair2" style={{ WebkitOverflowScrolling: 'touch' }}>
                         {featured.map((c) => (
                           <div
                             key={c.cardId}
                             data-feat-id={c.cardId}
-                            className={`flex items-center gap-2 px-3 py-2.5 border-b border-hair2 last:border-b-0 transition-colors ${dragFeatId === c.cardId ? 'bg-brand-soft' : ''}`}>
+                            className={`relative flex items-center gap-2 px-3 py-2.5 border-b border-hair2 last:border-b-0 transition-[background-color,box-shadow] duration-200 ${dragFeatId === c.cardId ? 'z-10 bg-brand-soft shadow-[0_8px_24px_rgba(15,23,42,0.16)] ring-1 ring-brand/25' : ''}`}>
                             {/* Drag handle — hold and drag to set the order in your link */}
                             <button
                               type="button"
@@ -1161,6 +1228,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                                 if (dragFeatId == null) return;
                                 const over = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement)?.closest('[data-feat-id]')?.getAttribute('data-feat-id');
                                 if (over && over !== dragFeatId) {
+                                  // Snapshot row positions so FLIP can animate the slide.
+                                  if (boostListRef.current && !prefersReducedMotion()) {
+                                    flipState.current = Flip.getState(boostListRef.current.querySelectorAll('[data-feat-id]'));
+                                  }
                                   setLinkBuilderIds(prev => {
                                     const a = [...prev];
                                     const from = a.indexOf(dragFeatId), to = a.indexOf(over);
@@ -1437,18 +1508,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
             {/* Type chips — smaller, under the search */}
             {cardTypes.length > 0 && (
-              <div className="ds-chips flex items-center gap-1.5 overflow-x-auto mb-[14px]">
-                {(['all', ...cardTypes]).map(type => {
-                  const on = cardsTypeFilter === type;
-                  return (
-                    <button key={type} onClick={() => { setCardsTypeFilter(type); setCardsVisible(PAGE_SIZE); }}
-                      className={`flex-shrink-0 h-7 px-3 rounded-full text-[12.5px] font-medium tracking-[-0.01em] whitespace-nowrap transition-colors cursor-pointer ${
-                        on ? 'bg-brand text-white' : 'bg-hair2 text-subtle hover:bg-hair'
-                      }`}>
-                      {type === 'all' ? 'All types' : type}
-                    </button>
-                  );
-                })}
+              <div className="ds-chips flex items-center gap-5 overflow-x-auto mb-[14px] -mx-1 px-1">
+                {(['all', ...cardTypes]).map(type => (
+                  <FilterChip key={type} active={cardsTypeFilter === type}
+                    onClick={() => { setCardsTypeFilter(type); setCardsVisible(PAGE_SIZE); }}>
+                    {type === 'all' ? 'All types' : type}
+                  </FilterChip>
+                ))}
               </div>
             )}
 
@@ -1458,15 +1524,14 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             {/* Group-by + count + sort tabs */}
             <div className="flex items-center justify-between gap-3.5 flex-wrap pt-[15px] pb-1.5">
               <div className="flex items-center gap-4 flex-wrap">
-                <button onClick={() => {
+                <FilterChip active={cardsGroupBy} onClick={() => {
                   const next = !cardsGroupBy;
                   setCardsGroupBy(next);
                   setCardsCollapsed(next ? new Set(displayCards.map(c => c.issuer || 'Other')) : new Set());
-                }}
-                  className={`inline-flex items-center gap-1.5 text-[13px] cursor-pointer transition-colors ${cardsGroupBy ? 'text-brand font-bold' : 'text-faint font-medium hover:text-subtle'}`}>
+                }}>
                   <Layers className="w-3.5 h-3.5" />
                   Group by issuer
-                </button>
+                </FilterChip>
                 {cardsGroupBy && (() => {
                   const allIssuers = Array.from(new Set(displayCards.map(c => c.issuer || 'Other')));
                   const allCollapsed = allIssuers.every(i => cardsCollapsed.has(i));
@@ -1720,25 +1785,21 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 setCustomTo={v => { setTrackingCustomTo(v); setActivityVisible(activityPageSize); }}
               />
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-faint mr-1">Status:</span>
+            <div className="flex flex-wrap items-center gap-5">
+              <span className="text-xs font-medium text-faint mr-0">Status</span>
               {[
                 { value: 'all',         label: 'All' },
                 { value: 'click',       label: 'Click' },
                 { value: 'application', label: 'Application' },
                 { value: 'approval',    label: 'Approval' },
               ].map(({ value, label }) => (
-                <button
+                <FilterChip
                   key={value}
+                  active={trackingStatusFilter === value}
                   onClick={() => { setTrackingStatusFilter(value); setActivityVisible(activityPageSize); }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
-                    trackingStatusFilter === value
-                      ? 'bg-brand text-white shadow-sm'
-                      : 'text-subtle bg-white border border-hair hover:border-brand hover:text-brand'
-                  }`}
                 >
                   {label}
-                </button>
+                </FilterChip>
               ))}
             </div>
             </div>
