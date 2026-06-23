@@ -997,9 +997,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       );
       const data = await response.json();
       if (!data.success) { setShowShareModal(false); setMessageWithTimeout(data.error || 'Failed to prepare login', 8000); return; }
-      const portal = window.location.origin;
+      const portal = 'https://mypointshero.com';
       const message =
-`Hi ${user.name || 'there'}, here are your Affiliate Portal login details:
+`Hi ${user.name || 'there'}, here are your MyPointsHero login details:
 
 Portal: ${portal}
 Username: ${user.email}
@@ -1018,6 +1018,17 @@ Please sign in and reset your password from your profile.`;
   const copyShareMessage = async () => {
     if (!shareData) return;
     try { await navigator.clipboard.writeText(shareData.message); setShareCopied(true); setTimeout(() => setShareCopied(false), 2000); } catch {}
+  };
+
+  // Open the OS share sheet (messaging apps, mail, etc.). Falls back to copy.
+  const shareViaApps = async () => {
+    if (!shareData) return;
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try { await navigator.share({ title: 'MyPointsHero login', text: shareData.message }); }
+      catch { /* user dismissed the sheet — no-op */ }
+    } else {
+      copyShareMessage();
+    }
   };
 
   const updateCommission = async (userId: string, rate: number) => {
@@ -2802,12 +2813,22 @@ Please sign in and reset your password from your profile.`;
                     <div className="flex justify-between gap-3"><span className="text-faint">Temp password</span><span className="text-ink font-mono-ds font-medium">{shareData.password}</span></div>
                   </div>
                   <pre className="mt-3 max-h-44 overflow-y-auto whitespace-pre-wrap rounded-xl border border-hair bg-white px-4 py-3 text-[13px] leading-relaxed text-subtle">{shareData.message}</pre>
-                  <div className="flex gap-3 mt-5">
-                    <button type="button" onClick={copyShareMessage} className="flex-1 inline-flex items-center justify-center gap-2 bg-brand text-white py-2.5 rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium">
-                      {shareCopied ? <><CheckCircle className="w-4 h-4" /> Copied</> : <><Copy className="w-4 h-4" /> Copy message</>}
-                    </button>
-                    <button type="button" onClick={() => { setShowShareModal(false); setShareData(null); setSelectedUser(null); }} className="flex-1 bg-hair2 text-subtle py-2.5 rounded-lg hover:bg-hair transition-colors text-sm font-medium">Done</button>
-                  </div>
+                  {(() => {
+                    const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+                    return (
+                      <div className="mt-5 space-y-2.5">
+                        {canShare && (
+                          <button type="button" onClick={shareViaApps} className="w-full inline-flex items-center justify-center gap-2 bg-brand text-white py-2.5 rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium">
+                            <Send className="w-4 h-4" /> Share to messaging apps
+                          </button>
+                        )}
+                        <button type="button" onClick={copyShareMessage} className={`w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-lg transition-colors text-sm font-medium ${canShare ? 'bg-hair2 text-subtle hover:bg-hair' : 'bg-brand text-white hover:bg-brand-dark'}`}>
+                          {shareCopied ? <><CheckCircle className="w-4 h-4" /> Copied</> : <><Copy className="w-4 h-4" /> Copy message</>}
+                        </button>
+                        <button type="button" onClick={() => { setShowShareModal(false); setShareData(null); setSelectedUser(null); }} className="w-full text-sm font-medium text-faint hover:text-ink py-1 transition-colors">Done</button>
+                      </div>
+                    );
+                  })()}
                 </>
               )}
             </Dialog.Content>
