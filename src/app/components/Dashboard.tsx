@@ -1243,7 +1243,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   </div>
                   {featured.length > 0 ? (
                     <>
-                      <div className="max-h-[280px] overflow-y-auto scroll-smooth border-t border-hair2" style={{ WebkitOverflowScrolling: 'touch' }}>
+                      <div className="max-h-[440px] overflow-y-auto scroll-smooth border-t border-hair2" style={{ WebkitOverflowScrolling: 'touch' }}>
                         <FeaturedList
                           items={featured}
                           onReorder={setLinkBuilderIds}
