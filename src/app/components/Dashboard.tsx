@@ -5,9 +5,8 @@ import { Spinner } from './ui/spinner';
 import { prefersReducedMotion, prettyCardName } from './ui/utils';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { Flip } from 'gsap/Flip';
 
-gsap.registerPlugin(ScrollTrigger, Flip);
+gsap.registerPlugin(ScrollTrigger);
 import {
   CreditCard,
   TrendingUp,
@@ -47,6 +46,7 @@ import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { Profile } from './Profile';
 import { SwipeCarousel, Slide } from './ui/swipe-tabs';
 import { SearchBox } from './ui/search-box';
+import { FeaturedList } from './ui/featured-list';
 
 interface DashboardProps {
   userEmail: string;
@@ -461,11 +461,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   // Ref on the link bar (chip + panel) so a click outside it closes the panel.
   const boostRef = useRef<HTMLDivElement>(null);
   const boostPanelRef = useRef<HTMLDivElement>(null); // the popover itself (open/close tween)
-  const boostListRef = useRef<HTMLDivElement>(null);  // the scroll list (FLIP reorder)
-  const flipState = useRef<any>(null);                // captured row positions before a reorder
-  const flipTween = useRef<any>(null);                // in-flight FLIP tween (killed before a new one)
-  // Card id currently being drag-reordered in the featured panel.
-  const [dragFeatId, setDragFeatId] = useState<string | null>(null);
   // Which card's bonus/details popover is tapped open (mobile — desktop uses hover).
   const [bonusOpenId, setBonusOpenId] = useState<string | number | null>(null);
   const [loading, setLoading]       = useState(true);
@@ -645,15 +640,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         onComplete: () => setBoostRender(false) });
     }
   }, [boostOpen, boostRender]);
-
-  // FLIP — when the featured order changes via drag, slide every row smoothly
-  // from its old slot to its new one (the dragged row is lifted via CSS).
-  useLayoutEffect(() => {
-    if (!flipState.current) return;
-    flipTween.current?.kill();   // never stack two slides — that's the flicker
-    flipTween.current = Flip.from(flipState.current, { duration: 0.26, ease: 'power2.out' });
-    flipState.current = null;
-  }, [linkBuilderIds]);
 
   // GSAP entrance — sections fade in as they scroll into view (ScrollTrigger).
   // Fade only, no vertical rise. useLayoutEffect so the initial hide happens
@@ -1248,59 +1234,21 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   className="absolute right-4 sm:right-6 lg:right-8 top-full mt-2 z-20 w-[340px] max-w-[calc(100vw-32px)] bg-white rounded-2xl border border-hair shadow-[0_16px_44px_rgba(15,23,42,0.16)] overflow-hidden will-change-transform">
                   <div className="flex items-center justify-between gap-2 px-4 pt-3.5 pb-2.5">
                     <span className="text-[13.5px] font-semibold text-ink">Featured on your link</span>
-                    <span className="text-[12px] font-medium text-faint tabular-nums">{featuredCount} / {LINK_MAX}</span>
+                    <div className="flex items-center gap-3.5">
+                      {featuredCount > 0 && (
+                        <button onClick={() => setLinkBuilderIds([])} className="text-[12px] font-medium text-faint hover:text-neg transition-colors cursor-pointer">Clear all</button>
+                      )}
+                      <span className="text-[12px] font-medium text-faint tabular-nums">{featuredCount} / {LINK_MAX}</span>
+                    </div>
                   </div>
                   {featured.length > 0 ? (
                     <>
-                      <div ref={boostListRef} className="max-h-[280px] overflow-y-auto scroll-smooth border-t border-hair2" style={{ WebkitOverflowScrolling: 'touch' }}>
-                        {featured.map((c) => (
-                          <div
-                            key={c.cardId}
-                            data-feat-id={c.cardId}
-                            className={`relative flex items-center gap-2 px-3 py-2.5 border-b border-hair2 last:border-b-0 transition-[background-color,box-shadow] duration-200 ${dragFeatId === c.cardId ? 'z-10 bg-brand-soft shadow-[0_8px_24px_rgba(15,23,42,0.16)] ring-1 ring-brand/25' : ''}`}>
-                            {/* Drag handle — hold and drag to set the order in your link */}
-                            <button
-                              type="button"
-                              onPointerDown={(e) => { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); setDragFeatId(c.cardId); }}
-                              onPointerMove={(e) => {
-                                if (dragFeatId == null) return;
-                                const overEl = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement)?.closest('[data-feat-id]') as HTMLElement | null;
-                                const over = overEl?.getAttribute('data-feat-id');
-                                if (!over || over === dragFeatId) return;
-                                const fromIdx = linkBuilderIds.indexOf(dragFeatId);
-                                const toIdx = linkBuilderIds.indexOf(over);
-                                if (fromIdx < 0 || toIdx < 0) return;
-                                // Only swap once the pointer passes the target row's midpoint —
-                                // hysteresis that stops the rapid back-and-forth reorder (the flicker).
-                                const rect = overEl!.getBoundingClientRect();
-                                const pastMid = e.clientY > rect.top + rect.height / 2;
-                                if ((toIdx > fromIdx && !pastMid) || (toIdx < fromIdx && pastMid)) return;
-                                // Snapshot row positions so FLIP can animate the slide.
-                                if (boostListRef.current && !prefersReducedMotion()) {
-                                  flipState.current = Flip.getState(boostListRef.current.querySelectorAll('[data-feat-id]'));
-                                }
-                                setLinkBuilderIds(prev => {
-                                  const a = [...prev];
-                                  const from = a.indexOf(dragFeatId), to = a.indexOf(over);
-                                  if (from < 0 || to < 0) return prev;
-                                  a.splice(to, 0, a.splice(from, 1)[0]);
-                                  return a;
-                                });
-                              }}
-                              onPointerUp={(e) => { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); setDragFeatId(null); }}
-                              onPointerCancel={() => setDragFeatId(null)}
-                              title="Drag to reorder"
-                              style={{ touchAction: 'none' }}
-                              className="flex-shrink-0 -ml-1 p-1 text-faint2 hover:text-subtle cursor-grab active:cursor-grabbing"><GripVertical className="w-4 h-4" /></button>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-[13px] font-medium text-ink truncate">{prettyCardName(c.name)}</div>
-                              <div className="text-[12px] text-faint truncate">{c.issuer || '—'}</div>
-                            </div>
-                            <span className="text-[13px] font-medium text-pos tabular-nums flex-shrink-0">{c.cpa > 0 ? `$${c.cpa.toLocaleString()}` : '—'}</span>
-                            <button onClick={() => setLinkBuilderIds(prev => prev.filter(id => id !== c.cardId))} title="Remove"
-                              className="w-6 h-6 rounded-md flex items-center justify-center text-faint2 hover:text-neg hover:bg-hair2 transition-colors flex-shrink-0 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
-                          </div>
-                        ))}
+                      <div className="max-h-[280px] overflow-y-auto scroll-smooth border-t border-hair2" style={{ WebkitOverflowScrolling: 'touch' }}>
+                        <FeaturedList
+                          items={featured}
+                          onReorder={setLinkBuilderIds}
+                          onRemove={(id) => setLinkBuilderIds(prev => prev.filter(x => x !== id))}
+                        />
                       </div>
                       <div className="flex items-center justify-between px-4 py-3 bg-surface border-t border-hair2">
                         <span className="text-[12px] text-faint font-medium">Max payout / approval</span>
