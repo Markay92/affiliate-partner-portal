@@ -46,6 +46,7 @@ import * as Tabs from '@radix-ui/react-tabs';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { Profile } from './Profile';
 import { SwipeCarousel, Slide } from './ui/swipe-tabs';
+import { SearchBox } from './ui/search-box';
 
 interface DashboardProps {
   userEmail: string;
@@ -198,6 +199,22 @@ function LastUpdated({ ts }: { ts?: number }) {
       <RefreshCw className="w-3 h-3" />
       Last updated {formatLastUpdated(ts)}
     </p>
+  );
+}
+
+/** Per-tab header: big title with a "last updated · N items" subline beneath it.
+ *  Shared by every tab so the header reads as a stable element while the filters
+ *  below it swap per tab. */
+function TabHead({ title, ts, count, noun }: { title: string; ts?: number; count: number; noun: string }) {
+  return (
+    <div className="pt-1 pb-3">
+      <h2 className="text-[20px] font-bold text-ink tracking-[-0.025em] leading-none">{title}</h2>
+      <div className="flex items-center gap-2 mt-2 text-[12px] text-faint">
+        <LastUpdated ts={ts} />
+        <span className="text-hair2" aria-hidden>|</span>
+        <span className="font-medium tabular-nums">{count.toLocaleString()} {noun}</span>
+      </div>
+    </div>
   );
 }
 
@@ -474,8 +491,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [cardsSearch,       setCardsSearch]       = useState('');
   const [cardsGroupBy,      setCardsGroupBy]      = useState(false);
   const [cardsCollapsed,    setCardsCollapsed]    = useState<Set<string>>(new Set());
-  const [searchOpen,        setSearchOpen]        = useState(false);          // Cards search: icon → expands
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const [typeMenuOpen,      setTypeMenuOpen]      = useState(false);          // "More" type-filter overflow menu
   const typeMenuRef = useRef<HTMLDivElement>(null);
 
@@ -1506,9 +1521,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           );
         })()}
 
-        {/* Last updated — one line, same spot above every tab */}
-        <div className="mt-5 px-0.5"><LastUpdated ts={lastUpdated} /></div>
-
         {/* Tab panels — the tab nav lives in the header. Real swipe carousel on mobile. */}
         <SwipeCarousel
           order={[...NAV_ORDER]}
@@ -1521,26 +1533,12 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           {/* ── Cards Tab (Robinhood-style filters + list) ── */}
           <Slide tabKey="cards">
           <div>
-            <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas pt-6 pb-1">
-            {/* Search (icon → expands) + type chips, one row */}
-            {searchOpen ? (
-              <div className="relative mb-[14px]" data-noswipe>
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[17px] h-[17px] text-faint pointer-events-none" />
-                <input ref={searchInputRef} type="text" autoFocus placeholder="Search cards or issuers" value={cardsSearch}
-                  onChange={e => { setCardsSearch(e.target.value); setCardsVisible(PAGE_SIZE); }}
-                  onBlur={() => { if (!cardsSearch) setSearchOpen(false); }}
-                  className="w-full h-[42px] pl-10 pr-10 border border-line rounded-[10px] bg-white text-[14.5px] text-ink outline-none transition focus:border-brand focus:ring-[3px] focus:ring-brand/15" />
-                <button onClick={() => { setCardsSearch(''); setCardsVisible(PAGE_SIZE); setSearchOpen(false); }} title="Close search"
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-md flex items-center justify-center text-faint2 hover:text-ink hover:bg-surface transition-colors cursor-pointer">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-5 mb-[14px]">
-                <button onClick={() => setSearchOpen(true)} title="Search cards or issuers"
-                  className="flex-shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full text-faint hover:text-ink hover:bg-surface transition-colors cursor-pointer">
-                  <Search className="w-[18px] h-[18px]" />
-                </button>
+            <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas pt-5 pb-1">
+            <TabHead title="Cards" ts={lastUpdated} count={displayCards.length} noun="cards" />
+            {/* Condensed toolbar — search + type filters (left) · group (right) */}
+            <div className="flex items-center justify-between gap-4 flex-wrap pb-2.5">
+              <div className="relative flex items-center gap-5 pl-11 min-h-9 flex-1 min-w-0">
+                <SearchBox value={cardsSearch} onChange={v => { setCardsSearch(v); setCardsVisible(PAGE_SIZE); }} placeholder="Search cards or issuers" />
                 {cardTypes.length > 0 && (() => {
                   const visibleTypes = cardTypes.slice(0, 4);               // All types + 4 = 5 selectable
                   const hasMore = cardTypes.length > visibleTypes.length;
@@ -1582,14 +1580,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   );
                 })()}
               </div>
-            )}
-
-            {/* Bold divider */}
-            <div className="h-[1.5px] bg-ink" />
-
-            {/* Group-by + count + sort tabs */}
-            <div className="flex items-center justify-between gap-3.5 flex-wrap pt-[15px] pb-1.5">
-              <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-4 flex-shrink-0">
                 <FilterChip active={cardsGroupBy} onClick={() => {
                   const next = !cardsGroupBy;
                   setCardsGroupBy(next);
@@ -1609,7 +1600,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   );
                 })()}
               </div>
-              <span className="text-xs font-semibold tracking-[0.04em] uppercase text-faint2">{displayCards.length} cards</span>
             </div>
             {/* Column headers — aligned to the card rows; click a metric to sort */}
             <div className="flex items-center gap-[18px] pt-3 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
@@ -1840,8 +1830,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           {/* ── Activity Tab ── */}
           <Slide tabKey="activity">
             {/* Sticky controls */}
-            <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas border-b border-hair py-3">
-            <div className="flex flex-wrap items-center gap-3 mb-3">
+            <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas border-b border-hair pt-5 pb-3">
+            <TabHead title="Activity" ts={lastUpdated} count={displayTracking.length} noun="records" />
+            <div className="space-y-2.5">
               <FilterBar
                 filter={trackingFilter}
                 setFilter={v => { setTrackingFilter(v); setActivityVisible(activityPageSize); }}
@@ -1850,23 +1841,23 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 customTo={trackingCustomTo}
                 setCustomTo={v => { setTrackingCustomTo(v); setActivityVisible(activityPageSize); }}
               />
-            </div>
-            <div className="flex flex-wrap items-center gap-5">
-              <span className="text-xs font-medium text-faint mr-0">Status</span>
-              {[
-                { value: 'all',         label: 'All' },
-                { value: 'click',       label: 'Click' },
-                { value: 'application', label: 'Application' },
-                { value: 'approval',    label: 'Approval' },
-              ].map(({ value, label }) => (
-                <FilterChip
-                  key={value}
-                  active={trackingStatusFilter === value}
-                  onClick={() => { setTrackingStatusFilter(value); setActivityVisible(activityPageSize); }}
-                >
-                  {label}
-                </FilterChip>
-              ))}
+              <div className="flex flex-wrap items-center gap-5">
+                <span className="text-xs font-medium text-faint">Status</span>
+                {[
+                  { value: 'all',         label: 'All' },
+                  { value: 'click',       label: 'Click' },
+                  { value: 'application', label: 'Application' },
+                  { value: 'approval',    label: 'Approval' },
+                ].map(({ value, label }) => (
+                  <FilterChip
+                    key={value}
+                    active={trackingStatusFilter === value}
+                    onClick={() => { setTrackingStatusFilter(value); setActivityVisible(activityPageSize); }}
+                  >
+                    {label}
+                  </FilterChip>
+                ))}
+              </div>
             </div>
             </div>
 
@@ -1980,20 +1971,25 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           </Slide>
 
           {/* ── Invoices Tab ── */}
-          <Slide tabKey="invoices" className="pt-6">
+          <Slide tabKey="invoices">
             {invoices.length === 0 ? (
-              <EmptyState
-                icon={FileText}
-                title="No invoices yet"
-                subtitle="Your monthly payout statements will appear here once your referrals start getting approved. Feature some cards on your link to get things moving."
-                action={
-                  <button onClick={() => setActiveTab('cards')} className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full bg-brand text-white text-[13px] font-semibold hover:bg-brand-dark active:scale-95 transition-all shadow-sm cursor-pointer">
-                    <CreditCard className="w-3.5 h-3.5" /> Browse cards
-                  </button>
-                }
-              />
+              <div className="pt-6">
+                <TabHead title="Invoices" ts={lastUpdated} count={0} noun="invoices" />
+                <EmptyState
+                  icon={FileText}
+                  title="No invoices yet"
+                  subtitle="Your monthly payout statements will appear here once your referrals start getting approved. Feature some cards on your link to get things moving."
+                  action={
+                    <button onClick={() => setActiveTab('cards')} className="inline-flex items-center gap-1.5 px-4 h-9 rounded-full bg-brand text-white text-[13px] font-semibold hover:bg-brand-dark active:scale-95 transition-all shadow-sm cursor-pointer">
+                      <CreditCard className="w-3.5 h-3.5" /> Browse cards
+                    </button>
+                  }
+                />
+              </div>
             ) : (
               <>
+              <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas pt-5 pb-1">
+              <TabHead title="Invoices" ts={lastUpdated} count={invoices.length} noun="invoices" />
               {/* Column headers */}
               <div className="flex items-center gap-3 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
                 <span className="w-3.5 flex-shrink-0" aria-hidden />
@@ -2002,6 +1998,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <span className="w-[68px] sm:w-[84px] text-right">Appr.</span>
                 <span className="hidden md:block w-[112px] text-right">Status</span>
                 <span className="w-[88px] text-right">Amount</span>
+              </div>
               </div>
               <div>
                 {invoices.slice(0, invoicesVisible).map(inv => {

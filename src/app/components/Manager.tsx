@@ -37,6 +37,7 @@ import * as Tabs from '@radix-ui/react-tabs';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { SwipeCarousel, Slide } from './ui/swipe-tabs';
+import { SearchBox } from './ui/search-box';
 import { Spinner } from './ui/spinner';
 import { prefersReducedMotion, prettyCardName } from './ui/utils';
 
@@ -89,6 +90,22 @@ function LastUpdated({ ts }: { ts?: number }) {
       <RefreshCw className="w-3 h-3" />
       Last updated {formatLastUpdated(ts)}
     </p>
+  );
+}
+
+/** Per-tab header: big title with a "last updated · N items" subline beneath it.
+ *  Shared by every tab so the header reads as a stable element while the filters
+ *  below it swap per tab. */
+function TabHead({ title, ts, count, noun }: { title: string; ts?: number; count: number; noun: string }) {
+  return (
+    <div className="pt-1 pb-3">
+      <h2 className="text-[20px] font-bold text-ink tracking-[-0.025em] leading-none">{title}</h2>
+      <div className="flex items-center gap-2 mt-2 text-[12px] text-faint">
+        <LastUpdated ts={ts} />
+        <span className="text-hair2" aria-hidden>|</span>
+        <span className="font-medium tabular-nums">{count.toLocaleString()} {noun}</span>
+      </div>
+    </div>
   );
 }
 
@@ -1669,18 +1686,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           <Slide tabKey="affiliates">
 
             {/* Toolbar: Search + Date filter + Group + Create */}
-            <div className="sticky top-[59px] z-10 bg-canvas/95 backdrop-blur-md py-4 mb-4 space-y-3 border-b border-hair">
+            <div className="sticky top-[59px] z-10 bg-canvas/95 backdrop-blur-md pt-4 pb-3 mb-4 space-y-2.5 border-b border-hair">
+              <TabHead title="Affiliates" ts={lastUpdated.affiliates} count={displayUsers.length} noun="affiliates" />
               <div className="flex flex-wrap items-center gap-3">
-                {/* Search */}
-                <div className="relative flex-1 min-w-[200px]">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-faint pointer-events-none" />
-                  <input
-                    type="text"
-                    placeholder="Search by name or email…"
-                    value={affiliateSearch}
-                    onChange={e => { setAffiliateSearch(e.target.value); setAffiliatesVisible(PAGE_SIZE); }}
-                    className="w-full pl-8 pr-3 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle transition-shadow"
-                  />
+                {/* Search (icon → expands) */}
+                <div className="relative flex items-center pl-11 min-h-9 flex-1 min-w-[220px]">
+                  <SearchBox value={affiliateSearch} onChange={v => { setAffiliateSearch(v); setAffiliatesVisible(PAGE_SIZE); }} placeholder="Search by name or email…" />
                 </div>
 
                 <div className="flex items-center gap-4 ml-auto">
@@ -1732,7 +1743,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
             {/* Affiliates Table */}
             <div className="mt-1">
-              <div className="px-5 pt-4"><LastUpdated ts={lastUpdated.affiliates} /></div>
               <div>
                 {/* Column headers */}
                 <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
@@ -1830,15 +1840,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
             <div className="mt-1">
               <div className="sticky top-16 z-10 bg-white p-4 border-b border-hair2 space-y-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-base font-semibold text-ink">All Tracking Activity</h2>
-                    <p className="text-xs text-faint mt-0.5">
-                      {displayTrackingActivity.length}
-                      {(mgTrackingFilter !== 'all' || mgTrackingStatusFilter !== 'all' || mgTrackingAffiliateFilter !== 'all')
-                        ? ` of ${trackingActivity.length}` : ''} records
-                    </p>
-                    <div className="mt-1"><LastUpdated ts={lastUpdated.tracking} /></div>
-                  </div>
+                  <TabHead title="Activity" ts={lastUpdated.tracking} count={displayTrackingActivity.length} noun="records" />
                   <div className="flex items-center gap-4">
                     {/* Group by — text chips */}
                     <span className="text-xs font-medium text-faint">Group</span>
@@ -2091,18 +2093,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
             <div className="mt-1">
               {/* Toolbar */}
               <div className="sticky top-16 z-10 bg-white p-5 border-b border-hair2 space-y-3">
+                <TabHead title="CPA Rates" ts={lastUpdated.cpa} count={cpaRates.length} noun="rates" />
                 {/* Row 1: Search + Affiliate + Refresh */}
                 <div className="flex flex-wrap items-center gap-3">
-                  {/* Search */}
-                  <div className="relative flex-1 min-w-[180px]">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-faint pointer-events-none" />
-                    <input
-                      type="text"
-                      placeholder="Search cards…"
-                      value={cpaSearch}
-                      onChange={e => { setCpaSearch(e.target.value); setCpaVisible(cpaPageSize); }}
-                      className="w-full pl-8 pr-3 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle transition-shadow"
-                    />
+                  {/* Search (icon → expands) */}
+                  <div className="relative flex items-center pl-11 min-h-9 flex-1 min-w-[200px]">
+                    <SearchBox value={cpaSearch} onChange={v => { setCpaSearch(v); setCpaVisible(cpaPageSize); }} placeholder="Search cards…" />
                   </div>
 
                   {/* Affiliate */}
@@ -2262,7 +2258,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
                 return (
                   <div className="overflow-x-auto">
-                    <div className="px-5 py-2"><LastUpdated ts={lastUpdated.cpa} /></div>
                     <div>
                         {/* Column headers */}
                         <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
@@ -2359,7 +2354,9 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
           <Slide tabKey="invoices">
             <div className="mt-1">
               {/* Toolbar */}
-              <div className="sticky top-16 z-10 bg-white p-5 border-b border-hair2 flex flex-wrap items-center justify-between gap-3">
+              <div className="sticky top-16 z-10 bg-white p-5 border-b border-hair2 space-y-3">
+                <TabHead title="Invoices" ts={lastUpdated.invoices} count={invoices.length} noun="invoices" />
+                <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-3">
                   {/* Affiliate filter */}
                   <div className="flex items-center gap-2">
@@ -2451,6 +2448,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     Refresh
                   </button>
                 </div>
+                </div>
               </div>
 
               {invoicesLoading ? (
@@ -2478,7 +2476,6 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                 const pagedFiltered = filtered.slice(0, invoicesVisible);
                 return (
                   <div className="overflow-x-auto">
-                    <div className="px-5 py-2"><LastUpdated ts={lastUpdated.invoices} /></div>
                     <div>
                         {/* Column headers */}
                         <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
