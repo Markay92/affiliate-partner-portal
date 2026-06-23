@@ -578,6 +578,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [mgTrackingSort,             setMgTrackingSort]             = useState<SortState>({ field: 'clickDate', dir: 'desc' });
   const [mgTrackingStatusFilter,     setMgTrackingStatusFilter]     = useState('all');
   const [mgTrackingAffiliateFilter,  setMgTrackingAffiliateFilter]  = useState('all');
+  const [mgTrackingSearch,           setMgTrackingSearch]           = useState('');
   const [trackingGroupBy,            setTrackingGroupBy]            = useState<'none' | 'month' | 'affiliate'>('none');
   const [trackingCollapsed,          setTrackingCollapsed]          = useState<Set<string>>(new Set());
 
@@ -599,6 +600,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [invoiceAffiliateFilter, setInvoiceAffiliateFilter] = useState('all');
   const [invoiceStatusFilter,   setInvoiceStatusFilter]   = useState('all');
   const [invoiceMonthFilter,    setInvoiceMonthFilter]    = useState('all');
+  const [invoiceSearch,         setInvoiceSearch]         = useState('');
   const [invoiceSort,           setInvoiceSort]           = useState<SortState>({ field: 'date', dir: 'desc' });
   const [updatingInvoice,       setUpdatingInvoice]       = useState<string | null>(null);
   const [invoiceGroupBy,        setInvoiceGroupBy]        = useState<'none' | 'month' | 'affiliate'>('none');
@@ -631,7 +633,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     (trackingActivity as any[]).filter((a) =>
       inDateRange(a.clickDate, mgTrackingFilter, mgTrackingCustomFrom, mgTrackingCustomTo) &&
       (mgTrackingStatusFilter === 'all' || a.status === mgTrackingStatusFilter) &&
-      (mgTrackingAffiliateFilter === 'all' || a.affiliateId === mgTrackingAffiliateFilter)
+      (mgTrackingAffiliateFilter === 'all' || a.affiliateId === mgTrackingAffiliateFilter) &&
+      (mgTrackingSearch === '' ||
+        (prettyCardName(a.cardName) || '').toLowerCase().includes(mgTrackingSearch.toLowerCase()) ||
+        (a.memberName || '').toLowerCase().includes(mgTrackingSearch.toLowerCase()))
     ),
     mgTrackingSort,
   );
@@ -1650,7 +1655,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                       <h3 className="text-[15px] font-bold text-ink mb-0.5">Top approved cards</h3>
                       <p className="text-[12.5px] text-faint mb-3.5">Across all affiliates</p>
                       {mostApprovedCards.map((c, idx) => (
-                        <div key={c.name} className="flex items-center gap-3.5 py-2.5 border-b border-hair2">
+                        <div key={c.name} className="flex items-center gap-3.5 py-2.5 border-b border-hair2 last:border-b-0">
                           <span className="text-[13px] font-medium text-faint2 w-3.5 flex-shrink-0 tabular-nums">{idx + 1}</span>
                           <span className="text-[13px] font-medium text-ink truncate flex-1 min-w-0">{prettyCardName(c.name)}</span>
                           <span className="text-sm font-bold text-ink flex-shrink-0 tabular-nums">{c.approvals}</span>
@@ -1882,12 +1887,15 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   </div>
                 </div>
 
-                {/* Date filter */}
-                <FilterBar
-                  filter={mgTrackingFilter}         setFilter={v => { setMgTrackingFilter(v); setTrackingVisible(trackingPageSize); }}
-                  customFrom={mgTrackingCustomFrom} setCustomFrom={v => { setMgTrackingCustomFrom(v); setTrackingVisible(trackingPageSize); }}
-                  customTo={mgTrackingCustomTo}     setCustomTo={v => { setMgTrackingCustomTo(v); setTrackingVisible(trackingPageSize); }}
-                />
+                {/* Search + date filter */}
+                <div className="relative flex items-center gap-5 pl-11 min-h-9 flex-wrap">
+                  <SearchBox value={mgTrackingSearch} onChange={v => { setMgTrackingSearch(v); setTrackingVisible(trackingPageSize); }} placeholder="Search by card or member" />
+                  <FilterBar
+                    filter={mgTrackingFilter}         setFilter={v => { setMgTrackingFilter(v); setTrackingVisible(trackingPageSize); }}
+                    customFrom={mgTrackingCustomFrom} setCustomFrom={v => { setMgTrackingCustomFrom(v); setTrackingVisible(trackingPageSize); }}
+                    customTo={mgTrackingCustomTo}     setCustomTo={v => { setMgTrackingCustomTo(v); setTrackingVisible(trackingPageSize); }}
+                  />
+                </div>
 
                 {/* Status filter */}
                 <div className="flex flex-wrap items-center gap-5">
@@ -2357,7 +2365,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
               <div className="sticky top-16 z-10 bg-white p-5 border-b border-hair2 space-y-3">
                 <TabHead title="Invoices" ts={lastUpdated.invoices} count={invoices.length} noun="invoices" />
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="relative flex flex-wrap items-center gap-3 pl-11 min-h-9">
+                  <SearchBox value={invoiceSearch} onChange={v => { setInvoiceSearch(v); setInvoicesVisible(PAGE_SIZE); }} placeholder="Search by affiliate or month" />
                   {/* Affiliate filter */}
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-faint">Affiliate:</span>
@@ -2461,7 +2470,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                   invoices.filter((inv: any) =>
                     (invoiceAffiliateFilter === 'all' || inv.email === invoiceAffiliateFilter) &&
                     (invoiceMonthFilter     === 'all' || inv.month === invoiceMonthFilter) &&
-                    (invoiceStatusFilter    === 'all' || inv.status === invoiceStatusFilter)
+                    (invoiceStatusFilter    === 'all' || inv.status === invoiceStatusFilter) &&
+                    (invoiceSearch === '' ||
+                      (inv.name  || '').toLowerCase().includes(invoiceSearch.toLowerCase()) ||
+                      (inv.month || '').toLowerCase().includes(invoiceSearch.toLowerCase()))
                   ),
                   invoiceSort,
                 );
