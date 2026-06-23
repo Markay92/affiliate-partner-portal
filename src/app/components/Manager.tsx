@@ -415,6 +415,12 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   // Reset password
   const [resetPassword, setResetPassword] = useState('');
 
+  // Share login — generate a temp password + a ready-to-send message
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareLoading, setShareLoading]     = useState(false);
+  const [shareCopied, setShareCopied]       = useState(false);
+  const [shareData, setShareData]           = useState<{ name: string; email: string; password: string; message: string } | null>(null);
+
   // Stats grid comparison period
   type StatPeriod = 'today' | 'week' | 'month' | 'lm' | 'year' | 'custom';
   const [statPeriod, setStatPeriod] = useState<StatPeriod>('month');
@@ -964,6 +970,56 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     } catch { setMessageWithTimeout('Failed to reset password', 8000); }
   };
 
+  // Generate a temporary password, set it on the account, and build a
+  // ready-to-send login message the manager can copy or share.
+  const shareLogin = async (user: any) => {
+    if (!user?.email) { setMessageWithTimeout('This affiliate has no email on file', 8000); return; }
+    setSelectedUser(user);
+    setShareLoading(true);
+    setShareCopied(false);
+    setShowShareModal(true);
+    setShareData(null);
+    // Readable temp password, e.g. "Card-9F4K7Q" (meets the 6-char minimum).
+    const rand = Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
+    const tempPw = `Card-${rand}`;
+    try {
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/user/${user.id}/reset-password`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'X-Manager-Session': sessionToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ newPassword: tempPw }),
+        },
+      );
+      const data = await response.json();
+      if (!data.success) { setShowShareModal(false); setMessageWithTimeout(data.error || 'Failed to prepare login', 8000); return; }
+      const portal = window.location.origin;
+      const message =
+`Hi ${user.name || 'there'}, here are your Affiliate Portal login details:
+
+Portal: ${portal}
+Username: ${user.email}
+Temporary password: ${tempPw}
+
+Please sign in and reset your password from your profile.`;
+      setShareData({ name: user.name || '', email: user.email, password: tempPw, message });
+    } catch {
+      setShowShareModal(false);
+      setMessageWithTimeout('Failed to prepare login', 8000);
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const copyShareMessage = async () => {
+    if (!shareData) return;
+    try { await navigator.clipboard.writeText(shareData.message); setShareCopied(true); setTimeout(() => setShareCopied(false), 2000); } catch {}
+  };
+
   const updateCommission = async (userId: string, rate: number) => {
     try {
       const response = await fetch(
@@ -1307,6 +1363,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
                     <button onClick={() => { setRowMenu(null); loginAsUser(user.id, user.email); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-subtle hover:bg-surface transition-colors"><LogIn className="w-4 h-4 text-brand" />Log in as</button>
                     <button onClick={() => { setRowMenu(null); setEditingCommission(user.id); setCommissionValue((user.commissionRate || 100).toString()); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-subtle hover:bg-surface transition-colors"><DollarSign className="w-4 h-4 text-faint" />Edit commission</button>
                     <button onClick={() => { setRowMenu(null); setSelectedUser(user); setEditName(user.name||''); setEditEmail(user.email||''); setEditPhone(user.phone||''); setEditAddress(user.address||''); setEditCity(user.city||''); setEditState(user.state||''); setEditZip(user.zip||''); setEditCountry(user.country||''); setEditEzrxRef(user.ezrxRef||''); setShowEditModal(true); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-subtle hover:bg-surface transition-colors"><Edit className="w-4 h-4 text-faint" />Edit details</button>
+                    <button onClick={() => { setRowMenu(null); shareLogin(user); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-subtle hover:bg-surface transition-colors"><Send className="w-4 h-4 text-faint" />Share login</button>
                     <button onClick={() => { setRowMenu(null); setSelectedUser(user); setShowResetModal(true); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-subtle hover:bg-surface transition-colors"><Key className="w-4 h-4 text-faint" />Reset password</button>
                     <button onClick={() => { setRowMenu(null); deleteUser(user.id, user.email); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-neg hover:bg-red-50 transition-colors"><Trash2 className="w-4 h-4" />Delete</button>
                   </div>
@@ -2727,6 +2784,36 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         </Dialog.Root>
 
         {/* Reset Password */}
+        {/* Share login — temp password + ready-to-send message */}
+        <Dialog.Root open={showShareModal} onOpenChange={(o) => { setShowShareModal(o); if (!o) { setShareData(null); setSelectedUser(null); } }}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 bg-ink/60 backdrop-blur-sm z-50" />
+            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl ring-1 ring-ink/10 z-50">
+              <Dialog.Title className="text-lg font-semibold text-ink mb-1">Share login</Dialog.Title>
+              <Dialog.Description className="text-sm text-subtle mb-4">
+                A temporary password was set{shareData ? <> for <strong className="text-ink">{shareData.email}</strong></> : ''}. Send these details so they can sign in and reset it.
+              </Dialog.Description>
+              {shareLoading || !shareData ? (
+                <div className="flex items-center gap-2.5 text-sm text-subtle py-8 justify-center"><Spinner className="w-5 h-5" strokeWidth={4} /> Preparing login…</div>
+              ) : (
+                <>
+                  <div className="space-y-2 rounded-xl border border-hair bg-surface px-4 py-3 text-sm">
+                    <div className="flex justify-between gap-3"><span className="text-faint">Username</span><span className="text-ink font-medium text-right break-all">{shareData.email}</span></div>
+                    <div className="flex justify-between gap-3"><span className="text-faint">Temp password</span><span className="text-ink font-mono-ds font-medium">{shareData.password}</span></div>
+                  </div>
+                  <pre className="mt-3 max-h-44 overflow-y-auto whitespace-pre-wrap rounded-xl border border-hair bg-white px-4 py-3 text-[13px] leading-relaxed text-subtle">{shareData.message}</pre>
+                  <div className="flex gap-3 mt-5">
+                    <button type="button" onClick={copyShareMessage} className="flex-1 inline-flex items-center justify-center gap-2 bg-brand text-white py-2.5 rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium">
+                      {shareCopied ? <><CheckCircle className="w-4 h-4" /> Copied</> : <><Copy className="w-4 h-4" /> Copy message</>}
+                    </button>
+                    <button type="button" onClick={() => { setShowShareModal(false); setShareData(null); setSelectedUser(null); }} className="flex-1 bg-hair2 text-subtle py-2.5 rounded-lg hover:bg-hair transition-colors text-sm font-medium">Done</button>
+                  </div>
+                </>
+              )}
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+
         <Dialog.Root open={showResetModal} onOpenChange={setShowResetModal}>
           <Dialog.Portal>
             <Dialog.Overlay className="fixed inset-0 bg-ink/60 backdrop-blur-sm z-50" />
