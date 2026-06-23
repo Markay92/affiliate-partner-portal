@@ -449,6 +449,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const boostPanelRef = useRef<HTMLDivElement>(null); // the popover itself (open/close tween)
   const boostListRef = useRef<HTMLDivElement>(null);  // the scroll list (FLIP reorder)
   const flipState = useRef<any>(null);                // captured row positions before a reorder
+  const flipTween = useRef<any>(null);                // in-flight FLIP tween (killed before a new one)
   // Card id currently being drag-reordered in the featured panel.
   const [dragFeatId, setDragFeatId] = useState<string | null>(null);
   // Which card's bonus/details popover is tapped open (mobile — desktop uses hover).
@@ -473,6 +474,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [cardsSearch,       setCardsSearch]       = useState('');
   const [cardsGroupBy,      setCardsGroupBy]      = useState(false);
   const [cardsCollapsed,    setCardsCollapsed]    = useState<Set<string>>(new Set());
+  const [searchOpen,        setSearchOpen]        = useState(false);          // Cards search: icon → expands
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [typeMenuOpen,      setTypeMenuOpen]      = useState(false);          // "More" type-filter overflow menu
+  const typeMenuRef = useRef<HTMLDivElement>(null);
 
   // Pagination
   const [cardsVisible,    setCardsVisible]    = useState(PAGE_SIZE);
@@ -596,6 +601,16 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     return () => document.removeEventListener('mousedown', handler);
   }, [boostOpen]);
 
+  // Close the "More" card-type overflow menu on an outside click.
+  useEffect(() => {
+    if (!typeMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (typeMenuRef.current && !typeMenuRef.current.contains(e.target as Node)) setTypeMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [typeMenuOpen]);
+
   // Open/close animation for the featured panel — slide + fade from the chip,
   // staying mounted through the close tween so the exit is visible.
   useLayoutEffect(() => {
@@ -621,7 +636,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   // from its old slot to its new one (the dragged row is lifted via CSS).
   useLayoutEffect(() => {
     if (!flipState.current) return;
-    Flip.from(flipState.current, { duration: 0.3, ease: 'power2.inOut' });
+    flipTween.current?.kill();   // never stack two slides — that's the flicker
+    flipTween.current = Flip.from(flipState.current, { duration: 0.26, ease: 'power2.out' });
     flipState.current = null;
   }, [linkBuilderIds]);
 
@@ -1226,20 +1242,28 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                               onPointerDown={(e) => { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); setDragFeatId(c.cardId); }}
                               onPointerMove={(e) => {
                                 if (dragFeatId == null) return;
-                                const over = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement)?.closest('[data-feat-id]')?.getAttribute('data-feat-id');
-                                if (over && over !== dragFeatId) {
-                                  // Snapshot row positions so FLIP can animate the slide.
-                                  if (boostListRef.current && !prefersReducedMotion()) {
-                                    flipState.current = Flip.getState(boostListRef.current.querySelectorAll('[data-feat-id]'));
-                                  }
-                                  setLinkBuilderIds(prev => {
-                                    const a = [...prev];
-                                    const from = a.indexOf(dragFeatId), to = a.indexOf(over);
-                                    if (from < 0 || to < 0) return prev;
-                                    a.splice(to, 0, a.splice(from, 1)[0]);
-                                    return a;
-                                  });
+                                const overEl = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement)?.closest('[data-feat-id]') as HTMLElement | null;
+                                const over = overEl?.getAttribute('data-feat-id');
+                                if (!over || over === dragFeatId) return;
+                                const fromIdx = linkBuilderIds.indexOf(dragFeatId);
+                                const toIdx = linkBuilderIds.indexOf(over);
+                                if (fromIdx < 0 || toIdx < 0) return;
+                                // Only swap once the pointer passes the target row's midpoint —
+                                // hysteresis that stops the rapid back-and-forth reorder (the flicker).
+                                const rect = overEl!.getBoundingClientRect();
+                                const pastMid = e.clientY > rect.top + rect.height / 2;
+                                if ((toIdx > fromIdx && !pastMid) || (toIdx < fromIdx && pastMid)) return;
+                                // Snapshot row positions so FLIP can animate the slide.
+                                if (boostListRef.current && !prefersReducedMotion()) {
+                                  flipState.current = Flip.getState(boostListRef.current.querySelectorAll('[data-feat-id]'));
                                 }
+                                setLinkBuilderIds(prev => {
+                                  const a = [...prev];
+                                  const from = a.indexOf(dragFeatId), to = a.indexOf(over);
+                                  if (from < 0 || to < 0) return prev;
+                                  a.splice(to, 0, a.splice(from, 1)[0]);
+                                  return a;
+                                });
                               }}
                               onPointerUp={(e) => { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); setDragFeatId(null); }}
                               onPointerCancel={() => setDragFeatId(null)}
@@ -1498,23 +1522,65 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           <Slide tabKey="cards">
           <div>
             <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas pt-6 pb-1">
-            {/* Search */}
-            <div className="relative mb-[13px]">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[17px] h-[17px] text-faint pointer-events-none" />
-              <input type="text" placeholder="Search cards or issuers" value={cardsSearch}
-                onChange={e => { setCardsSearch(e.target.value); setCardsVisible(PAGE_SIZE); }}
-                className="w-full h-[42px] pl-10 pr-3.5 border border-line rounded-[10px] bg-white text-[14.5px] text-ink outline-none transition focus:border-brand focus:ring-[3px] focus:ring-brand/15" />
-            </div>
-
-            {/* Type chips — smaller, under the search */}
-            {cardTypes.length > 0 && (
-              <div className="ds-chips flex items-center gap-5 overflow-x-auto mb-[14px] -mx-1 px-1">
-                {(['all', ...cardTypes]).map(type => (
-                  <FilterChip key={type} active={cardsTypeFilter === type}
-                    onClick={() => { setCardsTypeFilter(type); setCardsVisible(PAGE_SIZE); }}>
-                    {type === 'all' ? 'All types' : type}
-                  </FilterChip>
-                ))}
+            {/* Search (icon → expands) + type chips, one row */}
+            {searchOpen ? (
+              <div className="relative mb-[14px]" data-noswipe>
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[17px] h-[17px] text-faint pointer-events-none" />
+                <input ref={searchInputRef} type="text" autoFocus placeholder="Search cards or issuers" value={cardsSearch}
+                  onChange={e => { setCardsSearch(e.target.value); setCardsVisible(PAGE_SIZE); }}
+                  onBlur={() => { if (!cardsSearch) setSearchOpen(false); }}
+                  className="w-full h-[42px] pl-10 pr-10 border border-line rounded-[10px] bg-white text-[14.5px] text-ink outline-none transition focus:border-brand focus:ring-[3px] focus:ring-brand/15" />
+                <button onClick={() => { setCardsSearch(''); setCardsVisible(PAGE_SIZE); setSearchOpen(false); }} title="Close search"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-md flex items-center justify-center text-faint2 hover:text-ink hover:bg-surface transition-colors cursor-pointer">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-5 mb-[14px]">
+                <button onClick={() => setSearchOpen(true)} title="Search cards or issuers"
+                  className="flex-shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full text-faint hover:text-ink hover:bg-surface transition-colors cursor-pointer">
+                  <Search className="w-[18px] h-[18px]" />
+                </button>
+                {cardTypes.length > 0 && (() => {
+                  const visibleTypes = cardTypes.slice(0, 4);               // All types + 4 = 5 selectable
+                  const hasMore = cardTypes.length > visibleTypes.length;
+                  const moreActive = cardsTypeFilter !== 'all' && !visibleTypes.includes(cardsTypeFilter);
+                  return (
+                    <>
+                      <div className="ds-chips flex items-center gap-5 overflow-x-auto -mx-1 px-1 min-w-0">
+                        {(['all', ...visibleTypes]).map(type => (
+                          <FilterChip key={type} active={cardsTypeFilter === type}
+                            onClick={() => { setCardsTypeFilter(type); setCardsVisible(PAGE_SIZE); }}>
+                            {type === 'all' ? 'All types' : type}
+                          </FilterChip>
+                        ))}
+                      </div>
+                      {hasMore && (
+                        <div ref={typeMenuRef} className="relative flex-shrink-0">
+                          <FilterChip active={typeMenuOpen || moreActive} onClick={() => setTypeMenuOpen(o => !o)}>
+                            {moreActive ? cardsTypeFilter : 'See more'}
+                            <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${typeMenuOpen ? 'rotate-180' : ''}`} />
+                          </FilterChip>
+                          {typeMenuOpen && (
+                            <div className="absolute right-0 top-full mt-2 z-30 w-[220px] max-w-[calc(100vw-32px)] bg-white rounded-2xl border border-hair shadow-[0_16px_44px_rgba(15,23,42,0.16)] py-1.5 max-h-[300px] overflow-y-auto">
+                              {(['all', ...cardTypes]).map(type => {
+                                const on = cardsTypeFilter === type;
+                                return (
+                                  <button key={type}
+                                    onClick={() => { setCardsTypeFilter(type); setCardsVisible(PAGE_SIZE); setTypeMenuOpen(false); }}
+                                    className={`flex items-center justify-between gap-2 w-full px-4 py-2 text-[13px] text-left transition-colors cursor-pointer ${on ? 'text-brand font-semibold' : 'text-subtle font-medium hover:bg-surface'}`}>
+                                    <span className="truncate">{type === 'all' ? 'All types' : type}</span>
+                                    {on && <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             )}
 

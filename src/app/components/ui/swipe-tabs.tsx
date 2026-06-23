@@ -58,10 +58,23 @@ export function SwipeCarousel({
     .map(({ rel, i }) => ({ rel, key: order[i] }));
   winsRef.current = wins;
 
+  // Push off-screen neighbours an extra 2px past the edge so sub-pixel rounding
+  // can't leak a 1px sliver of the next/prev panel through the clip seam.
   const applyTransform = (dx: number) => {
     for (const { rel, key } of winsRef.current) {
       const n = nodes.current[key];
-      if (n) n.style.transform = `translateX(calc(${rel * 100}% + ${dx}px))`;
+      if (n) n.style.transform = `translateX(calc(${rel * 100}% + ${rel * 2}px + ${dx}px))`;
+    }
+  };
+
+  // Neighbours render `display:none` so their (often tall) content never paints
+  // through the seam and never adds to the page's scroll height. They're only
+  // shown for the duration of a live swipe, then hidden again.
+  const showSidePanels = (show: boolean) => {
+    for (const { rel, key } of winsRef.current) {
+      if (rel === 0) continue;
+      const n = nodes.current[key];
+      if (n) n.style.display = show ? 'block' : 'none';
     }
   };
 
@@ -114,6 +127,7 @@ export function SwipeCarousel({
       }
       if (!st.horiz) return;
       e.preventDefault(); // listener is non-passive
+      showSidePanels(true); // reveal neighbours for the slide
 
       const { order, active } = live.current;
       const i = order.indexOf(active);
@@ -156,6 +170,7 @@ export function SwipeCarousel({
         gsap.to(proxy, {
           dx: 0, duration: 0.3, ease: 'power3.out',
           onUpdate: () => { applyTransform(proxy.dx); live.current.onDrag?.(target, target ? Math.min(1, Math.abs(proxy.dx) / w) : 0); },
+          onComplete: () => showSidePanels(false), // sprung back — hide neighbours again
         });
       }
     };
@@ -186,7 +201,10 @@ export function SwipeCarousel({
             style={{
               position: rel === 0 ? 'relative' : 'absolute',
               top: 0, left: 0, width: '100%',
-              transform: `translateX(${rel * 100}%)`,
+              transform: `translateX(calc(${rel * 100}% + ${rel * 2}px))`,
+              // Neighbours stay hidden (no seam bleed, no extra scroll height) until
+              // a live swipe reveals them; the active panel is always shown.
+              display: rel === 0 ? undefined : 'none',
               // Keep off-screen neighbours from grabbing taps before they're active.
               pointerEvents: rel === 0 ? 'auto' : 'none',
             }}
