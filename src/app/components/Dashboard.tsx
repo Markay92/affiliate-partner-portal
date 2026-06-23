@@ -228,11 +228,8 @@ function EmptyState({ icon: Icon, title, subtitle, action }: {
 }) {
   return (
     <div className="flex flex-col items-center text-center px-6 py-16 sm:py-24">
-      <div className="relative mb-5">
-        <div className="absolute inset-0 -m-2.5 rounded-[22px] bg-brand-soft/70 blur-[3px]" aria-hidden />
-        <div className="relative w-[64px] h-[64px] rounded-[18px] bg-gradient-to-b from-white to-brand-soft ring-1 ring-hair flex items-center justify-center shadow-[0_6px_16px_-8px_rgba(10,132,255,0.4)]">
-          <Icon className="w-[26px] h-[26px] text-brand" strokeWidth={1.7} />
-        </div>
+      <div className="w-[52px] h-[52px] rounded-2xl bg-surface flex items-center justify-center mb-5">
+        <Icon className="w-6 h-6 text-faint2" strokeWidth={1.7} />
       </div>
       <h3 className="text-[17px] font-semibold text-ink tracking-[-0.015em] mb-1.5">{title}</h3>
       <p className="text-[13.5px] text-faint leading-relaxed max-w-[320px]">{subtitle}</p>
@@ -482,6 +479,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [trackingCustomTo,     setTrackingCustomTo]     = useState('');
   const [trackingSort,         setTrackingSort]         = useState<SortState>({ field: 'processDate', dir: 'desc' });
   const [trackingStatusFilter, setTrackingStatusFilter] = useState('all');
+  const [activitySearch,       setActivitySearch]       = useState('');
+  const [invoiceSearch,        setInvoiceSearch]        = useState('');
 
   // Cards tab — sort + filters + search + group
   const [cardsSort,         setCardsSort]         = useState<SortState>({ field: 'earned', dir: 'desc' });
@@ -761,9 +760,17 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const displayTracking = applySort(
     tracking.filter(t =>
       inDateRange(t.processDate || t.clickDate, trackingFilter, trackingCustomFrom, trackingCustomTo) &&
-      (trackingStatusFilter === 'all' || t.status === trackingStatusFilter)
+      (trackingStatusFilter === 'all' || t.status === trackingStatusFilter) &&
+      (activitySearch === '' || (decodeHtml(t.cardName) || '').toLowerCase().includes(activitySearch.toLowerCase()))
     ),
     trackingSort,
+  );
+
+  // Affiliate invoices filtered by the (optional) search over month / status.
+  const displayInvoices = invoices.filter(inv =>
+    invoiceSearch === '' ||
+    (inv.month || '').toLowerCase().includes(invoiceSearch.toLowerCase()) ||
+    (inv.status || '').toLowerCase().includes(invoiceSearch.toLowerCase())
   );
 
   // Resolve every card-activity record (clicks/applications/approvals) that
@@ -1497,7 +1504,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                       <h3 className="text-[15px] font-bold text-ink mb-0.5">Top approved cards</h3>
                       <p className="text-[12.5px] text-faint mb-3.5">Ranked by approvals</p>
                       {mostApprovedCards.map((c, idx) => (
-                        <div key={c.name} className="flex items-center gap-3.5 py-2.5 border-b border-hair2">
+                        <div key={c.name} className="flex items-center gap-3.5 py-2.5 border-b border-hair2 last:border-b-0">
                           <span className="text-[13px] font-medium text-faint2 w-3.5 flex-shrink-0 tabular-nums">{idx+1}</span>
                           <span className="text-[13px] font-medium text-ink truncate flex-1 min-w-0">{decodeHtml(c.name)}</span>
                           <span className="text-sm font-bold text-ink flex-shrink-0 tabular-nums">{c.approvals}</span>
@@ -1833,14 +1840,17 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas border-b border-hair pt-5 pb-3">
             <TabHead title="Activity" ts={lastUpdated} count={displayTracking.length} noun="records" />
             <div className="space-y-2.5">
-              <FilterBar
-                filter={trackingFilter}
-                setFilter={v => { setTrackingFilter(v); setActivityVisible(activityPageSize); }}
-                customFrom={trackingCustomFrom}
-                setCustomFrom={v => { setTrackingCustomFrom(v); setActivityVisible(activityPageSize); }}
-                customTo={trackingCustomTo}
-                setCustomTo={v => { setTrackingCustomTo(v); setActivityVisible(activityPageSize); }}
-              />
+              <div className="relative flex items-center gap-5 pl-11 min-h-9 flex-wrap">
+                <SearchBox value={activitySearch} onChange={v => { setActivitySearch(v); setActivityVisible(activityPageSize); }} placeholder="Search activity by card" />
+                <FilterBar
+                  filter={trackingFilter}
+                  setFilter={v => { setTrackingFilter(v); setActivityVisible(activityPageSize); }}
+                  customFrom={trackingCustomFrom}
+                  setCustomFrom={v => { setTrackingCustomFrom(v); setActivityVisible(activityPageSize); }}
+                  customTo={trackingCustomTo}
+                  setCustomTo={v => { setTrackingCustomTo(v); setActivityVisible(activityPageSize); }}
+                />
+              </div>
               <div className="flex flex-wrap items-center gap-5">
                 <span className="text-xs font-medium text-faint">Status</span>
                 {[
@@ -1897,7 +1907,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     const dot = item.status === 'approval' ? 'var(--ds-pos)' : item.status === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
                     const earned = affiliateEarned(item);
                     return (
-                      <div key={item.id} className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 hover:bg-surface transition-colors duration-150">
+                      <div key={item.id} className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 last:border-b-0 hover:bg-surface transition-colors duration-150">
                         {/* Card name — flexible left column */}
                         <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{decodeHtml(item.cardName) || '—'}</span>
                         {/* Status */}
@@ -1990,6 +2000,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               <>
               <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas pt-5 pb-1">
               <TabHead title="Invoices" ts={lastUpdated} count={invoices.length} noun="invoices" />
+              <div className="relative flex items-center gap-5 pl-11 min-h-9 pb-2.5">
+                <SearchBox value={invoiceSearch} onChange={v => { setInvoiceSearch(v); setInvoicesVisible(PAGE_SIZE); }} placeholder="Search invoices by month" />
+              </div>
               {/* Column headers */}
               <div className="flex items-center gap-3 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
                 <span className="w-3.5 flex-shrink-0" aria-hidden />
@@ -2001,7 +2014,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
               </div>
               <div>
-                {invoices.slice(0, invoicesVisible).map(inv => {
+                {displayInvoices.slice(0, invoicesVisible).map(inv => {
                   const isExpanded = expandedInvoices.has(inv.id);
                   const approvedItems = getInvoiceItems(inv).filter(i => i.status === 'approval');
                   const items = isExpanded ? approvedItems : [];
@@ -2060,7 +2073,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               {/* Page-size selector — bottom of the list. Numeric options enable only when enough invoices exist; otherwise All. */}
               <div className="flex items-center justify-between flex-wrap gap-2 pt-4 mt-2 border-t border-hair">
                 <p className="text-xs text-faint">
-                  Showing {Math.min(invoicesVisible, invoices.length)} of {invoices.length} invoices
+                  Showing {Math.min(invoicesVisible, displayInvoices.length)} of {displayInvoices.length} invoices
                 </p>
                 <div className="flex items-center gap-1.5 text-xs text-faint">
                   <span>Show</span>
