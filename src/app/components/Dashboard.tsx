@@ -403,6 +403,34 @@ function SortTh({
   );
 }
 
+// Clickable column header for the flex-row "tables" (Activity / Invoices).
+// Mirrors SortTh but renders a <span> so it can live inside a flex header row.
+function SortHead({
+  label, field, sort, onSort, className = '', align = 'left',
+}: {
+  label: string; field: string; sort: SortState;
+  onSort: (f: string) => void; className?: string; align?: 'left' | 'right';
+}) {
+  const active = sort.field === field;
+  const icon = active
+    ? sort.dir === 'asc'
+      ? <ChevronUp className="w-3 h-3 flex-shrink-0" />
+      : <ChevronDown className="w-3 h-3 flex-shrink-0" />
+    : <ChevronsUpDown className="w-3 h-3 flex-shrink-0 text-faint2" />;
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      onClick={() => onSort(field)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSort(field); } }}
+      aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      className={`inline-flex items-center gap-1 cursor-pointer select-none hover:text-subtle transition-colors duration-150 ${align === 'right' ? 'justify-end' : ''} ${active ? 'text-brand' : ''} ${className}`}
+    >
+      {label}{icon}
+    </span>
+  );
+}
+
 // Smoothly counts a number up to its target on mount / when it changes (GSAP)
 function CountUp({ value, format }: { value: number; format: (n: number) => string }) {
   const ref = useRef<HTMLSpanElement>(null);
@@ -476,6 +504,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [trackingStatusFilter, setTrackingStatusFilter] = useState('all');
   const [activitySearch,       setActivitySearch]       = useState('');
   const [invoiceSearch,        setInvoiceSearch]        = useState('');
+  // Invoices tab — default to most recent (date descending)
+  const [invoiceSort,          setInvoiceSort]          = useState<SortState>({ field: 'date', dir: 'desc' });
 
   // Cards tab — sort + filters + search + group
   const [cardsSort,         setCardsSort]         = useState<SortState>({ field: 'earned', dir: 'desc' });
@@ -748,16 +778,34 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       inDateRange(t.processDate || t.clickDate, trackingFilter, trackingCustomFrom, trackingCustomTo) &&
       (trackingStatusFilter === 'all' || t.status === trackingStatusFilter) &&
       (activitySearch === '' || (decodeHtml(t.cardName) || '').toLowerCase().includes(activitySearch.toLowerCase()))
-    ),
+    // Surface the affiliate's real earning as a sortable field on each row.
+    ).map(t => ({ ...t, earned: affiliateEarned(t), card: decodeHtml(t.cardName) || '' })),
     trackingSort,
   );
 
-  // Affiliate invoices filtered by the (optional) search over month / status.
-  const displayInvoices = invoices.filter(inv =>
+  // Affiliate invoices filtered by the (optional) search over month / status,
+  // then sorted by the active column (default: most recent first).
+  const displayInvoices = [...invoices.filter(inv =>
     invoiceSearch === '' ||
     (inv.month || '').toLowerCase().includes(invoiceSearch.toLowerCase()) ||
     (inv.status || '').toLowerCase().includes(invoiceSearch.toLowerCase())
-  );
+  )].sort((a, b) => {
+    const f = invoiceSort.field;
+    let cmp = 0;
+    if (f === 'amount')         cmp = (a.amount || 0) - (b.amount || 0);
+    else if (f === 'approvals') cmp = (a.approvals || 0) - (b.approvals || 0);
+    else if (f === 'status')    cmp = String(a.status || '').localeCompare(String(b.status || ''));
+    else if (f === 'month') {
+      const pa = parseInvoiceMonth(a.month);
+      const pb = parseInvoiceMonth(b.month);
+      const va = pa ? pa.year * 12 + pa.monthIndex : -Infinity;
+      const vb = pb ? pb.year * 12 + pb.monthIndex : -Infinity;
+      cmp = va - vb;
+    } else { // 'date'
+      cmp = parseLocalDate(a.date || '').getTime() - parseLocalDate(b.date || '').getTime();
+    }
+    return invoiceSort.dir === 'asc' ? cmp : -cmp;
+  });
 
   // Resolve every card-activity record (clicks/applications/approvals) that
   // falls within a given invoice's month + year — the items behind that payout.
@@ -1556,24 +1604,14 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 })()}
               </div>
             </div>
-            {/* Column headers — aligned to the card rows; click a metric to sort */}
+            {/* Column headers — aligned to the card rows; click a column to sort */}
             <div className="flex items-center gap-[18px] pt-3 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
-              <span className="flex-1 min-w-0">Card</span>
-              <span className="hidden sm:block w-[120px] lg:w-[150px] text-right">Issuer</span>
+              <SortHead label="Card" field="name" sort={cardsSort} onSort={f => setCardsSort(s => toggleSort(s, f))} className="flex-1 min-w-0" />
+              <SortHead label="Issuer" field="issuer" sort={cardsSort} onSort={f => setCardsSort(s => toggleSort(s, f))} align="right" className="hidden sm:inline-flex w-[120px] lg:w-[150px]" />
               <div className="flex items-baseline gap-3 sm:gap-4 flex-shrink-0">
-                {([['earned', 'Earned'], ['conv', 'Conv'], ['cpa', 'Payout']] as const).map(([key, label]) => {
-                  const on = cardsSort.field === key;
-                  const wcls = key === 'earned' ? 'hidden md:inline-flex md:min-w-[72px]'
-                    : key === 'conv' ? 'hidden sm:inline-flex sm:min-w-[74px]'
-                    : 'inline-flex sm:min-w-[72px]';
-                  return (
-                    <button key={key}
-                      onClick={() => setCardsSort(s => s.field === key ? { field: key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { field: key, dir: 'desc' })}
-                      className={`${wcls} items-center justify-end gap-0.5 text-[11px] font-semibold text-right uppercase tracking-[0.05em] cursor-pointer transition-colors ${on ? 'text-ink' : 'text-faint2 hover:text-subtle'}`}>
-                      {label}{on && <span className="text-[10px]">{cardsSort.dir === 'asc' ? '↑' : '↓'}</span>}
-                    </button>
-                  );
-                })}
+                <SortHead label="Earned" field="earned" sort={cardsSort} onSort={f => setCardsSort(s => toggleSort(s, f))} align="right" className="hidden md:inline-flex md:min-w-[72px]" />
+                <SortHead label="Conv" field="conv" sort={cardsSort} onSort={f => setCardsSort(s => toggleSort(s, f))} align="right" className="hidden sm:inline-flex sm:min-w-[74px]" />
+                <SortHead label="Payout" field="cpa" sort={cardsSort} onSort={f => setCardsSort(s => toggleSort(s, f))} align="right" className="inline-flex sm:min-w-[72px]" />
               </div>
               <span className="w-[26px] flex-shrink-0" aria-hidden />
             </div>
@@ -1843,12 +1881,12 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               <>
                 {/* Column headers */}
                 <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
-                  <span className="flex-1 min-w-0">Card</span>
-                  <span className="hidden sm:block w-[100px]">Status</span>
-                  <span className="w-[112px] text-right">Date</span>
-                  <span className="hidden md:block w-[110px] text-right">Device</span>
-                  <span className="hidden lg:block w-[150px] text-right">Location</span>
-                  <span className="w-[76px] text-right">Earned</span>
+                  <SortHead label="Card" field="card" sort={trackingSort} onSort={f => setTrackingSort(s => toggleSort(s, f))} className="flex-1 min-w-0" />
+                  <SortHead label="Status" field="status" sort={trackingSort} onSort={f => setTrackingSort(s => toggleSort(s, f))} className="hidden sm:inline-flex w-[100px]" />
+                  <SortHead label="Date" field="processDate" sort={trackingSort} onSort={f => setTrackingSort(s => toggleSort(s, f))} align="right" className="w-[112px]" />
+                  <SortHead label="Device" field="deviceType" sort={trackingSort} onSort={f => setTrackingSort(s => toggleSort(s, f))} align="right" className="hidden md:inline-flex w-[110px]" />
+                  <SortHead label="Location" field="state" sort={trackingSort} onSort={f => setTrackingSort(s => toggleSort(s, f))} align="right" className="hidden lg:inline-flex w-[150px]" />
+                  <SortHead label="Earned" field="earned" sort={trackingSort} onSort={f => setTrackingSort(s => toggleSort(s, f))} align="right" className="w-[76px]" />
                 </div>
                 <div>
                   {displayTracking.slice(0, activityVisible).map((item) => {
@@ -1954,11 +1992,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               {/* Column headers */}
               <div className="flex items-center gap-3 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
                 <span className="w-3.5 flex-shrink-0" aria-hidden />
-                <span className="flex-1 min-w-0">Month</span>
-                <span className="hidden sm:block w-[116px] text-right">Date</span>
-                <span className="w-[68px] sm:w-[84px] text-right">Appr.</span>
-                <span className="hidden md:block w-[112px] text-right">Status</span>
-                <span className="w-[88px] text-right">Amount</span>
+                <SortHead label="Month" field="month" sort={invoiceSort} onSort={f => setInvoiceSort(s => toggleSort(s, f))} className="flex-1 min-w-0" />
+                <SortHead label="Date" field="date" sort={invoiceSort} onSort={f => setInvoiceSort(s => toggleSort(s, f))} align="right" className="hidden sm:inline-flex w-[116px]" />
+                <SortHead label="Appr." field="approvals" sort={invoiceSort} onSort={f => setInvoiceSort(s => toggleSort(s, f))} align="right" className="w-[68px] sm:w-[84px]" />
+                <SortHead label="Status" field="status" sort={invoiceSort} onSort={f => setInvoiceSort(s => toggleSort(s, f))} align="right" className="hidden md:inline-flex w-[112px]" />
+                <SortHead label="Amount" field="amount" sort={invoiceSort} onSort={f => setInvoiceSort(s => toggleSort(s, f))} align="right" className="w-[88px]" />
               </div>
               </div>
               <div>
