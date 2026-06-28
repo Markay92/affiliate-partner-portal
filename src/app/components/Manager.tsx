@@ -348,28 +348,31 @@ function SortTh({
   );
 }
 
-function SortThSm({
-  label, field, sort, onSort, align = 'left',
+// Clickable column header for the flex-row "tables" (Affiliates / Activity /
+// CPA rates / Invoices). Renders a <span> so it can live inside a flex header row.
+function SortHead({
+  label, field, sort, onSort, className = '', align = 'left',
 }: {
   label: string; field: string; sort: SortState;
-  onSort: (f: string) => void; align?: 'left' | 'right';
+  onSort: (f: string) => void; className?: string; align?: 'left' | 'right';
 }) {
-  const icon =
-    sort.field === field
-      ? sort.dir === 'asc'
-        ? <ChevronUp className="w-3 h-3 flex-shrink-0" />
-        : <ChevronDown className="w-3 h-3 flex-shrink-0" />
-      : <ChevronsUpDown className="w-3 h-3 flex-shrink-0 text-faint2" />;
+  const active = sort.field === field;
+  const icon = active
+    ? sort.dir === 'asc'
+      ? <ChevronUp className="w-3 h-3 flex-shrink-0" />
+      : <ChevronDown className="w-3 h-3 flex-shrink-0" />
+    : <ChevronsUpDown className="w-3 h-3 flex-shrink-0 text-faint2" />;
   return (
-    <th
+    <span
+      role="button"
+      tabIndex={0}
       onClick={() => onSort(field)}
-      aria-sort={sort.field === field ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-      className={`py-3 px-4 text-faint text-xs font-semibold cursor-pointer select-none hover:text-subtle transition-colors duration-150 text-${align}`}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSort(field); } }}
+      aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      className={`inline-flex items-center gap-1 cursor-pointer select-none hover:text-subtle transition-colors duration-150 ${align === 'right' ? 'justify-end' : ''} ${active ? 'text-brand' : ''} ${className}`}
     >
-      <span className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : ''} ${sort.field === field ? 'text-brand' : ''}`}>
-        {label}{icon}
-      </span>
-    </th>
+      {label}{icon}
+    </span>
   );
 }
 
@@ -1820,12 +1823,12 @@ Please sign in and reset your password from your profile.`;
                 {/* Column headers */}
                 <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
                   <span className="w-8 flex-shrink-0" aria-hidden />
-                  <span className="flex-1 min-w-0">Affiliate</span>
-                  <span className="hidden lg:block w-[180px] text-right">Email</span>
-                  <span className="hidden md:block w-[88px] text-right">ID</span>
-                  <span className="hidden sm:block w-[72px] text-right">Appr.</span>
-                  <span className="hidden sm:block w-[78px] text-right">Split</span>
-                  <span className="w-[84px] text-right">Earned</span>
+                  <SortHead label="Affiliate" field="name" sort={affiliatesSort} onSort={f => setAffiliatesSort(s => toggleSort(s, f))} className="flex-1 min-w-0" />
+                  <SortHead label="Email" field="email" sort={affiliatesSort} onSort={f => setAffiliatesSort(s => toggleSort(s, f))} align="right" className="hidden lg:inline-flex w-[180px]" />
+                  <SortHead label="ID" field="affiliateId" sort={affiliatesSort} onSort={f => setAffiliatesSort(s => toggleSort(s, f))} align="right" className="hidden md:inline-flex w-[88px]" />
+                  <SortHead label="Appr." field="totalConversions" sort={affiliatesSort} onSort={f => setAffiliatesSort(s => toggleSort(s, f))} align="right" className="hidden sm:inline-flex w-[72px]" />
+                  <SortHead label="Split" field="commissionRate" sort={affiliatesSort} onSort={f => setAffiliatesSort(s => toggleSort(s, f))} align="right" className="hidden sm:inline-flex w-[78px]" />
+                  <SortHead label="Earned" field="totalCommissions" sort={affiliatesSort} onSort={f => setAffiliatesSort(s => toggleSort(s, f))} align="right" className="w-[84px]" />
                   <span className="w-8 flex-shrink-0" aria-hidden />
                 </div>
                 {(() => {
@@ -2018,13 +2021,13 @@ Please sign in and reset your password from your profile.`;
                     <div>
                       {/* Column headers */}
                       <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
-                        <span className="flex-1 min-w-0">Card</span>
-                        <span className="hidden sm:block w-[100px]">Status</span>
-                        <span className="hidden lg:block w-[136px] text-right">Member</span>
-                        <span className="hidden md:block w-[116px] text-right">Date</span>
-                        <span className="hidden lg:block w-[104px] text-right">Device</span>
-                        <span className="hidden xl:block w-[132px] text-right">Location</span>
-                        <span className="w-[76px] text-right">Earned</span>
+                        <SortHead label="Card" field="cardName" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} className="flex-1 min-w-0" />
+                        <SortHead label="Status" field="status" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} className="hidden sm:inline-flex w-[100px]" />
+                        <SortHead label="Member" field="memberName" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="hidden lg:inline-flex w-[136px]" />
+                        <SortHead label="Date" field="clickDate" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="hidden md:inline-flex w-[116px]" />
+                        <SortHead label="Device" field="deviceType" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="hidden lg:inline-flex w-[104px]" />
+                        <SortHead label="Location" field="state" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="hidden xl:inline-flex w-[132px]" />
+                        <SortHead label="Earned" field="totalEarnings" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="w-[76px]" />
                       </div>
                       {(() => {
                             const dotColor = (s: string) => s === 'approval' ? 'var(--ds-pos)' : s === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
@@ -2337,12 +2340,12 @@ Please sign in and reset your password from your profile.`;
                     <div>
                         {/* Column headers */}
                         <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
-                          <span className="flex-1 min-w-0">Card</span>
-                          <span className="hidden sm:block w-[120px] lg:w-[140px] text-right">Issuer</span>
-                          <span className="hidden md:block w-[116px] text-right">Date</span>
-                          <span className="hidden lg:block w-[96px] text-right">Card ID</span>
-                          {cpaAffiliateFilter !== 'all' && <span className="hidden sm:block w-[104px] text-right">Payout</span>}
-                          <span className="w-[64px] text-right">CPA</span>
+                          <SortHead label="Card" field="card" sort={cpaSort} onSort={f => setCpaSort(s => toggleSort(s, f))} className="flex-1 min-w-0" />
+                          <SortHead label="Issuer" field="issuer" sort={cpaSort} onSort={f => setCpaSort(s => toggleSort(s, f))} align="right" className="hidden sm:inline-flex w-[120px] lg:w-[140px]" />
+                          <SortHead label="Date" field="date" sort={cpaSort} onSort={f => setCpaSort(s => toggleSort(s, f))} align="right" className="hidden md:inline-flex w-[116px]" />
+                          <SortHead label="Card ID" field="cardId" sort={cpaSort} onSort={f => setCpaSort(s => toggleSort(s, f))} align="right" className="hidden lg:inline-flex w-[96px]" />
+                          {cpaAffiliateFilter !== 'all' && <SortHead label="Payout" field="affiliatePayout" sort={cpaSort} onSort={f => setCpaSort(s => toggleSort(s, f))} align="right" className="hidden sm:inline-flex w-[104px]" />}
+                          <SortHead label="CPA" field="bankCpa" sort={cpaSort} onSort={f => setCpaSort(s => toggleSort(s, f))} align="right" className="w-[64px]" />
                         </div>
                         {cpaGroupBy ? (
                           // Grouped by issuer with collapse/expand
@@ -2559,11 +2562,11 @@ Please sign in and reset your password from your profile.`;
                     <div>
                         {/* Column headers */}
                         <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
-                          <span className="flex-1 min-w-0 pl-6">Affiliate</span>
-                          <span className="hidden sm:block w-[96px] text-right">Month</span>
-                          <span className="w-[64px] text-right">Appr.</span>
-                          <span className="hidden md:block w-[112px] text-right">Status</span>
-                          <span className="w-[92px] text-right">Amount</span>
+                          <SortHead label="Affiliate" field="name" sort={invoiceSort} onSort={f => setInvoiceSort(s => toggleSort(s, f))} className="flex-1 min-w-0 pl-6" />
+                          <SortHead label="Month" field="date" sort={invoiceSort} onSort={f => setInvoiceSort(s => toggleSort(s, f))} align="right" className="hidden sm:inline-flex w-[96px]" />
+                          <SortHead label="Appr." field="approvals" sort={invoiceSort} onSort={f => setInvoiceSort(s => toggleSort(s, f))} align="right" className="w-[64px]" />
+                          <SortHead label="Status" field="status" sort={invoiceSort} onSort={f => setInvoiceSort(s => toggleSort(s, f))} align="right" className="hidden md:inline-flex w-[112px]" />
+                          <SortHead label="Amount" field="amount" sort={invoiceSort} onSort={f => setInvoiceSort(s => toggleSort(s, f))} align="right" className="w-[92px]" />
                           <span className="w-8 flex-shrink-0" aria-hidden />
                         </div>
                         {(() => {
