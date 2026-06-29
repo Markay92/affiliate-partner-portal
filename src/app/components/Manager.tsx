@@ -1426,7 +1426,7 @@ Please sign in and reset your password from your profile.`;
   return (
     <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="min-h-screen bg-canvas">
       {/* Header */}
-      <header className="bg-white/90 backdrop-blur-md sticky top-0 z-10 border-b border-hair">
+      <header className="bg-white/90 backdrop-blur-md sticky top-0 z-30 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-[60px] gap-2">
             <div className="flex items-center gap-2.5 flex-1 min-w-0">
@@ -1748,7 +1748,7 @@ Please sign in and reset your password from your profile.`;
           <Slide tabKey="affiliates">
 
             {/* Toolbar: Search + Date filter + Group + Create */}
-            <div className="sticky top-[59px] z-10 bg-canvas/95 backdrop-blur-md pt-4 pb-3 mb-4 space-y-2.5 border-b border-hair">
+            <div className="sticky top-[60px] z-10 bg-canvas/95 backdrop-blur-md pt-4 pb-3 mb-4 space-y-2.5 border-b border-hair">
               <TabHead title="Affiliates" ts={lastUpdated.affiliates} count={displayUsers.length} noun="affiliates" />
               <div className="flex flex-wrap items-center gap-3">
                 {/* Search (icon → expands) */}
@@ -1900,7 +1900,7 @@ Please sign in and reset your password from your profile.`;
           {/* ── Tracking Activity Tab ── */}
           <Slide tabKey="tracking">
             <div className="mt-1">
-              <div className="sticky top-16 z-10 bg-white p-4 border-b border-hair2 space-y-2.5">
+              <div className="sticky top-[60px] z-10 bg-canvas/95 backdrop-blur-md pt-4 pb-3 mb-4 border-b border-hair space-y-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <TabHead title="Activity" ts={lastUpdated.tracking} count={displayTrackingActivity.length} noun="records" />
                   <div className="flex items-center gap-4">
@@ -1999,7 +1999,7 @@ Please sign in and reset your password from your profile.`;
                 )}
               </div>
 
-              <div className="p-4 sm:p-6 pt-3">
+              <div>
               {(() => {
                 const pagedTracking = displayTrackingActivity.slice(0, trackingVisible);
                 return (
@@ -2157,7 +2157,7 @@ Please sign in and reset your password from your profile.`;
           <Slide tabKey="cpa-rates">
             <div className="mt-1">
               {/* Toolbar */}
-              <div className="sticky top-16 z-10 bg-white p-5 border-b border-hair2 space-y-3">
+              <div className="sticky top-[60px] z-10 bg-canvas/95 backdrop-blur-md pt-4 pb-3 mb-4 border-b border-hair space-y-3">
                 <TabHead title="CPA Rates" ts={lastUpdated.cpa} count={cpaRates.length} noun="rates" />
                 {/* Row 1: Search + Affiliate + Refresh */}
                 <div className="flex flex-wrap items-center gap-3">
@@ -2419,7 +2419,7 @@ Please sign in and reset your password from your profile.`;
           <Slide tabKey="invoices">
             <div className="mt-1">
               {/* Toolbar */}
-              <div className="sticky top-16 z-10 bg-white p-5 border-b border-hair2 space-y-3">
+              <div className="sticky top-[60px] z-10 bg-canvas/95 backdrop-blur-md pt-4 pb-3 mb-4 border-b border-hair space-y-3">
                 <TabHead title="Invoices" ts={lastUpdated.invoices} count={invoices.length} noun="invoices" />
                 <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="relative flex flex-wrap items-center gap-3 pl-11 min-h-9">
