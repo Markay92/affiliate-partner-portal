@@ -2149,7 +2149,10 @@ Please sign in and reset your password from your profile.`;
                                 <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{prettyCardName(a.cardName) || '—'}</span>
                                 <span className="hidden sm:inline-flex items-center gap-1.5 w-[100px] flex-shrink-0 text-[13px] font-medium text-faint capitalize"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dotColor(a.status) }} />{a.status}</span>
                                 <span className="hidden lg:block w-[136px] flex-shrink-0 text-right text-[13px] font-medium text-faint truncate">{a.memberName}</span>
-                                <span className="hidden md:block w-[116px] flex-shrink-0 text-right text-[13px] font-medium text-faint tabular-nums whitespace-nowrap">{formatDate(a.clickDate)}</span>
+                                <span className="hidden md:flex flex-col items-end leading-tight w-[116px] flex-shrink-0 text-right tabular-nums whitespace-nowrap">
+                                  <span className="text-[13px] font-medium text-faint">{formatDate(a.clickDate)}</span>
+                                  {formatTime(a.clickTime) && <span className="text-[11px] font-medium text-faint2">{formatTime(a.clickTime)}</span>}
+                                </span>
                                 <span className="hidden lg:inline-flex items-center justify-end gap-1.5 w-[104px] flex-shrink-0 text-[13px] font-medium text-faint capitalize">
                                   {a.deviceType
                                     ? <>{/^mob|phone/i.test(a.deviceType) ? <Smartphone className="w-3.5 h-3.5 flex-shrink-0 text-faint2" /> : <Monitor className="w-3.5 h-3.5 flex-shrink-0 text-faint2" />}{a.deviceType}</>
