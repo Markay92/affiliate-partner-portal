@@ -1057,14 +1057,56 @@ async function flushSnapshots(): Promise<void> {
   await kv.set(SYNCED_AT_KEY, Date.now());
 }
 
-// Tracking ("API Output") — shared by the affiliate /tracking feed, the affiliate
-// KPIs, and the manager activity table.
-async function getCachedTracking(token: string, force = false): Promise<any[]> {
+// Tracking — sourced from the site's OWN database (quinstreet_records). The
+// QuinStreet importer writes here directly; the historical Airtable API Output
+// rows were backfilled in. Records are shaped to match the previous Airtable
+// `{ id, fields }` form so every downstream consumer — the affiliate /tracking
+// feed, the affiliate KPIs, and the manager activity table — works unchanged.
+// Airtable is no longer in this read path. `token` is unused (kept for callers).
+async function getCachedTracking(_token: string, force = false): Promise<any[]> {
   if (!force) { const hit = await readSnapshot('tracking'); if (hit) return hit; }
-  const records = await fetchAllAirtableRecords(
-    token, 'apphsOm1RQvOeiAEl', encodeURIComponent('API Output'),
-    'sort[0][field]=Click%20Date&sort[0][direction]=desc',
+
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL'),
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
   );
+
+  // Page through every row (a single Supabase select caps at 1000).
+  const rows: any[] = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('quinstreet_records')
+      .select('*')
+      .order('process_date', { ascending: false, nullsFirst: false })
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(`quinstreet_records read failed: ${error.message}`);
+    if (!data || data.length === 0) break;
+    rows.push(...data);
+    if (data.length < PAGE) break;
+  }
+
+  // Build Airtable-API-Output-shaped records from the canonical columns (which
+  // are consistent across both backfilled and QuinStreet-native rows), keeping
+  // any extra fields (Device Type, State, Status, Member Name…) from the jsonb.
+  const records = rows.map((r: any) => ({
+    id: `${r.click_id || ''}|${r.click_key || ''}`,
+    fields: {
+      ...(r.fields || {}),
+      'affiliate-id':   r.affiliate_id,
+      'Card Name':      r.card_name,
+      'Advertiser':     r.advertiser,
+      'Item Name':      r.item_name,
+      'Clicks':         r.clicks,
+      'Applications':   r.applications,
+      'Approvals':      r.approvals,
+      'Conversion ID':  r.conversion_id,
+      'Total Earnings': r.total_earnings,
+      'Click Date':     r.click_date,
+      'Process Date':   r.process_date,
+    },
+  }));
+
   await writeSnapshot('tracking', records);
   return records;
 }
@@ -1509,34 +1551,11 @@ app.post("/make-server-8dc4138c/manager/sync-tracking", async (c) => {
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
-    console.log('Starting tracking data sync from Airtable API Output...');
+    console.log('Starting tracking data sync from site DB (quinstreet_records)...');
 
-    const baseId = 'apphsOm1RQvOeiAEl';
-    const tableName = 'API Output';
-    const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
-
-    if (!airtableToken) {
-      return c.json({ error: 'Airtable API key not configured' }, 500);
-    }
-
-    // Fetch all records from Airtable API Output
-    const airtableUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`;
-    const airtableResponse = await fetch(airtableUrl, {
-      headers: {
-        'Authorization': `Bearer ${airtableToken}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!airtableResponse.ok) {
-      const errorText = await airtableResponse.text();
-      console.log('Airtable API error:', errorText);
-      return c.json({ error: `Airtable API error: ${airtableResponse.status}` }, 500);
-    }
-
-    const airtableData = await airtableResponse.json();
-    const records = airtableData.records || [];
-    console.log(`Fetched ${records.length} tracking records from Airtable`);
+    // Read tracking from the site's own database (force-refresh the snapshot).
+    const records = await getCachedTracking('', true);
+    console.log(`Loaded ${records.length} tracking records from site DB`);
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL'),
