@@ -1625,6 +1625,67 @@ app.post("/make-server-8dc4138c/manager/sync-tracking", async (c) => {
   }
 });
 
+// ── QuinStreet manager proxy ─────────────────────────────────────────────────
+// The QuinStreet pull/store/mirror pipeline lives in the standalone
+// `quinstreet-sync` edge function (pulls the QMP report → upserts the site's
+// quinstreet_records table → upserts Airtable API Output, merging on Click ID +
+// Click Key so duplicates can't happen). It runs nightly via pg_cron. This route
+// lets the Manager UI trigger it on demand for a specific timeframe — or run the
+// duplicate cleanup — WITHOUT exposing the trigger secret to the browser: the
+// secret is read server-side from the get_quinstreet_config RPC and forwarded as
+// the x-trigger-secret header.
+app.post("/make-server-8dc4138c/manager/quinstreet", async (c) => {
+  try {
+    const session = await kv.get(`manager_session:${c.req.header('X-Manager-Session')}`);
+    if (!session) return c.json({ error: 'Unauthorized' }, 401);
+
+    const body = await c.req.json().catch(() => ({}));
+    const action = body?.action === 'dedupe' ? 'dedupe' : 'sync';
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL'),
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+    );
+
+    // Pull the trigger secret from the same Vault-backed config the function uses.
+    const { data: cfg, error: cfgErr } = await supabase.rpc('get_quinstreet_config');
+    if (cfgErr || !cfg?.quinstreet_trigger_secret) {
+      return c.json({ error: `QuinStreet config unavailable: ${cfgErr?.message || 'no trigger secret'}` }, 500);
+    }
+
+    // Build the quinstreet-sync call.
+    const fnBase = `${Deno.env.get('SUPABASE_URL')}/functions/v1/quinstreet-sync`;
+    const params = new URLSearchParams({ action });
+    if (action === 'sync') {
+      params.set('source', 'site');
+      if (body?.startDate) params.set('startDate', body.startDate);
+      if (body?.endDate) params.set('endDate', body.endDate);
+    } else if (body?.maxDeletes) {
+      params.set('maxDeletes', String(body.maxDeletes));
+    }
+
+    const res = await fetch(`${fnBase}?${params.toString()}`, {
+      method: 'POST',
+      headers: {
+        'x-trigger-secret': cfg.quinstreet_trigger_secret,
+        'Content-Type': 'application/json',
+        // verify_jwt is disabled on quinstreet-sync; pass a key so the gateway
+        // always lets the request through.
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+      },
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data?.ok === false) {
+      return c.json({ error: data?.error || `quinstreet-sync ${res.status}` }, 502);
+    }
+    return c.json({ success: true, action, ...data });
+  } catch (error) {
+    console.log(`QuinStreet proxy error: ${error.message}`);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // Manager: Refresh all dashboard data — force-repopulate every snapshot from
 // Airtable and stamp the sync time. Backs the "Refresh data" button.
 app.post("/make-server-8dc4138c/manager/refresh-data", async (c) => {

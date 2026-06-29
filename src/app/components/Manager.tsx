@@ -385,6 +385,11 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [importingCPA, setImportingCPA]     = useState(false);
   const [syncingCardRating, setSyncingCardRating] = useState(false);
   const [refreshingData, setRefreshingData] = useState(false);
+  const [importingQS, setImportingQS]       = useState(false);
+  const [qsCustomFrom, setQsCustomFrom]     = useState('');
+  const [qsCustomTo, setQsCustomTo]         = useState('');
+  const [qsCustomPending, setQsCustomPending] = useState(false);
+  const qsRangeRef = useRef<CustomDateHandle>(null);
   const [actionsOpen, setActionsOpen]       = useState(false);
   const [messageTimeout, setMessageTimeout] = useState<NodeJS.Timeout | null>(null);
   const [trackingActivity, setTrackingActivity] = useState([]);
@@ -1120,6 +1125,89 @@ Please sign in and reset your password from your profile.`;
     finally { setSyncingTracking(false); }
   };
 
+  // Compute a YYYY-MM-DD start/end for a QuinStreet import preset. Mirrors the
+  // ranges the old Airtable button-input script offered.
+  const qsRangeFor = (preset: string): { start: string; end: string } | null => {
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const today = new Date();
+    if (preset === 'today') return { start: fmt(today), end: fmt(today) };
+    if (preset === 'week') { const f = new Date(today); f.setDate(today.getDate() - today.getDay()); return { start: fmt(f), end: fmt(today) }; }
+    if (preset === 'month') return { start: fmt(new Date(today.getFullYear(), today.getMonth(), 1)), end: fmt(today) };
+    if (preset === 'year') return { start: fmt(new Date(today.getFullYear(), 0, 1)), end: fmt(today) };
+    if (preset === 'last31') { const f = new Date(today); f.setDate(today.getDate() - 31); return { start: fmt(f), end: fmt(today) }; }
+    return null;
+  };
+
+  // Pull tracking straight from QuinStreet for a date range and mirror it into
+  // the Airtable QuinStreet table (replaces the manual Airtable scripts).
+  const importFromQuinStreet = async (startDate: string, endDate: string) => {
+    if (!startDate || !endDate) return;
+    setMessage(''); setImportingQS(true); setActionsOpen(false);
+    try {
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/quinstreet`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'X-Manager-Session': sessionToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ action: 'sync', startDate, endDate }),
+        },
+      );
+      const data = await response.json();
+      if (data.success) {
+        const r = data.range || { start: startDate, end: endDate };
+        const failedNote = data.airtable_failed ? ` · ${data.airtable_failed} Airtable failed` : '';
+        setMessageWithTimeout(
+          `QuinStreet ${r.start}→${r.end}: ${data.fetched ?? 0} fetched · ${data.saved_to_site ?? 0} saved to site · ${data.mirrored_to_airtable ?? 0} to Airtable${failedNote}`,
+          10000,
+        );
+        await fetchUsers();
+      } else setMessageWithTimeout(data.error || 'QuinStreet import failed', 8000);
+    } catch (error: any) { setMessageWithTimeout(`QuinStreet import failed: ${error.message}`, 8000); }
+    finally { setImportingQS(false); }
+  };
+
+  // Clean up any duplicate API Output rows (the sync itself upserts, so this is
+  // only for legacy dupes). Runs the quinstreet-sync dedupe action.
+  const cleanQuinStreetDuplicates = async () => {
+    setMessage(''); setImportingQS(true); setActionsOpen(false);
+    try {
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/quinstreet`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'X-Manager-Session': sessionToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ action: 'dedupe' }),
+        },
+      );
+      const data = await response.json();
+      if (data.success) {
+        const remainNote = data.remaining ? ` · ${data.remaining} still to remove (run again)` : '';
+        setMessageWithTimeout(
+          `Dedupe: scanned ${data.scanned ?? 0} · ${data.deleted ?? 0} duplicate${data.deleted === 1 ? '' : 's'} removed${remainNote}`,
+          10000,
+        );
+      } else setMessageWithTimeout(data.error || 'Dedupe failed', 8000);
+    } catch (error: any) { setMessageWithTimeout(`Dedupe failed: ${error.message}`, 8000); }
+    finally { setImportingQS(false); }
+  };
+
+  // Fire the custom-range import once both native pickers have a value.
+  useEffect(() => {
+    if (qsCustomPending && qsCustomFrom && qsCustomTo) {
+      setQsCustomPending(false);
+      importFromQuinStreet(qsCustomFrom, qsCustomTo);
+    }
+  }, [qsCustomPending, qsCustomFrom, qsCustomTo]);
+
   // Force-refresh the cached dashboard snapshots (tracking / invoices / cards)
   // straight from Airtable. This is what affiliates see, so it updates their
   // numbers and "Last updated" in one click.
@@ -1505,6 +1593,44 @@ Please sign in and reset your password from your profile.`;
                               {syncingTracking ? <Spinner className="w-4 h-4 text-emerald-600" strokeWidth={4} /> : <RefreshCw className="w-4 h-4 text-emerald-600" />}
                               {syncingTracking ? 'Syncing tracking…' : 'Sync Tracking'}
                             </button>
+                            <div className="border-t border-hair my-1" />
+                            <p className="px-3 py-1.5 text-xs font-semibold text-faint flex items-center gap-2">
+                              {importingQS && <Spinner className="w-3.5 h-3.5 text-emerald-600" strokeWidth={4} />}
+                              {importingQS ? 'Importing from QuinStreet…' : 'Import from QuinStreet'}
+                            </p>
+                            <div className="px-4 pb-2 flex flex-wrap gap-x-4 gap-y-1.5">
+                              {([
+                                { value: 'today',  label: 'Today' },
+                                { value: 'week',   label: 'This Week' },
+                                { value: 'month',  label: 'This Month' },
+                                { value: 'year',   label: 'This Year' },
+                                { value: 'last31', label: 'Last 31 Days' },
+                                { value: 'custom', label: 'Custom' },
+                              ]).map(({ value, label }) => (
+                                <button
+                                  key={value}
+                                  disabled={importingQS}
+                                  onClick={() => {
+                                    if (value === 'custom') { setQsCustomPending(true); qsRangeRef.current?.open(); return; }
+                                    const r = qsRangeFor(value);
+                                    if (r) importFromQuinStreet(r.start, r.end);
+                                  }}
+                                  className="text-[13px] font-medium text-subtle hover:text-brand disabled:opacity-50 transition-colors whitespace-nowrap"
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                              <CustomDateRange ref={qsRangeRef} from={qsCustomFrom} to={qsCustomTo} onFrom={setQsCustomFrom} onTo={setQsCustomTo} />
+                            </div>
+                            <button
+                              onClick={() => { setActionsOpen(false); cleanQuinStreetDuplicates(); }}
+                              disabled={importingQS}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-subtle hover:bg-surface disabled:opacity-50 transition-colors"
+                            >
+                              <RefreshCw className="w-4 h-4 text-amber-500" />
+                              Clean duplicates
+                            </button>
+                            <div className="border-t border-hair my-1" />
                             <button
                               onClick={() => { setActionsOpen(false); importCPAData(); }}
                               disabled={importingCPA}
