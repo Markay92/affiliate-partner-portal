@@ -38,6 +38,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { SwipeCarousel, Slide } from './ui/swipe-tabs';
 import { SearchBox } from './ui/search-box';
+import { CustomDateRange, type CustomDateHandle } from './ui/date-range';
 import { Spinner } from './ui/spinner';
 import { prefersReducedMotion, prettyCardName } from './ui/utils';
 
@@ -277,29 +278,22 @@ function FilterBar({
   customFrom: string; setCustomFrom: (s: string) => void;
   customTo: string;   setCustomTo: (s: string) => void;
 }) {
+  const rangeRef = useRef<CustomDateHandle>(null);
+  const fmt = (s: string) => s ? new Date(s + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+  const customLabel = filter === 'custom' && customFrom && customTo ? `${fmt(customFrom)} – ${fmt(customTo)}` : 'Custom';
   return (
-    <div className="space-y-2.5">
-      <div className="ds-chips flex items-center gap-5 overflow-x-auto -mx-1 px-1">
-        {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={`whitespace-nowrap text-[13.5px] cursor-pointer transition-colors py-0.5 ${
-              filter === f
-                ? 'text-brand font-bold'
-                : 'text-faint font-medium hover:text-subtle'
-            }`}>
-            {DATE_LABELS[f]}
-          </button>
-        ))}
-      </div>
-      {filter === 'custom' && (
-        <div className="flex flex-wrap items-center gap-2">
-          <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
-            className="flex-1 min-w-[130px] px-2.5 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-shadow" />
-          <span className="text-faint text-xs">to</span>
-          <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)}
-            className="flex-1 min-w-[130px] px-2.5 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-shadow" />
-        </div>
-      )}
+    <div className="ds-chips flex items-center gap-5 overflow-x-auto -mx-1 px-1">
+      {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
+        <button key={f} onClick={() => { if (f === 'custom') { setFilter('custom'); rangeRef.current?.open(); } else setFilter(f); }}
+          className={`whitespace-nowrap text-[13.5px] cursor-pointer transition-colors py-0.5 ${
+            filter === f
+              ? 'text-brand font-bold'
+              : 'text-faint font-medium hover:text-subtle'
+          }`}>
+          {f === 'custom' ? customLabel : DATE_LABELS[f]}
+        </button>
+      ))}
+      <CustomDateRange ref={rangeRef} from={customFrom} to={customTo} onFrom={setCustomFrom} onTo={setCustomTo} />
     </div>
   );
 }
@@ -429,6 +423,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [statPeriod, setStatPeriod] = useState<StatPeriod>('month');
   const [statCustomFrom, setStatCustomFrom] = useState('');
   const [statCustomTo,   setStatCustomTo]   = useState('');
+  const statRangeRef = useRef<CustomDateHandle>(null);
   const STAT_PERIOD_LABELS: Record<StatPeriod, string> = {
     today:  'Today vs yesterday',
     week:   'This week vs last week',
@@ -1431,7 +1426,7 @@ Please sign in and reset your password from your profile.`;
   return (
     <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="min-h-screen bg-canvas">
       {/* Header */}
-      <header className="bg-white/90 backdrop-blur-md sticky top-0 z-10 border-b border-hair">
+      <header className="bg-white/90 backdrop-blur-md sticky top-0 z-30 border-b border-hair">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-[60px] gap-2">
             <div className="flex items-center gap-2.5 flex-1 min-w-0">
@@ -1636,7 +1631,7 @@ Please sign in and reset your password from your profile.`;
                         { value: 'year',   label: 'This Year' },
                         { value: 'custom', label: 'Custom' },
                       ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
-                        <button key={value} onClick={() => setStatPeriod(value)}
+                        <button key={value} onClick={() => { if (value === 'custom') { setStatPeriod('custom'); statRangeRef.current?.open(); } else setStatPeriod(value); }}
                           className={`text-[13.5px] whitespace-nowrap cursor-pointer transition-colors ${
                             statPeriod === value ? 'text-brand font-bold' : 'text-faint font-medium hover:text-subtle'
                           }`}>
@@ -1644,16 +1639,7 @@ Please sign in and reset your password from your profile.`;
                         </button>
                       ))}
                     </div>
-                    {/* Custom date inputs */}
-                    {statPeriod === 'custom' && (
-                      <div className="flex items-center gap-1.5">
-                        <input type="date" value={statCustomFrom} onChange={e => setStatCustomFrom(e.target.value)}
-                          className="text-xs border border-hair rounded-lg px-2 py-1.5 text-subtle bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
-                        <span className="text-xs text-faint">→</span>
-                        <input type="date" value={statCustomTo} onChange={e => setStatCustomTo(e.target.value)}
-                          className="text-xs border border-hair rounded-lg px-2 py-1.5 text-subtle bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
-                      </div>
-                    )}
+                    <CustomDateRange ref={statRangeRef} from={statCustomFrom} to={statCustomTo} onFrom={setStatCustomFrom} onTo={setStatCustomTo} />
                   </div>
                 )}
               </div>
@@ -1762,7 +1748,7 @@ Please sign in and reset your password from your profile.`;
           <Slide tabKey="affiliates">
 
             {/* Toolbar: Search + Date filter + Group + Create */}
-            <div className="sticky top-[59px] z-10 bg-canvas/95 backdrop-blur-md pt-4 pb-3 mb-4 space-y-2.5 border-b border-hair">
+            <div className="sticky top-[60px] z-10 bg-canvas/95 backdrop-blur-md pt-4 pb-3 mb-4 space-y-2.5 border-b border-hair">
               <TabHead title="Affiliates" ts={lastUpdated.affiliates} count={displayUsers.length} noun="affiliates" />
               <div className="flex flex-wrap items-center gap-3">
                 {/* Search (icon → expands) */}
@@ -1914,7 +1900,7 @@ Please sign in and reset your password from your profile.`;
           {/* ── Tracking Activity Tab ── */}
           <Slide tabKey="tracking">
             <div className="mt-1">
-              <div className="sticky top-16 z-10 bg-white p-4 border-b border-hair2 space-y-2.5">
+              <div className="sticky top-[60px] z-10 bg-canvas/95 backdrop-blur-md pt-4 pb-3 mb-4 border-b border-hair space-y-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <TabHead title="Activity" ts={lastUpdated.tracking} count={displayTrackingActivity.length} noun="records" />
                   <div className="flex items-center gap-4">
@@ -2013,7 +1999,7 @@ Please sign in and reset your password from your profile.`;
                 )}
               </div>
 
-              <div className="p-4 sm:p-6 pt-3">
+              <div>
               {(() => {
                 const pagedTracking = displayTrackingActivity.slice(0, trackingVisible);
                 return (
@@ -2171,7 +2157,7 @@ Please sign in and reset your password from your profile.`;
           <Slide tabKey="cpa-rates">
             <div className="mt-1">
               {/* Toolbar */}
-              <div className="sticky top-16 z-10 bg-white p-5 border-b border-hair2 space-y-3">
+              <div className="sticky top-[60px] z-10 bg-canvas/95 backdrop-blur-md pt-4 pb-3 mb-4 border-b border-hair space-y-3">
                 <TabHead title="CPA Rates" ts={lastUpdated.cpa} count={cpaRates.length} noun="rates" />
                 {/* Row 1: Search + Affiliate + Refresh */}
                 <div className="flex flex-wrap items-center gap-3">
@@ -2433,7 +2419,7 @@ Please sign in and reset your password from your profile.`;
           <Slide tabKey="invoices">
             <div className="mt-1">
               {/* Toolbar */}
-              <div className="sticky top-16 z-10 bg-white p-5 border-b border-hair2 space-y-3">
+              <div className="sticky top-[60px] z-10 bg-canvas/95 backdrop-blur-md pt-4 pb-3 mb-4 border-b border-hair space-y-3">
                 <TabHead title="Invoices" ts={lastUpdated.invoices} count={invoices.length} noun="invoices" />
                 <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="relative flex flex-wrap items-center gap-3 pl-11 min-h-9">

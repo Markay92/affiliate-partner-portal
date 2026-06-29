@@ -47,6 +47,7 @@ import { Profile } from './Profile';
 import { SwipeCarousel, Slide } from './ui/swipe-tabs';
 import { SearchBox } from './ui/search-box';
 import { FeaturedList } from './ui/featured-list';
+import { CustomDateRange, type CustomDateHandle } from './ui/date-range';
 
 interface DashboardProps {
   userEmail: string;
@@ -332,29 +333,22 @@ function FilterBar({
   customFrom: string; setCustomFrom: (s: string) => void;
   customTo: string;   setCustomTo: (s: string) => void;
 }) {
+  const rangeRef = useRef<CustomDateHandle>(null);
+  const fmt = (s: string) => s ? new Date(s + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+  const customLabel = filter === 'custom' && customFrom && customTo ? `${fmt(customFrom)} – ${fmt(customTo)}` : 'Custom';
   return (
-    <div className="space-y-2.5">
-      <div className="ds-chips flex items-center gap-5 overflow-x-auto -mx-1 px-1">
-        {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={`whitespace-nowrap text-[13.5px] cursor-pointer transition-colors py-0.5 ${
-              filter === f
-                ? 'text-brand font-bold'
-                : 'text-faint font-medium hover:text-subtle'
-            }`}>
-            {DATE_LABELS[f]}
-          </button>
-        ))}
-      </div>
-      {filter === 'custom' && (
-        <div className="flex flex-wrap items-center gap-2">
-          <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
-            className="flex-1 min-w-[130px] px-2.5 py-1.5 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand" />
-          <span className="text-faint text-xs">to</span>
-          <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)}
-            className="flex-1 min-w-[130px] px-2.5 py-1.5 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand" />
-        </div>
-      )}
+    <div className="ds-chips flex items-center gap-5 overflow-x-auto -mx-1 px-1">
+      {(['today', 'week', 'month', 'lm', 'all', 'custom'] as DateFilter[]).map((f) => (
+        <button key={f} onClick={() => { if (f === 'custom') { setFilter('custom'); rangeRef.current?.open(); } else setFilter(f); }}
+          className={`whitespace-nowrap text-[13.5px] cursor-pointer transition-colors py-0.5 ${
+            filter === f
+              ? 'text-brand font-bold'
+              : 'text-faint font-medium hover:text-subtle'
+          }`}>
+          {f === 'custom' ? customLabel : DATE_LABELS[f]}
+        </button>
+      ))}
+      <CustomDateRange ref={rangeRef} from={customFrom} to={customTo} onFrom={setCustomFrom} onTo={setCustomTo} />
     </div>
   );
 }
@@ -531,6 +525,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [statPeriod, setStatPeriod] = useState<StatPeriod>('month');
   const [statCustomFrom, setStatCustomFrom] = useState('');
   const [statCustomTo,   setStatCustomTo]   = useState('');
+  const statRangeRef = useRef<CustomDateHandle>(null);
 
   // Summary panel visibility — persisted in localStorage
   const [visiblePanels, setVisiblePanels] = useState<Set<string>>(() => {
@@ -1399,7 +1394,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         { value: 'year',   label: 'Year' },
                         { value: 'custom', label: 'Custom' },
                       ] as { value: StatPeriod; label: string }[]).map(({ value, label }) => (
-                        <button key={value} onClick={() => setStatPeriod(value)}
+                        <button key={value} onClick={() => { if (value === 'custom') { setStatPeriod('custom'); statRangeRef.current?.open(); } else setStatPeriod(value); }}
                           className={`text-[13.5px] whitespace-nowrap cursor-pointer transition-colors ${
                             statPeriod === value ? 'text-brand font-bold' : 'text-faint font-medium hover:text-subtle'
                           }`}>
@@ -1407,15 +1402,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         </button>
                       ))}
                     </div>
-                    {statPeriod === 'custom' && (
-                      <div className="flex items-center gap-1.5">
-                        <input type="date" value={statCustomFrom} onChange={e => setStatCustomFrom(e.target.value)}
-                          className="text-xs border border-hair rounded-lg px-2 py-1.5 text-subtle bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
-                        <span className="text-xs text-faint">→</span>
-                        <input type="date" value={statCustomTo} onChange={e => setStatCustomTo(e.target.value)}
-                          className="text-xs border border-hair rounded-lg px-2 py-1.5 text-subtle bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand/30" />
-                      </div>
-                    )}
+                    <CustomDateRange ref={statRangeRef} from={statCustomFrom} to={statCustomTo} onFrom={setStatCustomFrom} onTo={setStatCustomTo} />
                   </div>
                 )}
               </div>
