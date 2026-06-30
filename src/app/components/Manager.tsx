@@ -599,17 +599,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [mgTrackingStatusFilter,     setMgTrackingStatusFilter]     = useState('all');
   const [mgTrackingAffiliateFilter,  setMgTrackingAffiliateFilter]  = useState('all');
   const [mgTrackingSearch,           setMgTrackingSearch]           = useState('');
-  const [trackingGroupBy,            setTrackingGroupBy]            = useState<TrackGroupBy>('card');
+  const [trackingGroupBy,            setTrackingGroupBy]            = useState<TrackGroupBy>('none');
   const [trackingCollapsed,          setTrackingCollapsed]          = useState<Set<string>>(new Set());
-  const trackingCollapseInit = useRef(false);
-  // Activity defaults to grouped-by-Card with groups collapsed, so "Expand All"
-  // is the action. Seed the collapsed set once tracking data first arrives.
-  useEffect(() => {
-    if (trackingCollapseInit.current || trackingGroupBy === 'none') return;
-    if (!(trackingActivity as any[]).length) return;
-    trackingCollapseInit.current = true;
-    setTrackingCollapsed(new Set((trackingActivity as any[]).map((a: any) => trackKeyFor(a, trackingGroupBy))));
-  }, [trackingActivity, trackingGroupBy]);
 
   // CPA Rates tab
   const [cpaRates,          setCpaRates]          = useState<any[]>([]);
@@ -620,8 +611,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [cpaSearch,         setCpaSearch]         = useState('');
   const [cpaIssuerFilter,   setCpaIssuerFilter]   = useState('all');
   const [cpaCpaRange,       setCpaCpaRange]       = useState('all');
-  const [cpaGroupBy,        setCpaGroupBy]        = useState(false);
+  const [cpaGroupBy,        setCpaGroupBy]        = useState(true);
   const [cpaCollapsed,      setCpaCollapsed]      = useState<Set<string>>(new Set());
+  const cpaCollapseInit = useRef(false);
+  // CPA Rates defaults to grouped-by-Issuer with groups collapsed, so "Expand
+  // All" is the action. Seed the collapsed set once rates first load.
+  useEffect(() => {
+    if (cpaCollapseInit.current || !cpaGroupBy) return;
+    if (!cpaRates.length) return;
+    cpaCollapseInit.current = true;
+    setCpaCollapsed(new Set(cpaRates.map((r: any) => r.issuer || 'Other')));
+  }, [cpaRates, cpaGroupBy]);
 
   // Invoices tab
   const [invoices,              setInvoices]              = useState<any[]>([]);
@@ -2054,9 +2054,8 @@ Please sign in and reset your password from your profile.`;
                     <span className="text-xs font-medium text-faint">Group</span>
                     {([
                       { value: 'none',      label: 'None' },
-                      { value: 'card',      label: 'Card' },
-                      { value: 'affiliate', label: 'Affiliate' },
                       { value: 'month',     label: 'Month' },
+                      { value: 'affiliate', label: 'Affiliate' },
                     ] as { value: TrackGroupBy; label: string }[]).map(({ value, label }) => (
                       <FilterChip
                         key={value}
@@ -2163,7 +2162,13 @@ Please sign in and reset your password from your profile.`;
                             // Single row renderer — used in both flat and grouped modes
                             const TrackRow = ({ a, indent }: { a: any; indent?: boolean }) => (
                               <div key={a.id} className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 last:border-b-0 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
-                                <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{prettyCardName(a.cardName) || '—'}</span>
+                                <span className="flex flex-col min-w-0 flex-1 leading-tight">
+                                  <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate">{prettyCardName(a.cardName) || '—'}</span>
+                                  {/* Date · time — shown under the card on small screens (the dedicated Date column is hidden below md) */}
+                                  <span className="md:hidden text-[11px] font-medium text-faint2 tabular-nums whitespace-nowrap mt-0.5">
+                                    {formatDate(a.clickDate)}{formatTime(a.clickTime) ? ` · ${formatTime(a.clickTime)}` : ''}
+                                  </span>
+                                </span>
                                 <span className="hidden sm:inline-flex items-center gap-1.5 w-[100px] flex-shrink-0 text-[13px] font-medium text-faint capitalize"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dotColor(a.status) }} />{a.status}</span>
                                 <span className="hidden lg:block w-[136px] flex-shrink-0 text-right text-[13px] font-medium text-faint truncate">{a.memberName}</span>
                                 <span className="hidden md:flex flex-col items-end leading-tight w-[116px] flex-shrink-0 text-right tabular-nums whitespace-nowrap">

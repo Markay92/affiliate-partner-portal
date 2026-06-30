@@ -507,8 +507,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [cardsPayoutFilter, setCardsPayoutFilter] = useState('all');
   const [cardsTypeFilter,   setCardsTypeFilter]   = useState('all');
   const [cardsSearch,       setCardsSearch]       = useState('');
-  const [cardsGroupBy,      setCardsGroupBy]      = useState(false);
+  const [cardsGroupBy,      setCardsGroupBy]      = useState(true);
   const [cardsCollapsed,    setCardsCollapsed]    = useState<Set<string>>(new Set());
+  const cardsCollapseInit = useRef(false);
   const [typeMenuOpen,      setTypeMenuOpen]      = useState(false);          // "More" type-filter overflow menu
   const typeMenuRef = useRef<HTMLDivElement>(null);
 
@@ -860,6 +861,14 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     };
   });
   const cardIssuers = Array.from(new Set(allCards.map(c => c.issuer).filter(Boolean))).sort() as string[];
+  // Cards tab defaults to grouped-by-Issuer with groups collapsed, so "Expand
+  // all" is the action. Seed the collapsed set once cards first load.
+  useEffect(() => {
+    if (cardsCollapseInit.current || !cardsGroupBy) return;
+    if (!allCards.length) return;
+    cardsCollapseInit.current = true;
+    setCardsCollapsed(new Set(allCards.map((c: any) => c.issuer || 'Other')));
+  }, [allCards, cardsGroupBy]);
   // Derive available card types for the filter (only types that actually appear in data)
   const cardTypes = Array.from(new Set(allCards.map(c => c.cardType).filter(Boolean))).sort() as string[];
   const displayCards = applySort(
