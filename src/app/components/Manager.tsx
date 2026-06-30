@@ -99,9 +99,9 @@ function LastUpdated({ ts }: { ts?: number }) {
  *  below it swap per tab. */
 function TabHead({ title, ts, count, noun }: { title: string; ts?: number; count: number; noun: string }) {
   return (
-    <div className="pt-1 pb-3">
+    <div className="pt-1 pb-3 flex flex-col sm:flex-row sm:items-baseline sm:gap-3">
       <h2 className="text-[20px] font-bold text-ink tracking-[-0.025em] leading-none">{title}</h2>
-      <div className="flex items-center gap-2 mt-2 text-[12px] text-faint">
+      <div className="flex items-center gap-2 mt-1.5 sm:mt-0 text-[12px] text-faint">
         <LastUpdated ts={ts} />
         <span className="text-hair2" aria-hidden>|</span>
         <span className="font-medium tabular-nums">{count.toLocaleString()} {noun}</span>
@@ -156,10 +156,30 @@ function formatDate(str: string | undefined): string {
 
 function formatTime(str: string | undefined): string {
   if (!str) return '';
-  const timeStr = str.includes('T') ? str : `1970-01-01T${str}`;
-  const d = new Date(timeStr);
-  if (isNaN(d.getTime())) return str;
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  // Read the reported wall-clock time literally (no timezone conversion). The
+  // source tags times with a trailing Z but they represent the reported local
+  // time, so converting via Date() would shift them off (e.g. 12:17 → 8:17).
+  // Accepts ISO ("…T12:17:07Z"), QMP-native ("2026-06-29 12:14:57"), or a
+  // bare "HH:MM[:SS]" — the time may follow a T, a space, or start the string.
+  const m = String(str).match(/(?:T|\s|^)(\d{1,2}):(\d{2})/);
+  if (!m) return '';
+  let h = parseInt(m[1], 10);
+  if (isNaN(h)) return '';
+  const min = m[2];
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${min} ${ampm}`;
+}
+
+// Group key for a Manager Activity row under a given grouping mode.
+type TrackGroupBy = 'none' | 'month' | 'affiliate' | 'card';
+function trackKeyFor(a: any, gb: TrackGroupBy): string {
+  if (gb === 'month') {
+    const d = parseLocalDate(a.clickDate);
+    return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+  if (gb === 'card') return a.cardName || 'Unknown';
+  return a.affiliateId || 'unknown';
 }
 
 // Group key for a Manager Activity row under a given grouping mode.
@@ -2768,7 +2788,7 @@ Please sign in and reset your password from your profile.`;
                                           <div key={c.id} className="flex items-center gap-4 py-2.5 border-b border-hair2 last:border-b-0">
                                             <div className="flex-1 min-w-0">
                                               <div className="text-sm font-semibold text-ink truncate">{prettyCardName(c.cardName)}</div>
-                                              <div className="text-xs text-faint mt-0.5">{formatDate(c.clickDate)}</div>
+                                              <div className="text-xs text-faint mt-0.5">{formatDate(c.clickDate)}{formatTime(c.clickTime) ? ` · ${formatTime(c.clickTime)}` : ''}</div>
                                             </div>
                                             <div className={`text-sm font-bold tabular-nums flex-shrink-0 ${c.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>{c.totalEarnings > 0 ? `$${c.totalEarnings.toFixed(2)}` : '—'}</div>
                                           </div>

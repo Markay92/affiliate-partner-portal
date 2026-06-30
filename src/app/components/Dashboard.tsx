@@ -34,6 +34,7 @@ import {
   Check,
   Gift,
   Sparkles,
+  Info,
   Monitor,
   Smartphone,
   MapPin,
@@ -208,9 +209,9 @@ function LastUpdated({ ts }: { ts?: number }) {
  *  below it swap per tab. */
 function TabHead({ title, ts, count, noun }: { title: string; ts?: number; count: number; noun: string }) {
   return (
-    <div className="pt-1 pb-3">
+    <div className="pt-1 pb-3 flex flex-col sm:flex-row sm:items-baseline sm:gap-3">
       <h2 className="text-[20px] font-bold text-ink tracking-[-0.025em] leading-none">{title}</h2>
-      <div className="flex items-center gap-2 mt-2 text-[12px] text-faint">
+      <div className="flex items-center gap-2 mt-1.5 sm:mt-0 text-[12px] text-faint">
         <LastUpdated ts={ts} />
         <span className="text-hair2" aria-hidden>|</span>
         <span className="font-medium tabular-nums">{count.toLocaleString()} {noun}</span>
@@ -245,10 +246,19 @@ const LINK_MAX = 6;
 /** Format a time string (ISO or HH:MM:SS) as "6:46 PM" */
 function formatTime(str: string | undefined): string {
   if (!str) return '';
-  const timeStr = str.includes('T') ? str : `1970-01-01T${str}`;
-  const d = new Date(timeStr);
-  if (isNaN(d.getTime())) return str;
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  // Read the reported wall-clock time literally (no timezone conversion). The
+  // source tags times with a trailing Z but they represent the reported local
+  // time, so converting via Date() would shift them off (e.g. 12:17 → 8:17).
+  // Accepts ISO ("…T12:17:07Z"), QMP-native ("2026-06-29 12:14:57"), or a
+  // bare "HH:MM[:SS]" — the time may follow a T, a space, or start the string.
+  const m = String(str).match(/(?:T|\s|^)(\d{1,2}):(\d{2})/);
+  if (!m) return '';
+  let h = parseInt(m[1], 10);
+  if (isNaN(h)) return '';
+  const min = m[2];
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${min} ${ampm}`;
 }
 
 function getDateBounds(filter: DateFilter, customFrom: string, customTo: string) {
@@ -478,6 +488,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [linkBuilderIds, setLinkBuilderIds] = useState<string[]>([]);
   // Featured-cards panel (the boost chip in the link bar) open/closed.
   const [boostOpen, setBoostOpen] = useState(false);
+  const [linkInfoOpen, setLinkInfoOpen] = useState(false);
   // Kept mounted through the close animation, then unmounted.
   const [boostRender, setBoostRender] = useState(false);
   // Ref on the link bar (chip + panel) so a click outside it closes the panel.
@@ -635,6 +646,16 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [boostOpen]);
+
+  // Close the link info popover on an outside click.
+  useEffect(() => {
+    if (!linkInfoOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (boostRef.current && !boostRef.current.contains(e.target as Node)) setLinkInfoOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [linkInfoOpen]);
 
   // Close the "More" card-type overflow menu on an outside click.
   useEffect(() => {
@@ -1247,18 +1268,26 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
             className="sticky top-[60px] z-20 mb-5 -mx-4 sm:-mx-6 lg:-mx-8 bg-white/95 backdrop-blur-md border-b border-hair"
           >
           {/* Compact referral link bar — single line, with a "featured" boost chip */}
-          <div ref={boostRef} className="relative flex items-center gap-3 py-2.5 px-4 sm:px-6 lg:px-8">
+          <div ref={boostRef} className="relative flex items-center gap-2 sm:gap-2.5 py-2.5 px-4 sm:px-6 lg:px-8">
             <Link2 className="w-4 h-4 text-faint2 flex-shrink-0" />
-            <span className="font-mono-ds text-[13px] font-medium text-ink truncate flex-1 min-w-0">
+            {/* Link — shown compact (truncated) so the builder + actions stay prominent */}
+            <span className="font-mono-ds text-[13px] font-medium text-ink truncate max-w-[120px] sm:max-w-[260px] lg:max-w-[360px]">
               {displayLink}
             </span>
+            {/* Info popover trigger */}
+            <button onClick={() => { setLinkInfoOpen(o => !o); setBoostOpen(false); }} title="About your link"
+              aria-label="About your link"
+              className={`flex items-center justify-center w-6 h-6 rounded-full flex-shrink-0 cursor-pointer transition-colors ${linkInfoOpen ? 'text-brand bg-brand-soft' : 'text-faint2 hover:text-brand hover:bg-brand-soft'}`}>
+              <Info className="w-4 h-4" />
+            </button>
 
-            {/* Boost chip — featured count + slot meter; opens the featured panel */}
-            <button onClick={() => setBoostOpen(o => !o)} title="Cards featured on your link"
-              className={`flex items-center gap-2 h-7 pl-2.5 pr-2 rounded-full border text-[12px] font-semibold flex-shrink-0 cursor-pointer transition-colors ${boostOpen || featuredCount > 0 ? 'border-brand/30 text-brand bg-brand-soft' : 'border-hair text-subtle hover:border-brand/40 hover:text-brand'}`}>
+            {/* Link Builder chip — feature cards on your link; opens the featured panel */}
+            <button onClick={() => { setBoostOpen(o => !o); setLinkInfoOpen(false); }} title="Link Builder — feature cards on your link"
+              className={`ml-auto flex items-center gap-2 h-7 pl-2.5 pr-2 rounded-full border text-[12px] font-semibold flex-shrink-0 cursor-pointer transition-colors ${boostOpen || featuredCount > 0 ? 'border-brand/30 text-brand bg-brand-soft' : 'border-hair text-subtle hover:border-brand/40 hover:text-brand'}`}>
               <Sparkles className="w-3.5 h-3.5 text-brand" />
+              <span className="hidden sm:inline">Link Builder</span>
               <span className="tabular-nums">{featuredCount}</span>
-              <span className="hidden sm:flex items-center gap-[3px]">
+              <span className="hidden md:flex items-center gap-[3px]">
                 {Array.from({ length: LINK_MAX }).map((_, i) => (
                   <span key={i} className="w-[6px] h-[6px] rounded-full" style={{ background: i < featuredCount ? 'var(--ds-brand)' : 'var(--ds-hair)' }} />
                 ))}
@@ -1277,6 +1306,22 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               className="flex items-center justify-center w-8 h-8 rounded-lg text-faint hover:text-ink hover:bg-surface transition-colors flex-shrink-0 cursor-pointer">
               <ExternalLink className="w-[15px] h-[15px]" />
             </a>
+
+            {/* Link info popover */}
+            {linkInfoOpen && (
+              <div className="absolute left-4 sm:left-6 lg:left-8 top-full mt-2 z-30 w-[320px] max-w-[calc(100vw-32px)] bg-white rounded-2xl border border-hair shadow-[0_16px_44px_rgba(15,23,42,0.16)] p-4">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Link2 className="w-4 h-4 text-brand" />
+                  <span className="text-[13.5px] font-semibold text-ink">Your referral link</span>
+                </div>
+                <p className="text-[12.5px] text-faint leading-relaxed">
+                  Share this link to earn commissions on credit-card approvals. It's tagged to your account, so every click and approval is tracked to you.
+                </p>
+                <p className="text-[12.5px] text-faint leading-relaxed mt-2">
+                  Use <span className="font-semibold text-subtle">Link Builder</span> to feature up to {LINK_MAX} specific cards at the top of your link.
+                </p>
+              </div>
+            )}
 
             {/* Featured-cards panel */}
             {boostRender && (
