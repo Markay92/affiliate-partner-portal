@@ -1086,26 +1086,49 @@ async function getCachedTracking(_token: string, force = false): Promise<any[]> 
     if (data.length < PAGE) break;
   }
 
-  // Build Airtable-API-Output-shaped records from the canonical columns (which
-  // are consistent across both backfilled and QuinStreet-native rows), keeping
-  // any extra fields (Device Type, State, Status, Member Name…) from the jsonb.
-  const records = rows.map((r: any) => ({
-    id: `${r.click_id || ''}|${r.click_key || ''}`,
-    fields: {
-      ...(r.fields || {}),
-      'affiliate-id':   r.affiliate_id,
-      'Card Name':      r.card_name,
-      'Advertiser':     r.advertiser,
-      'Item Name':      r.item_name,
-      'Clicks':         r.clicks,
-      'Applications':   r.applications,
-      'Approvals':      r.approvals,
-      'Conversion ID':  r.conversion_id,
-      'Total Earnings': r.total_earnings,
-      'Click Date':     r.click_date,
-      'Process Date':   r.process_date,
-    },
-  }));
+  // Member-name lookup (affiliate code → name). QuinStreet-native rows lack
+  // Airtable's "Member Name (from AffiliateID)" lookup field, so resolve the
+  // member from the affiliate the Var2/ezrxref maps to, via affiliate_map.
+  const memberByAff: Record<string, string> = {};
+  try {
+    const { data: amap } = await supabase.from('affiliate_map').select('affiliate_id, member_name');
+    for (const m of (amap || [])) {
+      const aid = (m.affiliate_id || '').toString().trim().toLowerCase();
+      if (aid && m.member_name) memberByAff[aid] = m.member_name;
+    }
+  } catch (_) { /* non-fatal — falls back to Unknown */ }
+
+  const num = (v: any) => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
+
+  // Build Airtable-API-Output-shaped records from the canonical columns. Status
+  // and Member Name were Airtable-only fields absent from raw QuinStreet rows,
+  // so derive them: Status from the click/application/approval counts, and
+  // Member from the affiliate the Var2/ezrxref resolved to.
+  const records = rows.map((r: any) => {
+    const f = r.fields || {};
+    const apr = num(r.approvals), app = num(r.applications), clk = num(r.clicks);
+    const derivedStatus = apr > 0 ? 'approval' : app > 0 ? 'application' : clk > 0 ? 'click' : '';
+    const aid = (r.affiliate_id || '').toString().trim().toLowerCase();
+    return {
+      id: `${r.click_id || ''}|${r.click_key || ''}`,
+      fields: {
+        ...f,
+        'affiliate-id':   r.affiliate_id,
+        'Card Name':      r.card_name,
+        'Advertiser':     r.advertiser,
+        'Item Name':      r.item_name,
+        'Clicks':         r.clicks,
+        'Applications':   r.applications,
+        'Approvals':      r.approvals,
+        'Conversion ID':  r.conversion_id,
+        'Total Earnings': r.total_earnings,
+        'Click Date':     r.click_date,
+        'Process Date':   r.process_date,
+        'Status':         f['Status'] || derivedStatus,
+        'Member Name (from AffiliateID)': f['Member Name (from AffiliateID)'] || memberByAff[aid] || '',
+      },
+    };
+  });
 
   await writeSnapshot('tracking', records);
   return records;
@@ -1749,9 +1772,12 @@ app.get("/make-server-8dc4138c/manager/tracking-activity", async (c) => {
     // Fetch ALL records from the full table (no view filter) so nothing is excluded
     console.log('Fetching all records from API Output table (no view filter)');
 
+    // force=1 rebuilds from the site DB and re-stamps "Last updated" (used by
+    // the Activity Refresh button); otherwise serve the cached snapshot.
+    const force = c.req.query('force') === '1';
     let records: any[];
     try {
-      records = await getCachedTracking(airtableToken);
+      records = await getCachedTracking(airtableToken, force);
     } catch (err: any) {
       console.log('Airtable fetch error:', err.message);
       return c.json({ error: `Airtable API error: ${err.message}` }, 500);

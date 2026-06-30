@@ -1159,7 +1159,7 @@ Please sign in and reset your password from your profile.`;
         },
       );
       const data = await response.json();
-      if (data.success) { setMessageWithTimeout(data.message || 'Tracking data synced successfully', 8000); await fetchUsers(); }
+      if (data.success) { setMessageWithTimeout(data.message || 'Tracking data synced successfully', 8000); await fetchUsers(); await fetchTrackingActivity(true); }
       else setMessageWithTimeout(data.error || 'Failed to sync tracking data', 8000);
     } catch (error: any) { setMessageWithTimeout(`Tracking sync failed: ${error.message}`, 8000); }
     finally { setSyncingTracking(false); }
@@ -1293,10 +1293,10 @@ Please sign in and reset your password from your profile.`;
     } catch (error: any) { setMessageWithTimeout(`Login failed: ${error.message}`, 8000); }
   };
 
-  const fetchTrackingActivity = async () => {
+  const fetchTrackingActivity = async (force = false) => {
     try {
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/tracking-activity`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/tracking-activity${force ? '?force=1' : ''}`,
         {
           headers: {
             'Authorization': `Bearer ${publicAnonKey}`,
@@ -2097,7 +2097,7 @@ Please sign in and reset your password from your profile.`;
                       );
                     })()}
                     <button
-                      onClick={() => { setTrackingVisible(trackingPageSize); fetchTrackingActivity(); }}
+                      onClick={() => { setTrackingVisible(trackingPageSize); fetchTrackingActivity(true); }}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-subtle bg-white border border-hair rounded-lg hover:border-brand hover:text-brand transition-all duration-150 cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
