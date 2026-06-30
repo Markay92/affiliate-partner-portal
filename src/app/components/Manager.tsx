@@ -159,8 +159,9 @@ function formatTime(str: string | undefined): string {
   // Read the reported wall-clock time literally (no timezone conversion). The
   // source tags times with a trailing Z but they represent the reported local
   // time, so converting via Date() would shift them off (e.g. 12:17 → 8:17).
-  // Accepts ISO ("…T12:17:07Z") or a bare "HH:MM[:SS]".
-  const m = String(str).match(/(?:T|^)(\d{1,2}):(\d{2})/);
+  // Accepts ISO ("…T12:17:07Z"), QMP-native ("2026-06-29 12:14:57"), or a
+  // bare "HH:MM[:SS]" — the time may follow a T, a space, or start the string.
+  const m = String(str).match(/(?:T|\s|^)(\d{1,2}):(\d{2})/);
   if (!m) return '';
   let h = parseInt(m[1], 10);
   if (isNaN(h)) return '';
