@@ -1125,7 +1125,12 @@ async function getCachedTracking(_token: string, force = false): Promise<any[]> 
         'Click Date':     r.click_date,
         'Process Date':   r.process_date,
         'Status':         f['Status'] || derivedStatus,
-        'Member Name (from AffiliateID)': f['Member Name (from AffiliateID)'] || memberByAff[aid] || '',
+        // Resolve the member: Airtable lookup → affiliate_map by code → if the
+        // Var2/ezrxref never mapped to an affiliate, surface the raw ezrxref so
+        // it's visible (and mappable) instead of a bare "Unknown".
+        'Member Name (from AffiliateID)':
+          f['Member Name (from AffiliateID)'] || memberByAff[aid] ||
+          (r.fields?.['Var2 Raw'] ? `${r.fields['Var2 Raw']} (unmapped)` : ''),
       },
     };
   });
