@@ -2160,7 +2160,7 @@ Please sign in and reset your password from your profile.`;
                       <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
                         <SortHead label="Card" field="cardName" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} className="flex-1 min-w-0" />
                         <SortHead label="Status" field="status" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} className="hidden sm:inline-flex w-[100px]" />
-                        <SortHead label="Member" field="memberName" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="hidden lg:inline-flex w-[136px]" />
+                        <SortHead label="Member" field="memberName" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="hidden md:inline-flex w-[136px]" />
                         <SortHead label="Date" field="clickDate" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="hidden md:inline-flex w-[116px]" />
                         <SortHead label="Device" field="deviceType" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="hidden lg:inline-flex w-[104px]" />
                         <SortHead label="Location" field="state" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="hidden xl:inline-flex w-[132px]" />
@@ -2173,13 +2173,15 @@ Please sign in and reset your password from your profile.`;
                               <div key={a.id} className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 last:border-b-0 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
                                 <span className="flex flex-col min-w-0 flex-1 leading-tight">
                                   <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate">{prettyCardName(a.cardName) || '—'}</span>
-                                  {/* Date · time — shown under the card on small screens (the dedicated Date column is hidden below md) */}
-                                  <span className="md:hidden text-[11px] font-medium text-faint2 tabular-nums whitespace-nowrap mt-0.5">
-                                    {formatDate(a.clickDate)}{formatTime(a.clickTime) ? ` · ${formatTime(a.clickTime)}` : ''}
+                                  {/* Affiliate · date · time — shown under the card below md, where the
+                                      Member + Date columns are hidden, so who + when stay visible at every size */}
+                                  <span className="md:hidden text-[11px] font-medium mt-0.5 truncate">
+                                    <span className="text-faint">{a.memberName || '—'}</span>
+                                    <span className="text-faint2 tabular-nums"> · {formatDate(a.clickDate)}{formatTime(a.clickTime) ? ` · ${formatTime(a.clickTime)}` : ''}</span>
                                   </span>
                                 </span>
                                 <span className="hidden sm:inline-flex items-center gap-1.5 w-[100px] flex-shrink-0 text-[13px] font-medium text-faint capitalize"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dotColor(a.status) }} />{a.status}</span>
-                                <span className="hidden lg:block w-[136px] flex-shrink-0 text-right text-[13px] font-medium text-faint truncate">{a.memberName}</span>
+                                <span className="hidden md:block w-[136px] flex-shrink-0 text-right text-[13px] font-medium text-faint truncate">{a.memberName}</span>
                                 <span className="hidden md:flex flex-col items-end leading-tight w-[116px] flex-shrink-0 text-right tabular-nums whitespace-nowrap">
                                   <span className="text-[13px] font-medium text-faint">{formatDate(a.clickDate)}</span>
                                   {formatTime(a.clickTime) && <span className="text-[11px] font-medium text-faint2">{formatTime(a.clickTime)}</span>}
