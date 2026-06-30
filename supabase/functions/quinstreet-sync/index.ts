@@ -49,28 +49,54 @@ async function airtable(method: string, table: string, token: string, base: stri
 }
 
 async function upsertPostgres(built: any[], source: string) {
+  // QMP returns one row per status (click / application / approval) for the same
+  // Click ID + Key. Since the table is unique on (click_id, click_key), AGGREGATE
+  // the metrics across those rows instead of letting the last one overwrite —
+  // otherwise approvals + earnings get dropped.
+  const num = (v: any) => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
+  const earnOf = (v: any) => typeof v === "number" ? v : (parseFloat(String(v ?? "").replace(/[$,]/g, "")) || 0);
   const byKey = new Map<string, any>();
   for (const b of built) {
     const f = b.fields;
     const ck = String(f["Click ID"] ?? ""), kk = String(f["Click Key"] ?? "");
     if (!ck && !kk) continue;
-    byKey.set(`${ck}|${kk}`, {
-      click_id: ck, click_key: kk,
-      item_name: f["Item Name"] ?? null,
-      advertiser: f["Advertiser"] ?? null,
-      card_name: f["Card Name"] ?? null,
-      affiliate_id: f["Var2"] ?? null,
-      total_earnings: typeof f["Total Earnings"] === "number" ? f["Total Earnings"] : null,
-      applications: f["Applications"] != null ? String(f["Applications"]) : null,
-      approvals: f["Approvals"] != null ? String(f["Approvals"]) : null,
-      clicks: f["Clicks"] != null ? String(f["Clicks"]) : null,
-      conversion_id: f["Conversion ID"] != null ? String(f["Conversion ID"]) : null,
-      click_date: dateOrNull(f["Click Date"]),
-      process_date: dateOrNull(f["Process Date"]),
-      source, fields: f,
-    });
+    const key = `${ck}|${kk}`;
+    const cur = byKey.get(key);
+    if (!cur) {
+      byKey.set(key, {
+        click_id: ck, click_key: kk,
+        item_name: f["Item Name"] ?? null,
+        advertiser: f["Advertiser"] ?? null,
+        card_name: f["Card Name"] ?? null,
+        affiliate_id: f["Var2"] ?? null,
+        _clicks: num(f["Clicks"]), _apps: num(f["Applications"]),
+        _apprs: num(f["Approvals"]), _earn: earnOf(f["Total Earnings"]),
+        conversion_id: f["Conversion ID"] != null ? String(f["Conversion ID"]) : null,
+        click_date: dateOrNull(f["Click Date"]),
+        process_date: dateOrNull(f["Process Date"]),
+        source, fields: f,
+      });
+    } else {
+      cur._clicks += num(f["Clicks"]);
+      cur._apps   += num(f["Applications"]);
+      cur._apprs  += num(f["Approvals"]);
+      cur._earn   += earnOf(f["Total Earnings"]);
+      cur.process_date = dateOrNull(f["Process Date"]) ?? cur.process_date;
+      if (!cur.conversion_id && f["Conversion ID"] != null) cur.conversion_id = String(f["Conversion ID"]);
+    }
   }
-  const rows = [...byKey.values()];
+  const rows = [...byKey.values()].map((r) => ({
+    click_id: r.click_id, click_key: r.click_key,
+    item_name: r.item_name, advertiser: r.advertiser, card_name: r.card_name,
+    affiliate_id: r.affiliate_id,
+    total_earnings: r._earn || null,
+    applications: r._apps ? String(r._apps) : null,
+    approvals: r._apprs ? String(r._apprs) : null,
+    clicks: r._clicks ? String(r._clicks) : null,
+    conversion_id: r.conversion_id,
+    click_date: r.click_date, process_date: r.process_date,
+    source: r.source, fields: r.fields,
+  }));
   let saved = 0;
   for (let i = 0; i < rows.length; i += 500) {
     const chunk = rows.slice(i, i + 500);
