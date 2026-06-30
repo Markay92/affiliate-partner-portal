@@ -182,17 +182,6 @@ function trackKeyFor(a: any, gb: TrackGroupBy): string {
   return a.affiliateId || 'unknown';
 }
 
-// Group key for a Manager Activity row under a given grouping mode.
-type TrackGroupBy = 'none' | 'month' | 'affiliate' | 'card';
-function trackKeyFor(a: any, gb: TrackGroupBy): string {
-  if (gb === 'month') {
-    const d = parseLocalDate(a.clickDate);
-    return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  }
-  if (gb === 'card') return a.cardName || 'Unknown';
-  return a.affiliateId || 'unknown';
-}
-
 function getDateBounds(filter: DateFilter, customFrom: string, customTo: string) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
