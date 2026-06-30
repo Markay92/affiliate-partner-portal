@@ -162,6 +162,17 @@ function formatTime(str: string | undefined): string {
   return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
+// Group key for a Manager Activity row under a given grouping mode.
+type TrackGroupBy = 'none' | 'month' | 'affiliate' | 'card';
+function trackKeyFor(a: any, gb: TrackGroupBy): string {
+  if (gb === 'month') {
+    const d = parseLocalDate(a.clickDate);
+    return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+  if (gb === 'card') return a.cardName || 'Unknown';
+  return a.affiliateId || 'unknown';
+}
+
 function getDateBounds(filter: DateFilter, customFrom: string, customTo: string) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -588,7 +599,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [mgTrackingStatusFilter,     setMgTrackingStatusFilter]     = useState('all');
   const [mgTrackingAffiliateFilter,  setMgTrackingAffiliateFilter]  = useState('all');
   const [mgTrackingSearch,           setMgTrackingSearch]           = useState('');
-  const [trackingGroupBy,            setTrackingGroupBy]            = useState<'none' | 'month' | 'affiliate'>('none');
+  const [trackingGroupBy,            setTrackingGroupBy]            = useState<TrackGroupBy>('none');
   const [trackingCollapsed,          setTrackingCollapsed]          = useState<Set<string>>(new Set());
 
   // CPA Rates tab
@@ -600,8 +611,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [cpaSearch,         setCpaSearch]         = useState('');
   const [cpaIssuerFilter,   setCpaIssuerFilter]   = useState('all');
   const [cpaCpaRange,       setCpaCpaRange]       = useState('all');
-  const [cpaGroupBy,        setCpaGroupBy]        = useState(false);
+  const [cpaGroupBy,        setCpaGroupBy]        = useState(true);
   const [cpaCollapsed,      setCpaCollapsed]      = useState<Set<string>>(new Set());
+  const cpaCollapseInit = useRef(false);
+  // CPA Rates defaults to grouped-by-Issuer with groups collapsed, so "Expand
+  // All" is the action. Seed the collapsed set once rates first load.
+  useEffect(() => {
+    if (cpaCollapseInit.current || !cpaGroupBy) return;
+    if (!cpaRates.length) return;
+    cpaCollapseInit.current = true;
+    setCpaCollapsed(new Set(cpaRates.map((r: any) => r.issuer || 'Other')));
+  }, [cpaRates, cpaGroupBy]);
 
   // Invoices tab
   const [invoices,              setInvoices]              = useState<any[]>([]);
@@ -2036,22 +2056,18 @@ Please sign in and reset your password from your profile.`;
                       { value: 'none',      label: 'None' },
                       { value: 'month',     label: 'Month' },
                       { value: 'affiliate', label: 'Affiliate' },
-                    ] as { value: 'none'|'month'|'affiliate'; label: string }[]).map(({ value, label }) => (
+                    ] as { value: TrackGroupBy; label: string }[]).map(({ value, label }) => (
                       <FilterChip
                         key={value}
                         active={trackingGroupBy === value}
-                        onClick={() => { setTrackingGroupBy(value); setTrackingCollapsed(value === 'none' ? new Set() : new Set(displayTrackingActivity.map((a: any) => value === 'month' ? (() => { const d = parseLocalDate(a.clickDate); return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })() : (a.affiliateId || 'unknown')))); setTrackingVisible(trackingPageSize); }}
+                        onClick={() => { setTrackingGroupBy(value); setTrackingCollapsed(value === 'none' ? new Set() : new Set(displayTrackingActivity.map((a: any) => trackKeyFor(a, value)))); setTrackingVisible(trackingPageSize); }}
                       >
                         {value !== 'none' && <Layers className="w-3 h-3" />}
                         {label}
                       </FilterChip>
                     ))}
                     {trackingGroupBy !== 'none' && displayTrackingActivity.length > 0 && (() => {
-                      const allKeys = Array.from(new Set(displayTrackingActivity.map((a: any) =>
-                        trackingGroupBy === 'month'
-                          ? (() => { const d = parseLocalDate(a.clickDate); return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })()
-                          : (a.affiliateId || 'unknown')
-                      )));
+                      const allKeys = Array.from(new Set(displayTrackingActivity.map((a: any) => trackKeyFor(a, trackingGroupBy))));
                       const allCollapsed = allKeys.every(k => trackingCollapsed.has(k));
                       return (
                         <button onClick={() => setTrackingCollapsed(allCollapsed ? new Set() : new Set(allKeys))}
@@ -2146,7 +2162,13 @@ Please sign in and reset your password from your profile.`;
                             // Single row renderer — used in both flat and grouped modes
                             const TrackRow = ({ a, indent }: { a: any; indent?: boolean }) => (
                               <div key={a.id} className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 last:border-b-0 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
-                                <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{prettyCardName(a.cardName) || '—'}</span>
+                                <span className="flex flex-col min-w-0 flex-1 leading-tight">
+                                  <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate">{prettyCardName(a.cardName) || '—'}</span>
+                                  {/* Date · time — shown under the card on small screens (the dedicated Date column is hidden below md) */}
+                                  <span className="md:hidden text-[11px] font-medium text-faint2 tabular-nums whitespace-nowrap mt-0.5">
+                                    {formatDate(a.clickDate)}{formatTime(a.clickTime) ? ` · ${formatTime(a.clickTime)}` : ''}
+                                  </span>
+                                </span>
                                 <span className="hidden sm:inline-flex items-center gap-1.5 w-[100px] flex-shrink-0 text-[13px] font-medium text-faint capitalize"><span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dotColor(a.status) }} />{a.status}</span>
                                 <span className="hidden lg:block w-[136px] flex-shrink-0 text-right text-[13px] font-medium text-faint truncate">{a.memberName}</span>
                                 <span className="hidden md:flex flex-col items-end leading-tight w-[116px] flex-shrink-0 text-right tabular-nums whitespace-nowrap">
@@ -2172,9 +2194,7 @@ Please sign in and reset your password from your profile.`;
                               return pagedTracking.map((a: any) => <TrackRow key={a.id} a={a} />);
 
                             // Grouped mode — shared logic for month + affiliate
-                            const getKey = (a: any) => trackingGroupBy === 'month'
-                              ? (() => { const d = parseLocalDate(a.clickDate); return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })()
-                              : (a.affiliateId || 'unknown');
+                            const getKey = (a: any) => trackKeyFor(a, trackingGroupBy);
 
                             const getLabel = (key: string, rows: any[]) => {
                               if (trackingGroupBy === 'month') {
@@ -2182,6 +2202,7 @@ Please sign in and reset your password from your profile.`;
                                 const [y, m] = key.split('-');
                                 return new Date(parseInt(y), parseInt(m)-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
                               }
+                              if (trackingGroupBy === 'card') return prettyCardName(key) || key;
                               // affiliate: show name, fall back to affiliateId
                               return String(rows[0]?.memberName || key);
                             };
