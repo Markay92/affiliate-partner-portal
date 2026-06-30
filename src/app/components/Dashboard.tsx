@@ -1697,7 +1697,24 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 );
                 return (
                   <div className="flex items-center gap-[18px] py-2.5 border-b border-hair2 last:border-b-0 hover:bg-surface transition-colors duration-150"
-                    style={{ paddingLeft: indent ? 24 : 0 }}>
+                    style={{ paddingLeft: indent ? 24 : 0 }}
+                    onMouseEnter={(e) => {
+                      const ring = e.currentTarget.querySelector('[data-spin-ring]') as HTMLElement | null;
+                      if (!ring) return;
+                      const btn = ring.parentElement;
+                      gsap.killTweensOf(ring);
+                      gsap.to(ring, { opacity: 1, duration: 0.5, ease: 'power2.out' });
+                      if (!prefersReducedMotion()) gsap.to(ring, { rotation: '+=360', duration: 9, ease: 'none', repeat: -1 });
+                      if (btn) { gsap.killTweensOf(btn); gsap.to(btn, { boxShadow: '0 0 9px 0 rgba(10,132,255,0.40)', borderColor: 'rgb(10,132,255)', color: 'rgb(10,132,255)', duration: 0.5, ease: 'power2.out' }); }
+                    }}
+                    onMouseLeave={(e) => {
+                      const ring = e.currentTarget.querySelector('[data-spin-ring]') as HTMLElement | null;
+                      if (!ring) return;
+                      const btn = ring.parentElement;
+                      gsap.killTweensOf(ring);
+                      gsap.to(ring, { opacity: 0, duration: 0.45, ease: 'power2.out', onComplete: () => gsap.set(ring, { rotation: 0 }) });
+                      if (btn) { gsap.killTweensOf(btn); gsap.to(btn, { boxShadow: '0 0 0 0 rgba(10,132,255,0)', duration: 0.4, ease: 'power2.out', clearProps: 'boxShadow,borderColor,color' }); }
+                    }}>
                     <div className="flex items-center gap-2.5 flex-1 min-w-0">
                       <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate">{prettyCardName(card.name)}</span>
                       {hasDetails && (
@@ -1749,10 +1766,26 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         disabled={linkFull}
                         onClick={() => { if (linkFull) return; setLinkBuilderIds(prev => isAdded ? prev.filter(id => id !== card.cardId) : [...prev, card.cardId]); }}
                         title={isAdded ? 'Remove from your link' : linkFull ? `Your link is full (${LINK_MAX} cards max)` : 'Feature on your link'}
-                        className={`flex-shrink-0 w-[26px] h-[26px] rounded-full border flex items-center justify-center transition-all duration-150 ${
-                          isAdded ? 'bg-brand border-brand text-white cursor-pointer' : linkFull ? 'border-hair text-faint2/40 cursor-not-allowed' : 'border-line text-faint2 hover:border-brand hover:text-brand cursor-pointer'
+                        className={`relative flex-shrink-0 w-[26px] h-[26px] rounded-full border flex items-center justify-center ${
+                          isAdded ? 'bg-brand border-brand text-white cursor-pointer' : linkFull ? 'border-hair text-faint2/40 cursor-not-allowed' : 'border-line text-faint2 cursor-pointer'
                         }`}>
-                        {isAdded ? <Check className="w-[13px] h-[13px]" strokeWidth={3} /> : <Plus className="w-[13px] h-[13px]" strokeWidth={2.4} />}
+                        {/* Row-hover flourish: a thin, slow-circling brand arc (GSAP-driven from the row handlers) */}
+                        {!isAdded && !linkFull && (
+                          <span
+                            aria-hidden
+                            data-spin-ring
+                            className="pointer-events-none absolute -inset-[1.5px] rounded-full opacity-0"
+                            style={{
+                              background: 'conic-gradient(from 0deg, transparent 0deg, rgba(10,132,255,0.55) 110deg, transparent 215deg)',
+                              WebkitMask: 'radial-gradient(farthest-side, transparent calc(100% - 1px), #000 calc(100% - 1px))',
+                              mask: 'radial-gradient(farthest-side, transparent calc(100% - 1px), #000 calc(100% - 1px))',
+                              willChange: 'transform, opacity',
+                            }}
+                          />
+                        )}
+                        <span className="relative z-10 flex items-center justify-center">
+                          {isAdded ? <Check className="w-[13px] h-[13px]" strokeWidth={3} /> : <Plus className="w-[13px] h-[13px]" strokeWidth={2.4} />}
+                        </span>
                       </button>
                     )}
                     {!card.cardId && <span className="w-[26px] flex-shrink-0" aria-hidden />}
@@ -1800,7 +1833,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                           </div>
                           {/* Smooth expand/collapse via grid 0fr↔1fr */}
                           <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
-                            <div className="overflow-hidden min-h-0">
+                            {/* px-3/-mx-3 widens the clip box so the button's hover ring/glow isn't cropped at the right edge; content position is unchanged and the vertical collapse is unaffected */}
+                            <div className="overflow-hidden min-h-0 px-3 -mx-3">
                               {items.map(card => <CardRow key={card.id} card={card} indent />)}
                             </div>
                           </div>
@@ -1941,8 +1975,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         <span className="hidden sm:inline-flex items-center gap-1.5 w-[100px] flex-shrink-0 text-[13px] font-medium text-faint capitalize">
                           <span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dot }} />{item.status}
                         </span>
-                        {/* Process date */}
-                        <span className="w-[112px] flex-shrink-0 text-right text-[13px] font-medium text-faint tabular-nums whitespace-nowrap">{formatDate(item.processDate || item.clickDate)}</span>
+                        {/* Process date + time (time shown at every screen size) */}
+                        <span className="w-[112px] flex-shrink-0 flex flex-col items-end leading-tight text-[13px] font-medium text-faint tabular-nums whitespace-nowrap">
+                          <span>{formatDate(item.processDate || item.clickDate)}</span>
+                          {formatTime(item.clickTime) && <span className="text-[11px] text-faint2">{formatTime(item.clickTime)}</span>}
+                        </span>
                         {/* Device */}
                         <span className="hidden md:inline-flex items-center justify-end gap-1.5 w-[110px] flex-shrink-0 text-[13px] font-medium text-faint capitalize">
                           {item.deviceType
