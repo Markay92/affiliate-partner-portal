@@ -162,6 +162,17 @@ function formatTime(str: string | undefined): string {
   return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
+// Group key for a Manager Activity row under a given grouping mode.
+type TrackGroupBy = 'none' | 'month' | 'affiliate' | 'card';
+function trackKeyFor(a: any, gb: TrackGroupBy): string {
+  if (gb === 'month') {
+    const d = parseLocalDate(a.clickDate);
+    return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+  if (gb === 'card') return a.cardName || 'Unknown';
+  return a.affiliateId || 'unknown';
+}
+
 function getDateBounds(filter: DateFilter, customFrom: string, customTo: string) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -588,8 +599,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [mgTrackingStatusFilter,     setMgTrackingStatusFilter]     = useState('all');
   const [mgTrackingAffiliateFilter,  setMgTrackingAffiliateFilter]  = useState('all');
   const [mgTrackingSearch,           setMgTrackingSearch]           = useState('');
-  const [trackingGroupBy,            setTrackingGroupBy]            = useState<'none' | 'month' | 'affiliate'>('none');
+  const [trackingGroupBy,            setTrackingGroupBy]            = useState<TrackGroupBy>('card');
   const [trackingCollapsed,          setTrackingCollapsed]          = useState<Set<string>>(new Set());
+  const trackingCollapseInit = useRef(false);
+  // Activity defaults to grouped-by-Card with groups collapsed, so "Expand All"
+  // is the action. Seed the collapsed set once tracking data first arrives.
+  useEffect(() => {
+    if (trackingCollapseInit.current || trackingGroupBy === 'none') return;
+    if (!(trackingActivity as any[]).length) return;
+    trackingCollapseInit.current = true;
+    setTrackingCollapsed(new Set((trackingActivity as any[]).map((a: any) => trackKeyFor(a, trackingGroupBy))));
+  }, [trackingActivity, trackingGroupBy]);
 
   // CPA Rates tab
   const [cpaRates,          setCpaRates]          = useState<any[]>([]);
@@ -2034,24 +2054,21 @@ Please sign in and reset your password from your profile.`;
                     <span className="text-xs font-medium text-faint">Group</span>
                     {([
                       { value: 'none',      label: 'None' },
-                      { value: 'month',     label: 'Month' },
+                      { value: 'card',      label: 'Card' },
                       { value: 'affiliate', label: 'Affiliate' },
-                    ] as { value: 'none'|'month'|'affiliate'; label: string }[]).map(({ value, label }) => (
+                      { value: 'month',     label: 'Month' },
+                    ] as { value: TrackGroupBy; label: string }[]).map(({ value, label }) => (
                       <FilterChip
                         key={value}
                         active={trackingGroupBy === value}
-                        onClick={() => { setTrackingGroupBy(value); setTrackingCollapsed(value === 'none' ? new Set() : new Set(displayTrackingActivity.map((a: any) => value === 'month' ? (() => { const d = parseLocalDate(a.clickDate); return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })() : (a.affiliateId || 'unknown')))); setTrackingVisible(trackingPageSize); }}
+                        onClick={() => { setTrackingGroupBy(value); setTrackingCollapsed(value === 'none' ? new Set() : new Set(displayTrackingActivity.map((a: any) => trackKeyFor(a, value)))); setTrackingVisible(trackingPageSize); }}
                       >
                         {value !== 'none' && <Layers className="w-3 h-3" />}
                         {label}
                       </FilterChip>
                     ))}
                     {trackingGroupBy !== 'none' && displayTrackingActivity.length > 0 && (() => {
-                      const allKeys = Array.from(new Set(displayTrackingActivity.map((a: any) =>
-                        trackingGroupBy === 'month'
-                          ? (() => { const d = parseLocalDate(a.clickDate); return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })()
-                          : (a.affiliateId || 'unknown')
-                      )));
+                      const allKeys = Array.from(new Set(displayTrackingActivity.map((a: any) => trackKeyFor(a, trackingGroupBy))));
                       const allCollapsed = allKeys.every(k => trackingCollapsed.has(k));
                       return (
                         <button onClick={() => setTrackingCollapsed(allCollapsed ? new Set() : new Set(allKeys))}
@@ -2172,9 +2189,7 @@ Please sign in and reset your password from your profile.`;
                               return pagedTracking.map((a: any) => <TrackRow key={a.id} a={a} />);
 
                             // Grouped mode — shared logic for month + affiliate
-                            const getKey = (a: any) => trackingGroupBy === 'month'
-                              ? (() => { const d = parseLocalDate(a.clickDate); return isNaN(d.getTime()) ? '0000-00' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })()
-                              : (a.affiliateId || 'unknown');
+                            const getKey = (a: any) => trackKeyFor(a, trackingGroupBy);
 
                             const getLabel = (key: string, rows: any[]) => {
                               if (trackingGroupBy === 'month') {
@@ -2182,6 +2197,7 @@ Please sign in and reset your password from your profile.`;
                                 const [y, m] = key.split('-');
                                 return new Date(parseInt(y), parseInt(m)-1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
                               }
+                              if (trackingGroupBy === 'card') return prettyCardName(key) || key;
                               // affiliate: show name, fall back to affiliateId
                               return String(rows[0]?.memberName || key);
                             };
