@@ -48,7 +48,9 @@ export function Login({ onLogin }: LoginProps) {
 
     try {
       const endpoint = isSignup ? 'signup' : 'login';
-      const body = isSignup ? { email, password, name } : { email, password };
+      // Email is not case-sensitive — normalize so "John@X.com" works like "john@x.com".
+      const normEmail = email.trim().toLowerCase();
+      const body = isSignup ? { email: normEmail, password, name } : { email: normEmail, password };
       const url = `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/${endpoint}`;
 
       const response = await fetch(url, {
@@ -101,7 +103,7 @@ export function Login({ onLogin }: LoginProps) {
             'Authorization': `Bearer ${publicAnonKey}`
           },
           body: JSON.stringify({
-            email: resetEmail,
+            email: resetEmail.trim().toLowerCase(),
             redirectUrl
           })
         }
