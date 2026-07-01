@@ -47,6 +47,11 @@ import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { Profile } from './Profile';
 import { SwipeCarousel, Slide } from './ui/swipe-tabs';
 import { SearchBox } from './ui/search-box';
+import { Toolbar, ToolbarSearch, ToolbarButton } from './ui/toolbar';
+import { PopupButton } from './ui/popup-button';
+import { SegmentedControl } from './ui/segmented-control';
+import { SortMenu } from './ui/sort-menu';
+import { DatePopup } from './ui/date-popup';
 import { FeaturedList } from './ui/featured-list';
 import { CustomDateRange, type CustomDateHandle } from './ui/date-range';
 
@@ -1577,76 +1582,49 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           {/* ── Cards Tab (Robinhood-style filters + list) ── */}
           <Slide tabKey="cards">
           <div>
-            <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas pt-5 pb-1">
-            <TabHead title="Cards" ts={lastUpdated} count={displayCards.length} noun="cards" />
-            {/* Condensed toolbar — search + type filters (left) · group (right) */}
-            <div className="flex items-center justify-between gap-4 flex-wrap pb-2.5">
-              <div className="relative flex items-center gap-5 pl-11 min-h-9 flex-1 min-w-0">
-                <SearchBox value={cardsSearch} onChange={v => { setCardsSearch(v); setCardsVisible(PAGE_SIZE); }} placeholder="Search cards or issuers" />
-                {cardTypes.length > 0 && (() => {
-                  const visibleTypes = cardTypes.slice(0, 4);               // All types + 4 = 5 selectable
-                  const hasMore = cardTypes.length > visibleTypes.length;
-                  const moreActive = cardsTypeFilter !== 'all' && !visibleTypes.includes(cardsTypeFilter);
-                  return (
-                    <>
-                      <div className="ds-chips flex items-center gap-5 overflow-x-auto -mx-1 px-1 min-w-0">
-                        {(['all', ...visibleTypes]).map(type => (
-                          <FilterChip key={type} active={cardsTypeFilter === type}
-                            onClick={() => { setCardsTypeFilter(type); setCardsVisible(PAGE_SIZE); }}>
-                            {type === 'all' ? 'All types' : type}
-                          </FilterChip>
-                        ))}
-                      </div>
-                      {hasMore && (
-                        <div ref={typeMenuRef} className="relative flex-shrink-0">
-                          <FilterChip active={typeMenuOpen || moreActive} onClick={() => setTypeMenuOpen(o => !o)}>
-                            {moreActive ? cardsTypeFilter : 'See more'}
-                            <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${typeMenuOpen ? 'rotate-180' : ''}`} />
-                          </FilterChip>
-                          {typeMenuOpen && (
-                            <div className="absolute right-0 top-full mt-2 z-30 w-[220px] max-w-[calc(100vw-32px)] bg-white rounded-2xl border border-hair shadow-[0_16px_44px_rgba(15,23,42,0.16)] py-1.5 max-h-[300px] overflow-y-auto">
-                              {(['all', ...cardTypes]).map(type => {
-                                const on = cardsTypeFilter === type;
-                                return (
-                                  <button key={type}
-                                    onClick={() => { setCardsTypeFilter(type); setCardsVisible(PAGE_SIZE); setTypeMenuOpen(false); }}
-                                    className={`flex items-center justify-between gap-2 w-full px-4 py-2 text-[13px] text-left transition-colors cursor-pointer ${on ? 'text-brand font-semibold' : 'text-subtle font-medium hover:bg-surface'}`}>
-                                    <span className="truncate">{type === 'all' ? 'All types' : type}</span>
-                                    {on && <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-              <div className="flex items-center gap-4 flex-shrink-0">
-                <FilterChip active={cardsGroupBy} onClick={() => {
-                  const next = !cardsGroupBy;
-                  setCardsGroupBy(next);
-                  setCardsCollapsed(next ? new Set(displayCards.map(c => c.issuer || 'Other')) : new Set());
-                }}>
-                  <Layers className="w-3.5 h-3.5" />
-                  Group by issuer
-                </FilterChip>
-                {cardsGroupBy && (() => {
+            <Toolbar
+              stickyTop={60 + linkBarH}
+              className="bg-canvas"
+              head={<TabHead title="Cards" ts={lastUpdated} count={displayCards.length} noun="cards" />}
+              search={<ToolbarSearch value={cardsSearch} onChange={v => { setCardsSearch(v); setCardsVisible(PAGE_SIZE); }} placeholder="Search cards or issuers" />}
+            >
+              {cardTypes.length > 0 && (
+                <PopupButton
+                  label="Type"
+                  icon={<CreditCard className="w-3.5 h-3.5 text-faint2" />}
+                  value={cardsTypeFilter}
+                  options={[{ value: 'all', label: 'All types' }, ...cardTypes.map((t: string) => ({ value: t, label: t }))]}
+                  onChange={(v) => { setCardsTypeFilter(v); setCardsVisible(PAGE_SIZE); }}
+                />
+              )}
+
+              <PopupButton
+                label="Group by"
+                icon={<Layers className="w-3.5 h-3.5 text-faint2" />}
+                value={cardsGroupBy ? 'issuer' : 'off'}
+                options={[{ value: 'off', label: 'No grouping' }, { value: 'issuer', label: 'By issuer' }]}
+                onChange={(v) => { const next = v === 'issuer'; setCardsGroupBy(next); setCardsCollapsed(next ? new Set(displayCards.map(c => c.issuer || 'Other')) : new Set()); }}
+                actions={cardsGroupBy ? (() => {
                   const allIssuers = Array.from(new Set(displayCards.map(c => c.issuer || 'Other')));
                   const allCollapsed = allIssuers.every(i => cardsCollapsed.has(i));
-                  return (
-                    <button onClick={() => setCardsCollapsed(allCollapsed ? new Set() : new Set(allIssuers))}
-                      className="text-[12.5px] font-medium text-faint hover:text-brand cursor-pointer transition-colors">
-                      {allCollapsed ? 'Expand all' : 'Collapse all'}
-                    </button>
-                  );
-                })()}
-              </div>
-            </div>
+                  return [{ label: allCollapsed ? 'Expand all' : 'Collapse all', onClick: () => setCardsCollapsed(allCollapsed ? new Set() : new Set(allIssuers)) }];
+                })() : undefined}
+              />
+
+              <SortMenu
+                sort={cardsSort}
+                onSort={(next) => setCardsSort(next)}
+                fields={[
+                  { field: 'name', label: 'Card' },
+                  { field: 'issuer', label: 'Issuer' },
+                  { field: 'earned', label: 'Earned' },
+                  { field: 'conv', label: 'Conv' },
+                  { field: 'cpa', label: 'Payout' },
+                ]}
+              />
+            </Toolbar>
             {/* Column headers — aligned to the card rows; click a column to sort */}
-            <div className="flex items-center gap-[18px] pt-3 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
+            <div className="flex items-center gap-[18px] pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
               <SortHead label="Card" field="name" sort={cardsSort} onSort={f => setCardsSort(s => toggleSort(s, f))} className="flex-1 min-w-0" />
               <SortHead label="Issuer" field="issuer" sort={cardsSort} onSort={f => setCardsSort(s => toggleSort(s, f))} align="right" className="hidden sm:inline-flex w-[120px] lg:w-[150px]" />
               <div className="flex items-baseline gap-3 sm:gap-4 flex-shrink-0">
@@ -1655,7 +1633,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <SortHead label="Payout" field="cpa" sort={cardsSort} onSort={f => setCardsSort(s => toggleSort(s, f))} align="right" className="inline-flex sm:min-w-[72px]" />
               </div>
               <span className="w-[26px] flex-shrink-0" aria-hidden />
-            </div>
             </div>
 
             {/* Card list */}
@@ -1897,40 +1874,49 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
           {/* ── Activity Tab ── */}
           <Slide tabKey="activity">
-            {/* Sticky controls */}
-            <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas border-b border-hair pt-5 pb-3">
-            <TabHead title="Activity" ts={lastUpdated} count={displayTracking.length} noun="records" />
-            <div className="space-y-2.5">
-              <div className="relative flex items-center gap-5 pl-11 min-h-9 flex-wrap">
-                <SearchBox value={activitySearch} onChange={v => { setActivitySearch(v); setActivityVisible(activityPageSize); }} placeholder="Search activity by card" />
-                <FilterBar
-                  filter={trackingFilter}
-                  setFilter={v => { setTrackingFilter(v); setActivityVisible(activityPageSize); }}
-                  customFrom={trackingCustomFrom}
-                  setCustomFrom={v => { setTrackingCustomFrom(v); setActivityVisible(activityPageSize); }}
-                  customTo={trackingCustomTo}
-                  setCustomTo={v => { setTrackingCustomTo(v); setActivityVisible(activityPageSize); }}
+            {/* Sticky controls — condensed: search · date · status · sort */}
+            <Toolbar
+              stickyTop={60 + linkBarH}
+              className="bg-canvas"
+              head={<TabHead title="Activity" ts={lastUpdated} count={displayTracking.length} noun="records" />}
+              search={<ToolbarSearch value={activitySearch} onChange={v => { setActivitySearch(v); setActivityVisible(activityPageSize); }} placeholder="Search activity by card" />}
+            >
+              <DatePopup
+                filter={trackingFilter}
+                setFilter={v => { setTrackingFilter(v); setActivityVisible(activityPageSize); }}
+                customFrom={trackingCustomFrom}
+                setCustomFrom={v => { setTrackingCustomFrom(v); setActivityVisible(activityPageSize); }}
+                customTo={trackingCustomTo}
+                setCustomTo={v => { setTrackingCustomTo(v); setActivityVisible(activityPageSize); }}
+              />
+
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <span className="hidden sm:inline text-[13px] font-medium text-faint">Status</span>
+                <SegmentedControl
+                  value={trackingStatusFilter}
+                  onChange={(v) => { setTrackingStatusFilter(v); setActivityVisible(activityPageSize); }}
+                  options={[
+                    { value: 'all', label: 'All' },
+                    { value: 'click', label: 'Click' },
+                    { value: 'application', label: 'Application' },
+                    { value: 'approval', label: 'Approval' },
+                  ]}
                 />
               </div>
-              <div className="flex flex-wrap items-center gap-5">
-                <span className="text-xs font-medium text-faint">Status</span>
-                {[
-                  { value: 'all',         label: 'All' },
-                  { value: 'click',       label: 'Click' },
-                  { value: 'application', label: 'Application' },
-                  { value: 'approval',    label: 'Approval' },
-                ].map(({ value, label }) => (
-                  <FilterChip
-                    key={value}
-                    active={trackingStatusFilter === value}
-                    onClick={() => { setTrackingStatusFilter(value); setActivityVisible(activityPageSize); }}
-                  >
-                    {label}
-                  </FilterChip>
-                ))}
-              </div>
-            </div>
-            </div>
+
+              <SortMenu
+                sort={trackingSort}
+                onSort={(next) => setTrackingSort(next)}
+                fields={[
+                  { field: 'card', label: 'Card' },
+                  { field: 'status', label: 'Status' },
+                  { field: 'processDate', label: 'Date' },
+                  { field: 'deviceType', label: 'Device' },
+                  { field: 'state', label: 'Location' },
+                  { field: 'earned', label: 'Earned' },
+                ]}
+              />
+            </Toolbar>
 
           <div className="pt-5">
             {displayTracking.length === 0 ? (
@@ -2062,11 +2048,24 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               </div>
             ) : (
               <>
-              <div style={{ top: 60 + linkBarH }} className="sticky z-10 bg-canvas pt-5 pb-1">
-              <TabHead title="Invoices" ts={lastUpdated} count={invoices.length} noun="invoices" />
-              <div className="relative flex items-center gap-5 pl-11 min-h-9 pb-2.5">
-                <SearchBox value={invoiceSearch} onChange={v => { setInvoiceSearch(v); setInvoicesVisible(PAGE_SIZE); }} placeholder="Search invoices by month" />
-              </div>
+              <Toolbar
+                stickyTop={60 + linkBarH}
+                className="bg-canvas"
+                head={<TabHead title="Invoices" ts={lastUpdated} count={invoices.length} noun="invoices" />}
+                search={<ToolbarSearch value={invoiceSearch} onChange={v => { setInvoiceSearch(v); setInvoicesVisible(PAGE_SIZE); }} placeholder="Search invoices by month" />}
+              >
+                <SortMenu
+                  sort={invoiceSort}
+                  onSort={(next) => setInvoiceSort(next)}
+                  fields={[
+                    { field: 'month', label: 'Month' },
+                    { field: 'date', label: 'Date' },
+                    { field: 'approvals', label: 'Approvals' },
+                    { field: 'status', label: 'Status' },
+                    { field: 'amount', label: 'Amount' },
+                  ]}
+                />
+              </Toolbar>
               {/* Column headers */}
               <div className="flex items-center gap-3 pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
                 <span className="w-3.5 flex-shrink-0" aria-hidden />
@@ -2075,7 +2074,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 <SortHead label="Appr." field="approvals" sort={invoiceSort} onSort={f => setInvoiceSort(s => toggleSort(s, f))} align="right" className="w-[68px] sm:w-[84px]" />
                 <SortHead label="Status" field="status" sort={invoiceSort} onSort={f => setInvoiceSort(s => toggleSort(s, f))} align="right" className="hidden md:inline-flex w-[112px]" />
                 <SortHead label="Amount" field="amount" sort={invoiceSort} onSort={f => setInvoiceSort(s => toggleSort(s, f))} align="right" className="w-[88px]" />
-              </div>
               </div>
               <div>
                 {displayInvoices.slice(0, invoicesVisible).map(inv => {

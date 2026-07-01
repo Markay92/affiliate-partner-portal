@@ -5,6 +5,16 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Shared sort state used by column headers (SortHead) and the toolbar SortMenu. */
+export type SortState = { field: string; dir: "asc" | "desc" };
+
+/** Toggle sort: same field flips direction, a new field starts ascending. */
+export function toggleSort(current: SortState, field: string): SortState {
+  return current.field === field
+    ? { field, dir: current.dir === "asc" ? "desc" : "asc" }
+    : { field, dir: "asc" };
+}
+
 /** True when the user has asked the OS to minimize non-essential motion. */
 export function prefersReducedMotion() {
   return typeof window !== "undefined" &&

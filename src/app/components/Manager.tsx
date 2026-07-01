@@ -38,6 +38,12 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { SwipeCarousel, Slide } from './ui/swipe-tabs';
 import { SearchBox } from './ui/search-box';
+import { Toolbar, ToolbarSearch, ToolbarButton } from './ui/toolbar';
+import { PopupButton } from './ui/popup-button';
+import { SegmentedControl } from './ui/segmented-control';
+import { SortMenu } from './ui/sort-menu';
+import { FilterMenu } from './ui/filter-menu';
+import { DatePopup } from './ui/date-popup';
 import { CustomDateRange, type CustomDateHandle } from './ui/date-range';
 import { Spinner } from './ui/spinner';
 import { prefersReducedMotion, prettyCardName } from './ui/utils';
@@ -1902,61 +1908,54 @@ Please sign in and reset your password from your profile.`;
           {/* ── Affiliates Tab ── */}
           <Slide tabKey="affiliates">
 
-            {/* Toolbar: Search + Date filter + Group + Create */}
-            <div className="sticky top-[60px] z-10 bg-canvas/95 backdrop-blur-md pt-4 pb-3 mb-4 space-y-2.5 border-b border-hair">
-              <TabHead title="Affiliates" ts={lastUpdated.affiliates} count={displayUsers.length} noun="affiliates" />
-              <div className="flex flex-wrap items-center gap-3">
-                {/* Search (icon → expands) */}
-                <div className="relative flex items-center pl-11 min-h-9 flex-1 min-w-[220px]">
-                  <SearchBox value={affiliateSearch} onChange={v => { setAffiliateSearch(v); setAffiliatesVisible(PAGE_SIZE); }} placeholder="Search by name or email…" />
-                </div>
+            {/* Toolbar — condensed: search · date · group · sort · Create */}
+            <Toolbar
+              stickyTop={60}
+              head={<TabHead title="Affiliates" ts={lastUpdated.affiliates} count={displayUsers.length} noun="affiliates" />}
+              trailing={
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="flex items-center gap-1.5 h-8 px-3 bg-brand text-white rounded-full hover:bg-brand-dark transition-colors text-[12.5px] font-medium shadow-sm cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="hidden sm:inline">Create</span>
+                </button>
+              }
+              search={<ToolbarSearch value={affiliateSearch} onChange={v => { setAffiliateSearch(v); setAffiliatesVisible(PAGE_SIZE); }} placeholder="Search by name or email…" />}
+            >
+              <DatePopup
+                filter={affiliatesFilter}         setFilter={v => { setAffiliatesFilter(v); setAffiliatesVisible(PAGE_SIZE); }}
+                customFrom={affiliatesCustomFrom} setCustomFrom={v => { setAffiliatesCustomFrom(v); setAffiliatesVisible(PAGE_SIZE); }}
+                customTo={affiliatesCustomTo}     setCustomTo={v => { setAffiliatesCustomTo(v); setAffiliatesVisible(PAGE_SIZE); }}
+              />
 
-                <div className="flex items-center gap-4 ml-auto">
-                  {/* Group by Commission Rate toggle */}
-                  <FilterChip
-                    active={affiliateGroupBy}
-                    onClick={() => { const next = !affiliateGroupBy; setAffiliateGroupBy(next); setAffiliateCollapsed(next ? new Set(displayUsers.map((u: any) => String(u.commissionRate || 50) + '%')) : new Set()); setAffiliatesVisible(PAGE_SIZE); }}
-                  >
-                    <Layers className="w-3.5 h-3.5" />
-                    Group by Rate
-                  </FilterChip>
-                  {affiliateGroupBy && users.length > 0 && (() => {
-                    const allRates = Array.from(new Set(displayUsers.map((u: any) => String(u.commissionRate || 50) + '%')));
-                    const allCollapsed = allRates.every(r => affiliateCollapsed.has(r));
-                    return (
-                      <button
-                        onClick={() => setAffiliateCollapsed(allCollapsed ? new Set() : new Set(allRates))}
-                        className="text-xs text-faint hover:text-brand transition-colors cursor-pointer"
-                      >
-                        {allCollapsed ? 'Expand All' : 'Collapse All'}
-                      </button>
-                    );
-                  })()}
-                  <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand-dark transition-colors text-sm font-medium shadow-sm"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Create Affiliate
-                  </button>
-                </div>
-              </div>
+              {/* Group by commission rate (Collapse/Expand folded into the menu) */}
+              <PopupButton
+                label="Group by"
+                icon={<Layers className="w-3.5 h-3.5 text-faint2" />}
+                value={affiliateGroupBy ? 'rate' : 'off'}
+                options={[{ value: 'off', label: 'No grouping' }, { value: 'rate', label: 'By rate' }]}
+                onChange={(v) => { const next = v === 'rate'; setAffiliateGroupBy(next); setAffiliateCollapsed(next ? new Set(displayUsers.map((u: any) => String(u.commissionRate || 50) + '%')) : new Set()); setAffiliatesVisible(PAGE_SIZE); }}
+                actions={affiliateGroupBy && users.length > 0 ? (() => {
+                  const allRates = Array.from(new Set(displayUsers.map((u: any) => String(u.commissionRate || 50) + '%')));
+                  const allCollapsed = allRates.every(r => affiliateCollapsed.has(r));
+                  return [{ label: allCollapsed ? 'Expand all' : 'Collapse all', onClick: () => setAffiliateCollapsed(allCollapsed ? new Set() : new Set(allRates)) }];
+                })() : undefined}
+              />
 
-              {/* Date filter row */}
-              <div className="flex flex-wrap items-center gap-3">
-                <FilterBar
-                  filter={affiliatesFilter}     setFilter={v => { setAffiliatesFilter(v); setAffiliatesVisible(PAGE_SIZE); }}
-                  customFrom={affiliatesCustomFrom} setCustomFrom={v => { setAffiliatesCustomFrom(v); setAffiliatesVisible(PAGE_SIZE); }}
-                  customTo={affiliatesCustomTo}     setCustomTo={v => { setAffiliatesCustomTo(v); setAffiliatesVisible(PAGE_SIZE); }}
-                />
-                {(affiliateSearch || affiliatesFilter !== 'all') && (
-                  <span className="text-xs text-faint ml-1">
-                    {displayUsers.length} of {users.length} members
-                    {affiliateSearch && <button onClick={() => { setAffiliateSearch(''); setAffiliatesVisible(PAGE_SIZE); }} className="text-brand hover:underline ml-2 cursor-pointer">Clear search</button>}
-                  </span>
-                )}
-              </div>
-            </div>
+              <SortMenu
+                sort={affiliatesSort}
+                onSort={(next) => setAffiliatesSort(next)}
+                fields={[
+                  { field: 'name', label: 'Affiliate' },
+                  { field: 'email', label: 'Email' },
+                  { field: 'affiliateId', label: 'ID' },
+                  { field: 'totalConversions', label: 'Approvals' },
+                  { field: 'commissionRate', label: 'Split' },
+                  { field: 'totalCommissions', label: 'Earned' },
+                ]}
+              />
+            </Toolbar>
 
             {/* Affiliates Table */}
             <div className="mt-1">
@@ -2055,100 +2054,78 @@ Please sign in and reset your password from your profile.`;
           {/* ── Tracking Activity Tab ── */}
           <Slide tabKey="tracking">
             <div className="mt-1">
-              <div className="sticky top-[60px] z-10 bg-canvas/95 backdrop-blur-md pt-4 pb-3 mb-4 border-b border-hair space-y-2.5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <TabHead title="Activity" ts={lastUpdated.tracking} count={displayTrackingActivity.length} noun="records" />
-                  <div className="flex items-center gap-4">
-                    {/* Group by — text chips */}
-                    <span className="text-xs font-medium text-faint">Group</span>
-                    {([
-                      { value: 'none',      label: 'None' },
-                      { value: 'month',     label: 'Month' },
-                      { value: 'affiliate', label: 'Affiliate' },
-                    ] as { value: TrackGroupBy; label: string }[]).map(({ value, label }) => (
-                      <FilterChip
-                        key={value}
-                        active={trackingGroupBy === value}
-                        onClick={() => { setTrackingGroupBy(value); setTrackingCollapsed(value === 'none' ? new Set() : new Set(displayTrackingActivity.map((a: any) => trackKeyFor(a, value)))); setTrackingVisible(trackingPageSize); }}
-                      >
-                        {value !== 'none' && <Layers className="w-3 h-3" />}
-                        {label}
-                      </FilterChip>
-                    ))}
-                    {trackingGroupBy !== 'none' && displayTrackingActivity.length > 0 && (() => {
-                      const allKeys = Array.from(new Set(displayTrackingActivity.map((a: any) => trackKeyFor(a, trackingGroupBy))));
-                      const allCollapsed = allKeys.every(k => trackingCollapsed.has(k));
-                      return (
-                        <button onClick={() => setTrackingCollapsed(allCollapsed ? new Set() : new Set(allKeys))}
-                          className="text-xs text-faint hover:text-brand transition-colors cursor-pointer">
-                          {allCollapsed ? 'Expand All' : 'Collapse All'}
-                        </button>
-                      );
-                    })()}
-                    <button
-                      onClick={() => { setTrackingVisible(trackingPageSize); fetchTrackingActivity(true); }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-subtle bg-white border border-hair rounded-lg hover:border-brand hover:text-brand transition-all duration-150 cursor-pointer"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      Refresh
-                    </button>
-                  </div>
-                </div>
-
-                {/* Search + date filter */}
-                <div className="relative flex items-center gap-5 pl-11 min-h-9 flex-wrap">
-                  <SearchBox value={mgTrackingSearch} onChange={v => { setMgTrackingSearch(v); setTrackingVisible(trackingPageSize); }} placeholder="Search by card or member" />
-                  <FilterBar
-                    filter={mgTrackingFilter}         setFilter={v => { setMgTrackingFilter(v); setTrackingVisible(trackingPageSize); }}
-                    customFrom={mgTrackingCustomFrom} setCustomFrom={v => { setMgTrackingCustomFrom(v); setTrackingVisible(trackingPageSize); }}
-                    customTo={mgTrackingCustomTo}     setCustomTo={v => { setMgTrackingCustomTo(v); setTrackingVisible(trackingPageSize); }}
+              <Toolbar
+                stickyTop={60}
+                head={<TabHead title="Activity" ts={lastUpdated.tracking} count={displayTrackingActivity.length} noun="records" />}
+                trailing={
+                  <ToolbarButton
+                    icon={<RefreshCw className="w-3.5 h-3.5" />}
+                    title="Refresh activity"
+                    onClick={() => { setTrackingVisible(trackingPageSize); fetchTrackingActivity(true); }}
                   />
-                </div>
+                }
+                search={<ToolbarSearch value={mgTrackingSearch} onChange={v => { setMgTrackingSearch(v); setTrackingVisible(trackingPageSize); }} placeholder="Search by card or member" />}
+              >
+                <DatePopup
+                  filter={mgTrackingFilter}         setFilter={v => { setMgTrackingFilter(v); setTrackingVisible(trackingPageSize); }}
+                  customFrom={mgTrackingCustomFrom} setCustomFrom={v => { setMgTrackingCustomFrom(v); setTrackingVisible(trackingPageSize); }}
+                  customTo={mgTrackingCustomTo}     setCustomTo={v => { setMgTrackingCustomTo(v); setTrackingVisible(trackingPageSize); }}
+                />
 
-                {/* Status filter */}
-                <div className="flex flex-wrap items-center gap-5">
-                  <span className="text-xs font-medium text-faint">Status</span>
-                  {[
-                    { value: 'all',         label: 'All' },
-                    { value: 'click',       label: 'Click' },
-                    { value: 'application', label: 'Application' },
-                    { value: 'approval',    label: 'Approval' },
-                  ].map(({ value, label }) => (
-                    <FilterChip
-                      key={value}
-                      active={mgTrackingStatusFilter === value}
-                      onClick={() => { setMgTrackingStatusFilter(value); setTrackingVisible(trackingPageSize); }}
-                    >
-                      {label}
-                    </FilterChip>
-                  ))}
-                </div>
+                {/* Group (Collapse/Expand folded into the menu) */}
+                <PopupButton
+                  label="Group by"
+                  icon={<Layers className="w-3.5 h-3.5 text-faint2" />}
+                  value={trackingGroupBy}
+                  options={[
+                    { value: 'none', label: 'No grouping' },
+                    { value: 'month', label: 'By month' },
+                    { value: 'affiliate', label: 'By affiliate' },
+                  ]}
+                  onChange={(v) => { setTrackingGroupBy(v as TrackGroupBy); setTrackingCollapsed(v === 'none' ? new Set() : new Set(displayTrackingActivity.map((a: any) => trackKeyFor(a, v as TrackGroupBy)))); setTrackingVisible(trackingPageSize); }}
+                  actions={trackingGroupBy !== 'none' && displayTrackingActivity.length > 0 ? (() => {
+                    const allKeys = Array.from(new Set(displayTrackingActivity.map((a: any) => trackKeyFor(a, trackingGroupBy))));
+                    const allCollapsed = allKeys.every(k => trackingCollapsed.has(k));
+                    return [{ label: allCollapsed ? 'Expand all' : 'Collapse all', onClick: () => setTrackingCollapsed(allCollapsed ? new Set() : new Set(allKeys)) }];
+                  })() : undefined}
+                />
 
-                {/* Affiliate filter */}
-                {affiliateOptions.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-medium text-faint mr-1">Affiliate:</span>
-                    <select
-                      value={mgTrackingAffiliateFilter}
-                      onChange={(e) => { setMgTrackingAffiliateFilter(e.target.value); setTrackingVisible(trackingPageSize); }}
-                      className="px-2.5 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle cursor-pointer transition-shadow"
-                    >
-                      <option value="all">All affiliates</option>
-                      {affiliateOptions.map((a) => (
-                        <option key={a.id} value={a.id}>{a.name}</option>
-                      ))}
-                    </select>
-                    {mgTrackingAffiliateFilter !== 'all' && (
-                      <button
-                        onClick={() => { setMgTrackingAffiliateFilter('all'); setTrackingVisible(trackingPageSize); }}
-                        className="text-xs text-brand hover:underline cursor-pointer"
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
+                {/* Status + Affiliate folded into one Filters menu */}
+                <FilterMenu
+                  onClear={() => { setMgTrackingStatusFilter('all'); setMgTrackingAffiliateFilter('all'); setTrackingVisible(trackingPageSize); }}
+                  groups={[
+                    {
+                      key: 'status', label: 'Status', value: mgTrackingStatusFilter,
+                      onChange: (val) => { setMgTrackingStatusFilter(val); setTrackingVisible(trackingPageSize); },
+                      options: [
+                        { value: 'all', label: 'All' },
+                        { value: 'click', label: 'Click' },
+                        { value: 'application', label: 'Application' },
+                        { value: 'approval', label: 'Approval' },
+                      ],
+                    },
+                    ...(affiliateOptions.length > 0 ? [{
+                      key: 'affiliate', label: 'Affiliate', value: mgTrackingAffiliateFilter,
+                      onChange: (val: string) => { setMgTrackingAffiliateFilter(val); setTrackingVisible(trackingPageSize); },
+                      options: [{ value: 'all', label: 'All affiliates' }, ...affiliateOptions.map((a) => ({ value: a.id, label: a.name }))],
+                    }] : []),
+                  ]}
+                />
+
+                <SortMenu
+                  sort={mgTrackingSort}
+                  onSort={(next) => setMgTrackingSort(next)}
+                  fields={[
+                    { field: 'cardName', label: 'Card' },
+                    { field: 'status', label: 'Status' },
+                    { field: 'memberName', label: 'Member' },
+                    { field: 'clickDate', label: 'Date' },
+                    { field: 'deviceType', label: 'Device' },
+                    { field: 'state', label: 'Location' },
+                    { field: 'totalEarnings', label: 'Earned' },
+                  ]}
+                />
+              </Toolbar>
 
               <div>
               {(() => {
@@ -2317,120 +2294,87 @@ Please sign in and reset your password from your profile.`;
           {/* ── CPA Rates Tab ── */}
           <Slide tabKey="cpa-rates">
             <div className="mt-1">
-              {/* Toolbar */}
-              <div className="sticky top-[60px] z-10 bg-canvas/95 backdrop-blur-md pt-4 pb-3 mb-4 border-b border-hair space-y-3">
-                <TabHead title="CPA Rates" ts={lastUpdated.cpa} count={cpaRates.length} noun="rates" />
-                {/* Row 1: Search + Affiliate + Refresh */}
-                <div className="flex flex-wrap items-center gap-3">
-                  {/* Search (icon → expands) */}
-                  <div className="relative flex items-center pl-11 min-h-9 flex-1 min-w-[200px]">
-                    <SearchBox value={cpaSearch} onChange={v => { setCpaSearch(v); setCpaVisible(cpaPageSize); }} placeholder="Search cards…" />
-                  </div>
+              {/* Toolbar — condensed: search · group · affiliate · filters · sort */}
+              <Toolbar
+                stickyTop={60}
+                head={<TabHead title="CPA Rates" ts={lastUpdated.cpa} count={cpaRates.length} noun="rates" />}
+                trailing={
+                  <ToolbarButton
+                    icon={<RefreshCw className="w-3.5 h-3.5" />}
+                    title="Refresh CPA rates"
+                    onClick={() => { setCpaVisible(cpaPageSize); fetchCpaRates(cpaAffiliateFilter); }}
+                  />
+                }
+                search={<ToolbarSearch value={cpaSearch} onChange={v => { setCpaSearch(v); setCpaVisible(cpaPageSize); }} placeholder="Search cards…" />}
+              >
+                {/* Group (Collapse/Expand folded into the menu) */}
+                <PopupButton
+                  label="Group by"
+                  icon={<Layers className="w-3.5 h-3.5 text-faint2" />}
+                  value={cpaGroupBy ? 'issuer' : 'off'}
+                  options={[{ value: 'off', label: 'No grouping' }, { value: 'issuer', label: 'By issuer' }]}
+                  onChange={(v) => { const next = v === 'issuer'; setCpaGroupBy(next); setCpaCollapsed(next ? new Set(cpaRates.map(r => r.issuer || 'Other')) : new Set()); }}
+                  actions={cpaGroupBy && cpaRates.length > 0 ? (() => {
+                    const allIssuers = Array.from(new Set(cpaRates.map(r => r.issuer || 'Other')));
+                    const allCollapsed = allIssuers.every(i => cpaCollapsed.has(i));
+                    return [{ label: allCollapsed ? 'Expand all' : 'Collapse all', onClick: () => setCpaCollapsed(allCollapsed ? new Set() : new Set(allIssuers)) }];
+                  })() : undefined}
+                />
 
-                  {/* Affiliate */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-faint">Affiliate:</span>
-                    <select
-                      value={cpaAffiliateFilter}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setCpaAffiliateFilter(val);
-                        setCpaVisible(cpaPageSize);
-                        fetchCpaRates(val);
-                      }}
-                      className="px-2.5 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle cursor-pointer transition-shadow"
-                    >
-                      <option value="all">All (bank CPA only)</option>
-                      {(users as any[]).map((u: any) => (
-                        <option key={u.id} value={u.id}>
-                          {u.name || u.email} ({u.commissionRate || 50}%)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                {/* Affiliate — bank CPA vs a specific affiliate's payout */}
+                <PopupButton
+                  label="Affiliate"
+                  icon={<Users className="w-3.5 h-3.5 text-faint2" />}
+                  value={cpaAffiliateFilter}
+                  options={[
+                    { value: 'all', label: 'All (bank CPA)' },
+                    ...(users as any[]).map((u: any) => ({ value: u.id, label: `${u.name || u.email} (${u.commissionRate || 50}%)` })),
+                  ]}
+                  onChange={(val) => { setCpaAffiliateFilter(val); setCpaVisible(cpaPageSize); fetchCpaRates(val); }}
+                />
 
-                  <div className="flex items-center gap-4 ml-auto">
-                    {/* Group by issuer toggle */}
-                    <FilterChip
-                      active={cpaGroupBy}
-                      title="Group by issuer"
-                      onClick={() => { const next = !cpaGroupBy; setCpaGroupBy(next); setCpaCollapsed(next ? new Set(cpaRates.map(r => r.issuer || 'Other')) : new Set()); }}
-                    >
-                      <Layers className="w-3.5 h-3.5" />
-                      Group by Issuer
-                    </FilterChip>
-                    {/* Collapse All / Expand All — only when grouped */}
-                    {cpaGroupBy && cpaRates.length > 0 && (() => {
-                      const allIssuers = Array.from(new Set(cpaRates.map(r => r.issuer || 'Other')));
-                      const allCollapsed = allIssuers.every(i => cpaCollapsed.has(i));
-                      return (
-                        <button
-                          onClick={() => setCpaCollapsed(allCollapsed ? new Set() : new Set(allIssuers))}
-                          className="text-xs text-faint hover:text-brand transition-colors cursor-pointer"
-                        >
-                          {allCollapsed ? 'Expand All' : 'Collapse All'}
-                        </button>
-                      );
-                    })()}
-                    <button
-                      onClick={() => { setCpaVisible(cpaPageSize); fetchCpaRates(cpaAffiliateFilter); }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-subtle bg-white border border-hair rounded-lg hover:border-brand hover:text-brand transition-all duration-150 cursor-pointer"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      Refresh
-                    </button>
-                  </div>
-                </div>
-
-                {/* Row 2: Issuer filter + CPA range */}
+                {/* Secondary filters folded into one menu with an active-count badge */}
                 {cpaRates.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-3">
-                    {/* Issuer dropdown */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-faint">Issuer:</span>
-                      <select
-                        value={cpaIssuerFilter}
-                        onChange={e => { setCpaIssuerFilter(e.target.value); setCpaVisible(cpaPageSize); }}
-                        className="px-2.5 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle cursor-pointer transition-shadow"
-                      >
-                        <option value="all">All issuers</option>
-                        {Array.from(new Set(cpaRates.map(r => r.issuer).filter(Boolean))).sort().map((iss: any) => (
-                          <option key={iss} value={iss}>{iss}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* CPA range — text chips */}
-                    <div className="flex items-center gap-4">
-                      <span className="text-xs font-medium text-faint">Payout</span>
-                      {([
-                        { value: 'all',    label: 'All' },
-                        { value: 'lt100',  label: '<$100' },
-                        { value: '100-299', label: '$100–$299' },
-                        { value: '300plus', label: '$300+' },
-                      ]).map(({ value, label }) => (
-                        <FilterChip
-                          key={value}
-                          active={cpaCpaRange === value}
-                          onClick={() => { setCpaCpaRange(value); setCpaVisible(cpaPageSize); }}
-                        >
-                          {label}
-                        </FilterChip>
-                      ))}
-                    </div>
-
-                    {/* Active filter summary */}
-                    {(cpaSearch || cpaIssuerFilter !== 'all' || cpaCpaRange !== 'all') && (
-                      <button
-                        onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(cpaPageSize); }}
-                        className="text-xs text-brand hover:underline ml-1 cursor-pointer"
-                      >
-                        Clear filters
-                      </button>
-                    )}
-                  </div>
+                  <FilterMenu
+                    onClear={() => { setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(cpaPageSize); }}
+                    groups={[
+                      {
+                        key: 'issuer', label: 'Issuer', value: cpaIssuerFilter,
+                        onChange: (val) => { setCpaIssuerFilter(val); setCpaVisible(cpaPageSize); },
+                        options: [
+                          { value: 'all', label: 'All issuers' },
+                          ...Array.from(new Set(cpaRates.map(r => r.issuer).filter(Boolean))).sort().map((iss: any) => ({ value: iss, label: iss })),
+                        ],
+                      },
+                      {
+                        key: 'payout', label: 'Payout', value: cpaCpaRange,
+                        onChange: (val) => { setCpaCpaRange(val); setCpaVisible(cpaPageSize); },
+                        options: [
+                          { value: 'all', label: 'All payouts' },
+                          { value: 'lt100', label: '<$100' },
+                          { value: '100-299', label: '$100–299' },
+                          { value: '300plus', label: '$300+' },
+                        ],
+                      },
+                    ]}
+                  />
                 )}
-              </div>
+
+                {cpaRates.length > 0 && (
+                  <SortMenu
+                    sort={cpaSort}
+                    onSort={(next) => setCpaSort(next)}
+                    fields={[
+                      { field: 'card', label: 'Card' },
+                      { field: 'issuer', label: 'Issuer' },
+                      { field: 'date', label: 'Date' },
+                      { field: 'cardId', label: 'Card ID' },
+                      ...(cpaAffiliateFilter !== 'all' ? [{ field: 'affiliatePayout', label: 'Payout' }] : []),
+                      { field: 'bankCpa', label: 'CPA' },
+                    ]}
+                  />
+                )}
+              </Toolbar>
 
               {cpaRatesLoading ? (
                 <div className="flex flex-col items-center gap-4 py-16">
@@ -2579,75 +2523,31 @@ Please sign in and reset your password from your profile.`;
           {/* ── Invoices Tab ── */}
           <Slide tabKey="invoices">
             <div className="mt-1">
-              {/* Toolbar */}
-              <div className="sticky top-[60px] z-10 bg-canvas/95 backdrop-blur-md pt-4 pb-3 mb-4 border-b border-hair space-y-3">
-                <TabHead title="Invoices" ts={lastUpdated.invoices} count={invoices.length} noun="invoices" />
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="relative flex flex-wrap items-center gap-3 pl-11 min-h-9">
-                  <SearchBox value={invoiceSearch} onChange={v => { setInvoiceSearch(v); setInvoicesVisible(PAGE_SIZE); }} placeholder="Search by affiliate or month" />
-                  {/* Affiliate filter */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-faint">Affiliate:</span>
-                    <select
-                      value={invoiceAffiliateFilter}
-                      onChange={e => { setInvoiceAffiliateFilter(e.target.value); setInvoicesVisible(PAGE_SIZE); }}
-                      className="px-2.5 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle cursor-pointer transition-shadow"
-                    >
-                      <option value="all">All affiliates</option>
-                      {Array.from(new Set(invoices.map((inv: any) => inv.email).filter(Boolean))).sort().map((email: any) => (
-                        <option key={email} value={email}>{invoices.find((inv: any) => inv.email === email)?.name || email}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {/* Month filter */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-faint">Month:</span>
-                    <select
-                      value={invoiceMonthFilter}
-                      onChange={e => { setInvoiceMonthFilter(e.target.value); setInvoicesVisible(PAGE_SIZE); }}
-                      className="px-2.5 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle cursor-pointer transition-shadow"
-                    >
-                      <option value="all">All months</option>
-                      {Array.from(new Set(invoices.map((inv: any) => inv.month).filter(Boolean))).map((m: any) => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {/* Status filter */}
-                  {Array.from(new Set(invoices.map((inv: any) => inv.status).filter(Boolean))).length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-faint">Status:</span>
-                      <select
-                        value={invoiceStatusFilter}
-                        onChange={e => { setInvoiceStatusFilter(e.target.value); setInvoicesVisible(PAGE_SIZE); }}
-                        className="px-2.5 py-2 text-xs border border-hair rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-white text-subtle cursor-pointer transition-shadow"
-                      >
-                        <option value="all">All statuses</option>
-                        {Array.from(new Set(invoices.map((inv: any) => inv.status).filter(Boolean))).map((s: any) => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-4">
-                  {/* Group by — text chips */}
-                  <span className="text-xs font-medium text-faint">Group</span>
-                  {([
-                    { value: 'none',      label: 'None' },
-                    { value: 'month',     label: 'Month' },
-                    { value: 'affiliate', label: 'Affiliate' },
-                  ] as { value: 'none'|'month'|'affiliate'; label: string }[]).map(({ value, label }) => (
-                    <FilterChip
-                      key={value}
-                      active={invoiceGroupBy === value}
-                      onClick={() => { setInvoiceGroupBy(value); setInvoiceCollapsed(value === 'none' ? new Set() : new Set(invoices.map((inv: any) => value === 'month' ? (inv.date?.substring(0, 7) || inv.month || 'unknown') : (inv.email || 'unknown')))); setInvoicesVisible(PAGE_SIZE); }}
-                    >
-                      {value !== 'none' && <Layers className="w-3 h-3" />}
-                      {label}
-                    </FilterChip>
-                  ))}
-                  {invoiceGroupBy !== 'none' && (() => {
+              {/* Toolbar — condensed: search · group · filters · sort */}
+              <Toolbar
+                stickyTop={60}
+                head={<TabHead title="Invoices" ts={lastUpdated.invoices} count={invoices.length} noun="invoices" />}
+                trailing={
+                  <ToolbarButton
+                    icon={invoicesLoading ? <Spinner className="w-3.5 h-3.5" strokeWidth={4} /> : <RefreshCw className="w-3.5 h-3.5" />}
+                    title="Refresh invoices"
+                    onClick={() => { setInvoicesVisible(PAGE_SIZE); fetchInvoices(); }}
+                  />
+                }
+                search={<ToolbarSearch value={invoiceSearch} onChange={v => { setInvoiceSearch(v); setInvoicesVisible(PAGE_SIZE); }} placeholder="Search by affiliate or month" />}
+              >
+                {/* Group (Collapse/Expand folded into the menu) */}
+                <PopupButton
+                  label="Group by"
+                  icon={<Layers className="w-3.5 h-3.5 text-faint2" />}
+                  value={invoiceGroupBy}
+                  options={[
+                    { value: 'none', label: 'No grouping' },
+                    { value: 'month', label: 'By month' },
+                    { value: 'affiliate', label: 'By affiliate' },
+                  ]}
+                  onChange={(value) => { setInvoiceGroupBy(value as 'none'|'month'|'affiliate'); setInvoiceCollapsed(value === 'none' ? new Set() : new Set(invoices.map((inv: any) => value === 'month' ? (inv.date?.substring(0, 7) || inv.month || 'unknown') : (inv.email || 'unknown')))); setInvoicesVisible(PAGE_SIZE); }}
+                  actions={invoiceGroupBy !== 'none' ? (() => {
                     const allKeys = Array.from(new Set((applySort(
                       invoices.filter((inv: any) =>
                         (invoiceAffiliateFilter === 'all' || inv.email === invoiceAffiliateFilter) &&
@@ -2660,23 +2560,53 @@ Please sign in and reset your password from your profile.`;
                         : (inv.email || 'unknown')
                     )));
                     const allCollapsed = allKeys.every(k => invoiceCollapsed.has(k));
-                    return (
-                      <button onClick={() => setInvoiceCollapsed(allCollapsed ? new Set() : new Set(allKeys))}
-                        className="text-xs text-faint hover:text-brand transition-colors cursor-pointer">
-                        {allCollapsed ? 'Expand All' : 'Collapse All'}
-                      </button>
-                    );
-                  })()}
-                  <button
-                    onClick={() => { setInvoicesVisible(PAGE_SIZE); fetchInvoices(); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-subtle bg-white border border-hair rounded-lg hover:border-brand hover:text-brand transition-all duration-150 cursor-pointer"
-                  >
-                    {invoicesLoading ? <Spinner className="w-3.5 h-3.5" strokeWidth={4} /> : <RefreshCw className="w-3.5 h-3.5" />}
-                    Refresh
-                  </button>
-                </div>
-                </div>
-              </div>
+                    return [{ label: allCollapsed ? 'Expand all' : 'Collapse all', onClick: () => setInvoiceCollapsed(allCollapsed ? new Set() : new Set(allKeys)) }];
+                  })() : undefined}
+                />
+
+                {/* Affiliate + Month + Status folded into one Filters menu */}
+                <FilterMenu
+                  onClear={() => { setInvoiceAffiliateFilter('all'); setInvoiceMonthFilter('all'); setInvoiceStatusFilter('all'); setInvoicesVisible(PAGE_SIZE); }}
+                  groups={[
+                    {
+                      key: 'affiliate', label: 'Affiliate', value: invoiceAffiliateFilter,
+                      onChange: (val) => { setInvoiceAffiliateFilter(val); setInvoicesVisible(PAGE_SIZE); },
+                      options: [
+                        { value: 'all', label: 'All affiliates' },
+                        ...Array.from(new Set(invoices.map((inv: any) => inv.email).filter(Boolean))).sort().map((email: any) => ({ value: email, label: invoices.find((inv: any) => inv.email === email)?.name || email })),
+                      ],
+                    },
+                    {
+                      key: 'month', label: 'Month', value: invoiceMonthFilter,
+                      onChange: (val) => { setInvoiceMonthFilter(val); setInvoicesVisible(PAGE_SIZE); },
+                      options: [
+                        { value: 'all', label: 'All months' },
+                        ...Array.from(new Set(invoices.map((inv: any) => inv.month).filter(Boolean))).map((m: any) => ({ value: m, label: m })),
+                      ],
+                    },
+                    ...(Array.from(new Set(invoices.map((inv: any) => inv.status).filter(Boolean))).length > 0 ? [{
+                      key: 'status', label: 'Status', value: invoiceStatusFilter,
+                      onChange: (val: string) => { setInvoiceStatusFilter(val); setInvoicesVisible(PAGE_SIZE); },
+                      options: [
+                        { value: 'all', label: 'All statuses' },
+                        ...Array.from(new Set(invoices.map((inv: any) => inv.status).filter(Boolean))).map((s: any) => ({ value: s, label: s })),
+                      ],
+                    }] : []),
+                  ]}
+                />
+
+                <SortMenu
+                  sort={invoiceSort}
+                  onSort={(next) => setInvoiceSort(next)}
+                  fields={[
+                    { field: 'name', label: 'Affiliate' },
+                    { field: 'date', label: 'Month' },
+                    { field: 'approvals', label: 'Approvals' },
+                    { field: 'status', label: 'Status' },
+                    { field: 'amount', label: 'Amount' },
+                  ]}
+                />
+              </Toolbar>
 
               {invoicesLoading ? (
                 <div className="flex flex-col items-center gap-4 py-16">
