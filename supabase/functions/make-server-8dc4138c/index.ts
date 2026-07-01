@@ -306,7 +306,9 @@ app.get("/make-server-8dc4138c/health", (c) => {
 // Signup endpoint
 app.post("/make-server-8dc4138c/signup", async (c) => {
   try {
-    const { email, password, name } = await c.req.json();
+    const { email: rawEmail, password, name } = await c.req.json();
+    // Normalize email (lowercase + trim) so accounts aren't case-sensitive.
+    const email = (rawEmail || '').trim().toLowerCase();
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL'),
@@ -382,8 +384,10 @@ app.post("/make-server-8dc4138c/login", async (c) => {
       Deno.env.get('SUPABASE_ANON_KEY'),
     );
 
+    // Email is not case-sensitive — Supabase Auth stores emails lowercased, so
+    // normalize the input so "John@X.com" signs in the same as "john@x.com".
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
+      email: (email || '').trim().toLowerCase(),
       password,
     });
 
@@ -2500,7 +2504,9 @@ app.get("/make-server-8dc4138c/manager/cpa-rates", async (c) => {
 app.post("/make-server-8dc4138c/manager/user", async (c) => {
   try {
     const sessionToken = c.req.header('X-Manager-Session');
-    const { email, password, name, commissionRate } = await c.req.json();
+    const { email: rawEmail, password, name, commissionRate } = await c.req.json();
+    // Normalize email (lowercase + trim) so accounts aren't case-sensitive.
+    const email = (rawEmail || '').trim().toLowerCase();
 
     console.log('Create user request:', { email, name, commissionRate });
 
