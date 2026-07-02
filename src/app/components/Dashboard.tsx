@@ -518,7 +518,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [invoiceSort,          setInvoiceSort]          = useState<SortState>({ field: 'date', dir: 'desc' });
 
   // Cards tab — sort + filters + search + group
-  const [cardsSort,         setCardsSort]         = useState<SortState>({ field: 'earned', dir: 'desc' });
+  const [cardsSort,         setCardsSort]         = useState<SortState>({ field: 'cpa', dir: 'desc' });
+  // For cards combined from tier/level variants: base card name → selected variant cardId.
+  const [variantSel,        setVariantSel]        = useState<Record<string, string>>({});
   const [cardsIssuerFilter, setCardsIssuerFilter] = useState('all');
   const [cardsPayoutFilter, setCardsPayoutFilter] = useState('all');
   const [cardsTypeFilter,   setCardsTypeFilter]   = useState('all');
@@ -886,6 +888,20 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       bonusMilesFull:   cpa?.bonusMilesFull   ?? '',
     };
   });
+  // Combine same-base-name tier/level variants (e.g. "… [Level 1]" / "[Level 2]" /
+  // "[ACT]") into one card carrying a `variants` list. The representative used for
+  // sort/filter is the highest-payout variant.
+  const baseCardName = (n: string) => n.replace(/\s*\[[^\]]*\]\s*$/, '').trim();
+  const variantLabelOf = (n: string) => { const m = (n || '').match(/\[([^\]]+)\]\s*$/); return m ? m[1].trim() : 'Standard'; };
+  const combinedCards = (() => {
+    const byBase: Record<string, any[]> = {};
+    for (const c of allCards) { const b = baseCardName(c.name); (byBase[b] = byBase[b] || []).push(c); }
+    return Object.entries(byBase).map(([base, arr]) => {
+      if (arr.length === 1) return arr[0];
+      const variants = [...arr].sort((a, b) => (b.cpa || 0) - (a.cpa || 0));
+      return { ...variants[0], id: `base:${base}`, name: base, variants };
+    });
+  })();
   const cardIssuers = Array.from(new Set(allCards.map(c => c.issuer).filter(Boolean))).sort() as string[];
   // Cards tab defaults to grouped-by-Issuer with groups collapsed, so "Expand
   // all" is the action. Seed the collapsed set once cards first load.
@@ -898,7 +914,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   // Derive available card types for the filter (only types that actually appear in data)
   const cardTypes = Array.from(new Set(allCards.map(c => c.cardType).filter(Boolean))).sort() as string[];
   const displayCards = applySort(
-    allCards.filter(c => {
+    combinedCards.filter(c => {
       if (cardsSearch && !c.name.toLowerCase().includes(cardsSearch.toLowerCase()) &&
           !(c.issuer || '').toLowerCase().includes(cardsSearch.toLowerCase())) return false;
       if (cardsIssuerFilter !== 'all' && c.issuer !== cardsIssuerFilter) return false;
@@ -1617,8 +1633,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 fields={[
                   { field: 'name', label: 'Card' },
                   { field: 'issuer', label: 'Issuer' },
-                  { field: 'earned', label: 'Earned' },
-                  { field: 'conv', label: 'Conv' },
                   { field: 'cpa', label: 'Payout' },
                 ]}
               />
@@ -1628,8 +1642,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               <SortHead label="Card" field="name" sort={cardsSort} onSort={f => setCardsSort(s => toggleSort(s, f))} className="flex-1 min-w-0" />
               <SortHead label="Issuer" field="issuer" sort={cardsSort} onSort={f => setCardsSort(s => toggleSort(s, f))} align="right" className="hidden sm:inline-flex w-[120px] lg:w-[150px]" />
               <div className="flex items-baseline gap-3 sm:gap-4 flex-shrink-0">
-                <SortHead label="Earned" field="earned" sort={cardsSort} onSort={f => setCardsSort(s => toggleSort(s, f))} align="right" className="hidden md:inline-flex md:min-w-[72px]" />
-                <SortHead label="Conv" field="conv" sort={cardsSort} onSort={f => setCardsSort(s => toggleSort(s, f))} align="right" className="hidden sm:inline-flex sm:min-w-[74px]" />
                 <SortHead label="Payout" field="cpa" sort={cardsSort} onSort={f => setCardsSort(s => toggleSort(s, f))} align="right" className="inline-flex sm:min-w-[72px]" />
               </div>
               <span className="w-[26px] flex-shrink-0" aria-hidden />
@@ -1644,7 +1656,14 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 const amt = t.startsWith('$') ? t : `$${t}`;
                 return `${amt.replace(/\.00$/, '')} annual fee`;
               };
-              const CardRow = ({ card, indent }: { card: any; indent?: boolean }) => {
+              const CardRow = ({ card: rawCard, indent }: { card: any; indent?: boolean }) => {
+                const variants: any[] | undefined = rawCard.variants;
+                const hasVariants = Array.isArray(variants) && variants.length > 1;
+                // Selected variant (default = highest payout = variants[0]). Keyed by the
+                // variant's full (bracketed) name, which is unique — cardId can repeat/blank.
+                const sel = hasVariants ? (variants!.find((v: any) => v.name === variantSel[rawCard.name]) || variants![0]) : rawCard;
+                // Effective card: base identity (name/issuer/id) + the selected variant's payout & details.
+                const card = hasVariants ? { ...sel, name: rawCard.name, issuer: rawCard.issuer, id: rawCard.id, variants } : rawCard;
                 const isAdded = card.cardId && linkBuilderIds.includes(card.cardId);
                 const linkFull = !isAdded && linkBuilderIds.length >= LINK_MAX;
                 const af = fmtAnnualFee(card.annualFee);
@@ -1694,6 +1713,17 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     }}>
                     <div className="flex items-center gap-2.5 flex-1 min-w-0">
                       <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate">{prettyCardName(card.name)}</span>
+                      {hasVariants && (
+                        <PopupButton
+                          label=""
+                          value={sel.name}
+                          valueLabel={variantLabelOf(sel.name)}
+                          options={variants!.map((v: any) => ({ value: v.name, label: v.cpa > 0 ? `${variantLabelOf(v.name)} · $${v.cpa.toLocaleString()}` : variantLabelOf(v.name) }))}
+                          onChange={(name) => setVariantSel(prev => ({ ...prev, [rawCard.name]: name }))}
+                          align="start"
+                          className="h-6 pl-2 pr-1 text-[11px] border-line bg-white flex-shrink-0"
+                        />
+                      )}
                       {hasDetails && (
                         <span className="relative group/bn flex-shrink-0 leading-none">
                           <button
@@ -1728,8 +1758,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </div>
                     <span className="hidden sm:block w-[120px] lg:w-[150px] flex-shrink-0 text-right text-[13px] font-medium text-subtle truncate">{card.issuer || '—'}</span>
                     <div className="flex items-baseline gap-3 sm:gap-4 flex-shrink-0">
-                      <span className="hidden md:inline-block md:min-w-[72px] text-right text-[13px] font-medium text-ink tabular-nums whitespace-nowrap">{card.earned > 0 ? `$${Math.round(card.earned).toLocaleString()}` : '—'}</span>
-                      <span className={`hidden sm:inline-block sm:min-w-[74px] text-right text-[13px] font-medium tabular-nums whitespace-nowrap ${card.conv >= 3 ? 'text-brand' : 'text-faint'}`}>{card.conv.toFixed(1)}% conv</span>
                       <span className="inline-block sm:min-w-[72px] text-right text-[13px] font-medium text-ink tracking-[-0.02em] tabular-nums whitespace-nowrap">
                         {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : '—'}
                       </span>

@@ -27,15 +27,17 @@ export function Toolbar({
       className={cn('sticky z-20 bg-canvas/95 backdrop-blur-md pt-4 pb-3 mb-4 border-b border-hair', className)}
     >
       {head}
-      {/* Mobile: a horizontally-scrollable strip — search, then the controls in a
-          single segmented "well". Desktop (sm+): the well dissolves (contents) so
-          each control is a separate outlined pill and the row wraps. */}
-      <div className="ds-chips flex items-center gap-2 flex-nowrap overflow-x-auto sm:flex-wrap sm:overflow-visible -mx-1 px-1">
+      {/* Three tiers, all as one non-clipping row that scrolls if needed:
+          - phone (<sm): icon-only controls grouped in a segmented "well";
+          - tablet (sm–lg): the well dissolves into separate labelled pills, still
+            a single horizontally-scrollable strip (never clipped/wrapped);
+          - desktop (lg+): pills wrap and trailing right-aligns. */}
+      <div className="ds-chips flex items-center gap-2 flex-nowrap overflow-x-auto lg:flex-wrap lg:overflow-visible -mx-1 px-1">
         {search && <div className="flex-shrink-0">{search}</div>}
         <div className="flex items-center gap-0.5 rounded-full bg-surface p-0.5 flex-shrink-0 sm:contents">
           {children}
         </div>
-        {trailing && <div className="flex items-center gap-1.5 flex-shrink-0 sm:ml-auto">{trailing}</div>}
+        {trailing && <div className="flex items-center gap-1.5 flex-shrink-0 lg:ml-auto">{trailing}</div>}
       </div>
     </div>
   );
