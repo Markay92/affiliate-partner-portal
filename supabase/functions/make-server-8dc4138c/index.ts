@@ -874,33 +874,44 @@ function buildCardRatingIndex(listings: any[]): Record<string, any> {
 
 // Cached card-rating index. Fetches the QuinStreet ListingDisplay feed (per
 // issuer) at most once per TTL; `force` refetches now (used by the manual sync).
-// The `_airtableToken` arg is kept for call-site compatibility and unused.
+// We cache only the SLIM built index (not the multi-MB raw listings) so it
+// actually persists in KV. The `_airtableToken` arg is kept for call-site
+// compatibility and unused.
 async function getCachedCardRatingIndex(_airtableToken?: string, force = false): Promise<Record<string, any>> {
   if (!force) {
     const cached = await kv.get(CARD_RATING_CACHE_KEY);
-    if (cached && cached.records && cached.fetchedAt && Date.now() - cached.fetchedAt < CARD_RATING_CACHE_TTL_MS) {
-      console.log(`CardRating cache hit (${cached.records.length} listings)`);
-      return buildCardRatingIndex(cached.records);
+    if (cached && cached.index && cached.fetchedAt && Date.now() - cached.fetchedAt < CARD_RATING_CACHE_TTL_MS) {
+      return cached.index;
     }
   }
   const listings = await fetchAllCardRatingListings();
   if (listings.length > 0) {
-    await kv.set(CARD_RATING_CACHE_KEY, { records: listings, fetchedAt: Date.now() });
-    console.log(`CardRating cache updated (${listings.length} listings from QuinStreet)`);
-    return buildCardRatingIndex(listings);
+    const index = buildCardRatingIndex(listings);
+    await kv.set(CARD_RATING_CACHE_KEY, { index, fetchedAt: Date.now(), count: Object.keys(index).length });
+    console.log(`CardRating cache updated (${Object.keys(index).length} cards from QuinStreet)`);
+    return index;
   }
   // Feed returned nothing — keep serving the last good cache if we have one.
   const cached = await kv.get(CARD_RATING_CACHE_KEY);
-  if (cached?.records) { console.log('CardRating feed empty — serving stale cache'); return buildCardRatingIndex(cached.records); }
+  if (cached?.index) { console.log('CardRating feed empty — serving stale cache'); return cached.index; }
   return {};
 }
 
 function lookupCardRating(index: Record<string, any>, cardName: string): any {
   const key = normCardName(cardName);
   if (index[key]) return index[key];
-  // Partial match fallback
-  for (const [k, v] of Object.entries(index)) {
-    if (k.includes(key) || key.includes(k)) return v;
+  // Try the base name — strip a trailing tier/level bracket ("… [Level 2]",
+  // "… [Level 1 android]") that the CPA names carry but the QuinStreet feed
+  // names don't.
+  const baseKey = normCardName((cardName || '').replace(/\s*\[[^\]]*\]\s*$/, ''));
+  if (baseKey && baseKey !== key && index[baseKey]) return index[baseKey];
+  // Partial-match fallback on the base key (guard against tiny keys that would
+  // match almost anything).
+  const probe = baseKey || key;
+  if (probe.length >= 6) {
+    for (const [k, v] of Object.entries(index)) {
+      if (k.includes(probe) || probe.includes(k)) return v;
+    }
   }
   return null;
 }
@@ -1903,14 +1914,24 @@ app.get("/make-server-8dc4138c/manager/tracking-activity", async (c) => {
         statsByUser[userId].totalCommissions += row.totalEarnings;
       }
 
-      // Write merged stats to each matched user.
+      // Write merged stats to each matched user. Only bump `statsUpdatedAt`
+      // (and re-write) when the numbers actually changed, so "Last updated"
+      // reflects a real data change rather than every sync run.
+      let changedCount = 0;
       for (const [userId, stats] of Object.entries(statsByUser)) {
         const userData = await kv.get(`user:${userId}`) || {};
+        const prev = userData.stats;
+        const unchanged = prev
+          && prev.totalClicks === stats.totalClicks
+          && prev.totalConversions === stats.totalConversions
+          && prev.totalCommissions === stats.totalCommissions;
+        if (unchanged) continue;
         userData.stats = stats;
         userData.statsUpdatedAt = new Date().toISOString();
         await kv.set(`user:${userId}`, userData);
+        changedCount++;
       }
-      console.log(`KV stats updated for ${Object.keys(statsByUser).length} users`);
+      console.log(`KV stats updated for ${changedCount} of ${Object.keys(statsByUser).length} users (unchanged skipped)`);
     } catch (kvErr: any) {
       // Non-fatal — stats update is best-effort
       console.log('KV stats update error (non-fatal):', kvErr.message);
