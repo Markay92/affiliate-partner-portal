@@ -905,7 +905,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       if (response.ok) {
         const userList = data.users || [];
         setUsers(userList);
-        setLastUpdated(prev => ({ ...prev, affiliates: Date.now() }));
+        // "Last updated" should reflect when affiliate data actually changed —
+        // not when we last fetched. Take the newest real change across all
+        // affiliates: a record edit (`updatedAt`) or a stats sync
+        // (`stats.lastSynced`). Only advance the shown time if it's newer, so a
+        // plain page refresh with no changes leaves the timestamp put.
+        const changedAt = userList.reduce((max: number, u: any) => {
+          const edited = u?.updatedAt ? Date.parse(u.updatedAt) : 0;
+          const synced = u?.stats?.lastSynced ? Date.parse(u.stats.lastSynced) : 0;
+          return Math.max(max, edited || 0, synced || 0);
+        }, 0);
+        setLastUpdated(prev => ({ ...prev, affiliates: Math.max(changedAt, prev.affiliates || 0) || prev.affiliates }));
         if (userList.length === 0) {
           setMessageWithTimeout('No affiliates yet. Create your first affiliate to get started.', 8000);
         } else {
@@ -1972,7 +1982,9 @@ Please sign in and reset your password from your profile.`;
                   <span className="w-8 flex-shrink-0" aria-hidden />
                 </div>
                 {(() => {
-                  const pagedUsers = displayUsers.slice(0, affiliatesVisible);
+                  // Grouped view shows every match (pagination isn't meaningful once
+                  // rows are split across groups); only slice when flat.
+                  const pagedUsers = affiliateGroupBy ? displayUsers : displayUsers.slice(0, affiliatesVisible);
                   if (affiliateGroupBy) {
                     // Grouped by commission rate
                     const groups: Record<string, any[]> = {};
@@ -2009,44 +2021,47 @@ Please sign in and reset your password from your profile.`;
                   return pagedUsers.map((user: any) => renderUserRow(user));
                 })()}
               </div>
-              {/* Page-size selector — bottom of the list. Numeric options enable only when enough affiliates exist; otherwise All. */}
+              {/* Page-size selector — bottom of the list. Only relevant when ungrouped
+                  (a grouped view always shows every match, split across groups). */}
               <div className="flex items-center justify-between flex-wrap gap-2 px-5 py-3 mt-2 border-t border-hair2">
                 <p className="text-xs text-faint">
-                  Showing {Math.min(affiliatesVisible, displayUsers.length)} of {displayUsers.length} affiliates
+                  Showing {affiliateGroupBy ? displayUsers.length : Math.min(affiliatesVisible, displayUsers.length)} of {displayUsers.length} affiliates
                 </p>
-                <div className="flex items-center gap-1.5 text-xs text-faint">
-                  <span>Show</span>
-                  {[25, 50, 100].map(n => {
-                    const disabled = displayUsers.length <= n;
-                    const active = !disabled && affiliatesPageSize === n;
-                    return (
-                      <button
-                        key={n}
-                        disabled={disabled}
-                        onClick={() => { setAffiliatesPageSize(n); setAffiliatesVisible(n); }}
-                        className={`px-2 py-0.5 rounded-md border transition-colors duration-150 ${
-                          disabled
-                            ? 'border-hair text-faint2/50 cursor-not-allowed'
-                            : active
-                              ? 'border-brand/30 bg-brand-soft text-brand font-medium cursor-pointer'
-                              : 'border-hair text-faint hover:bg-surface cursor-pointer'
-                        }`}
-                      >
-                        {n}
-                      </button>
-                    );
-                  })}
-                  <button
-                    onClick={() => { setAffiliatesPageSize(Infinity); setAffiliatesVisible(Infinity); }}
-                    className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
-                      (affiliatesPageSize === Infinity || affiliatesPageSize >= displayUsers.length)
-                        ? 'border-brand/30 bg-brand-soft text-brand font-medium'
-                        : 'border-hair text-faint hover:bg-surface'
-                    }`}
-                  >
-                    All
-                  </button>
-                </div>
+                {!affiliateGroupBy && (
+                  <div className="flex items-center gap-1.5 text-xs text-faint">
+                    <span>Show</span>
+                    {[25, 50, 100].map(n => {
+                      const disabled = displayUsers.length <= n;
+                      const active = !disabled && affiliatesPageSize === n;
+                      return (
+                        <button
+                          key={n}
+                          disabled={disabled}
+                          onClick={() => { setAffiliatesPageSize(n); setAffiliatesVisible(n); }}
+                          className={`px-2 py-0.5 rounded-md border transition-colors duration-150 ${
+                            disabled
+                              ? 'border-hair text-faint2/50 cursor-not-allowed'
+                              : active
+                                ? 'border-brand/30 bg-brand-soft text-brand font-medium cursor-pointer'
+                                : 'border-hair text-faint hover:bg-surface cursor-pointer'
+                          }`}
+                        >
+                          {n}
+                        </button>
+                      );
+                    })}
+                    <button
+                      onClick={() => { setAffiliatesPageSize(Infinity); setAffiliatesVisible(Infinity); }}
+                      className={`px-2 py-0.5 rounded-md border transition-colors duration-150 cursor-pointer ${
+                        (affiliatesPageSize === Infinity || affiliatesPageSize >= displayUsers.length)
+                          ? 'border-brand/30 bg-brand-soft text-brand font-medium'
+                          : 'border-hair text-faint hover:bg-surface'
+                      }`}
+                    >
+                      All
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </Slide>
@@ -2129,7 +2144,9 @@ Please sign in and reset your password from your profile.`;
 
               <div>
               {(() => {
-                const pagedTracking = displayTrackingActivity.slice(0, trackingVisible);
+                // Grouped view shows every match (pagination isn't meaningful once
+                // rows are split across groups); only slice when flat.
+                const pagedTracking = trackingGroupBy !== 'none' ? displayTrackingActivity : displayTrackingActivity.slice(0, trackingVisible);
                 return (
                   <>
                     <div>
@@ -2245,11 +2262,13 @@ Please sign in and reset your password from your profile.`;
                             });
                           })()}
                     </div>
-                    {/* Page-size selector — bottom of the list. Numeric options enable only when enough records exist; otherwise All. */}
+                    {/* Page-size selector — bottom of the list. Only relevant when ungrouped
+                        (a grouped view always shows every match, split across groups). */}
                     <div className="flex items-center justify-between flex-wrap gap-2 pt-4 mt-2 border-t border-hair2">
                       <p className="text-xs text-faint">
                         Showing {pagedTracking.length} of {displayTrackingActivity.length} records
                       </p>
+                      {trackingGroupBy === 'none' && (
                       <div className="flex items-center gap-1.5 text-xs text-faint">
                         <span>Show</span>
                         {[25, 50, 100].map(n => {
@@ -2283,6 +2302,7 @@ Please sign in and reset your password from your profile.`;
                           All
                         </button>
                       </div>
+                      )}
                     </div>
                   </>
                 );
@@ -2474,13 +2494,15 @@ Please sign in and reset your password from your profile.`;
                           pagedFiltered.map(r => <CpaRow key={r.id} rate={r} />)
                         )}
                     </div>
-                    {/* Page-size selector — bottom of the list. Numeric options enable only when enough records exist; otherwise All. */}
+                    {/* Page-size selector — bottom of the list. Only relevant when ungrouped
+                        (a grouped view always shows every match, split across groups). */}
                     <div className="flex items-center justify-between flex-wrap gap-2 px-5 py-3 mt-2 border-t border-hair2">
                       <p className="text-xs text-faint">
                         Showing {pagedFiltered.length} of {filtered.length} cards
                         {filtered.length !== cpaRates.length ? ` (${cpaRates.length} total)` : ''}
                         {cpaAffiliateLabel ? ` · ${cpaAffiliateLabel}` : ''}
                       </p>
+                      {!cpaGroupBy && (
                       <div className="flex items-center gap-1.5 text-xs text-faint">
                         <span>Show</span>
                         {[25, 50, 100].map(n => {
@@ -2514,6 +2536,7 @@ Please sign in and reset your password from your profile.`;
                           All
                         </button>
                       </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -2633,7 +2656,9 @@ Please sign in and reset your password from your profile.`;
                     <p className="text-faint text-sm">No invoices match the selected filters.</p>
                   </div>
                 );
-                const pagedFiltered = filtered.slice(0, invoicesVisible);
+                // Grouped view shows every match (pagination isn't meaningful once
+                // rows are split across groups); only slice when flat.
+                const pagedFiltered = invoiceGroupBy !== 'none' ? filtered : filtered.slice(0, invoicesVisible);
                 return (
                   <div className="overflow-x-auto">
                     <div>
@@ -2780,12 +2805,14 @@ Please sign in and reset your password from your profile.`;
                           });
                         })()}
                     </div>
-                    {/* Page-size selector — bottom of the list. Numeric options enable only when enough invoices exist; otherwise All. */}
+                    {/* Page-size selector — bottom of the list. Only relevant when ungrouped
+                        (a grouped view always shows every match, split across groups). */}
                     <div className="flex items-center justify-between flex-wrap gap-2 px-5 py-3 mt-2 border-t border-hair2">
                       <p className="text-xs text-faint">
                         Showing {pagedFiltered.length} of {filtered.length} invoices
                         {invoices.length !== filtered.length ? ` (${invoices.length} total)` : ''}
                       </p>
+                      {invoiceGroupBy === 'none' && (
                       <div className="flex items-center gap-1.5 text-xs text-faint">
                         <span>Show</span>
                         {[25, 50, 100].map(n => {
@@ -2819,6 +2846,7 @@ Please sign in and reset your password from your profile.`;
                           All
                         </button>
                       </div>
+                      )}
                     </div>
                   </div>
                 );
