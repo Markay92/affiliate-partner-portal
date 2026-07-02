@@ -518,7 +518,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [invoiceSort,          setInvoiceSort]          = useState<SortState>({ field: 'date', dir: 'desc' });
 
   // Cards tab — sort + filters + search + group
-  const [cardsSort,         setCardsSort]         = useState<SortState>({ field: 'earned', dir: 'desc' });
+  const [cardsSort,         setCardsSort]         = useState<SortState>({ field: 'cpa', dir: 'desc' });
   const [cardsIssuerFilter, setCardsIssuerFilter] = useState('all');
   const [cardsPayoutFilter, setCardsPayoutFilter] = useState('all');
   const [cardsTypeFilter,   setCardsTypeFilter]   = useState('all');
@@ -1617,8 +1617,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 fields={[
                   { field: 'name', label: 'Card' },
                   { field: 'issuer', label: 'Issuer' },
-                  { field: 'earned', label: 'Earned' },
-                  { field: 'conv', label: 'Conv' },
                   { field: 'cpa', label: 'Payout' },
                 ]}
               />
@@ -1628,8 +1626,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               <SortHead label="Card" field="name" sort={cardsSort} onSort={f => setCardsSort(s => toggleSort(s, f))} className="flex-1 min-w-0" />
               <SortHead label="Issuer" field="issuer" sort={cardsSort} onSort={f => setCardsSort(s => toggleSort(s, f))} align="right" className="hidden sm:inline-flex w-[120px] lg:w-[150px]" />
               <div className="flex items-baseline gap-3 sm:gap-4 flex-shrink-0">
-                <SortHead label="Earned" field="earned" sort={cardsSort} onSort={f => setCardsSort(s => toggleSort(s, f))} align="right" className="hidden md:inline-flex md:min-w-[72px]" />
-                <SortHead label="Conv" field="conv" sort={cardsSort} onSort={f => setCardsSort(s => toggleSort(s, f))} align="right" className="hidden sm:inline-flex sm:min-w-[74px]" />
                 <SortHead label="Payout" field="cpa" sort={cardsSort} onSort={f => setCardsSort(s => toggleSort(s, f))} align="right" className="inline-flex sm:min-w-[72px]" />
               </div>
               <span className="w-[26px] flex-shrink-0" aria-hidden />
@@ -1728,8 +1724,6 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </div>
                     <span className="hidden sm:block w-[120px] lg:w-[150px] flex-shrink-0 text-right text-[13px] font-medium text-subtle truncate">{card.issuer || '—'}</span>
                     <div className="flex items-baseline gap-3 sm:gap-4 flex-shrink-0">
-                      <span className="hidden md:inline-block md:min-w-[72px] text-right text-[13px] font-medium text-ink tabular-nums whitespace-nowrap">{card.earned > 0 ? `$${Math.round(card.earned).toLocaleString()}` : '—'}</span>
-                      <span className={`hidden sm:inline-block sm:min-w-[74px] text-right text-[13px] font-medium tabular-nums whitespace-nowrap ${card.conv >= 3 ? 'text-brand' : 'text-faint'}`}>{card.conv.toFixed(1)}% conv</span>
                       <span className="inline-block sm:min-w-[72px] text-right text-[13px] font-medium text-ink tracking-[-0.02em] tabular-nums whitespace-nowrap">
                         {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : '—'}
                       </span>
