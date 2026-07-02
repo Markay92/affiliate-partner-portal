@@ -773,81 +773,126 @@ async function fetchAllAirtableRecords(token: string, baseId: string, tableId: s
 const CPA_CACHE_KEY = 'cache:cpa_rates_raw';
 const CPA_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days — refresh via Import CPA Rates
 
-// ── CardRatingAPI cache helpers ──────────────────────────────────────────────
-// CardRatingAPI records (tblWMdAiq5KWL6RGK in appJq70k9nl9MK2zk) enrich each
-// CPA card with type (Business/Personal), card ID for link building, and more.
+// ── Card Rating (QuinStreet ListingDisplay) helpers ──────────────────────────
+// Card enrichment (logo, card type, cardId, bonuses, APR) is pulled DIRECTLY
+// from the QuinStreet / NextInsure ListingDisplay API — one call per issuer —
+// then cached in KV. This is the same feed that used to populate the Airtable
+// "CardRatingAPI" table via an Airtable automation; we now run it ourselves, so
+// there's no Airtable dependency for card-rating anymore.
 const CARD_RATING_CACHE_KEY = 'cache:card_rating_api';
-const CARD_RATING_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const CARD_RATING_CACHE_TTL_MS = 15 * 24 * 60 * 60 * 1000; // 15 days (manual refresh also available)
 
-// Field IDs for CardRatingAPI table (tblWMdAiq5KWL6RGK)
-const CR_FIELD = {
-  cardName:  'fldHJmdj3vQMJ7cNl',
-  cardId:    'fldDXGFG5wQvq3hjn',
-  cardType:  'fldbuxCKp2ZgtqmrJ', // DefaultCreditCardTypeName
-  cardUse:   'fld429l9Oel12NeY6',
-  logoUrl:   'fldG3BXiQNTmAgeqV', // LogoImageUrl — stable cdn.nextinsure.com URL
-  rawLogo:   'fldm35TYYqxyz17EF', // RawLogoImageUrl — same CDN, no ?w= param
-  annualFee:       'fld8eVAF9MHrcSczE', // AnnualFeesAmount
-  introBonus:      'fld8EsOcX3pAEfXDA', // SignupReward (welcome/intro bonus)
-  introAprRate:    'fldRJftyqVrvqDSp0', // IntroAPRRate
-  introAprDuration:'fldMYiuxHWojbuaaz', // IntroAPRDuration
-  bonusMilesFull:  'fldrIpusy3mUt3S0T', // BonusMilesFull
+const QS_LISTING_BASE = 'https://www.nextinsure.com/ListingDisplay/Display/';
+const QS_LISTING_SRC = '693350';
+const QS_LISTING_VERSION = 2;
+const QS_LISTING_MAX = 1000;
+// Issuer → QuinStreet ccis (credit-card-issuer-set) id.
+const QS_ISSUER_CCIS: Record<string, number> = {
+  'AmEx Business': 640029, 'AmEx Consumer': 639943, 'Applied Bank': 640091,
+  'Bank of America': 574429, 'Bilt': 692149, 'Capital One': 637902,
+  'Celtic Bank': 607790, 'Chase': 188933, 'Chime': 669122, 'Citi': 188934,
+  'CreditStrong': 691904, 'Current': 692271, 'First PREMIER': 691829,
+  'First Progress': 572111, 'Luxury Card': 636901, 'Marcus': 669410,
+  'Mission Lane': 691381, 'NetSpend': 663106, 'PenFed': 690515,
+  'Revenued': 691015, 'Revvi': 692060, 'Self': 665501, 'StellarFi': 691424,
+  'Synovus Bank': 640407, 'The Bank of Missouri': 606689, 'Upgrade': 693779,
+  'US Bank': 637950, 'USAA': 692282,
 };
+
+// Strip HTML tags + decode the entities QuinStreet returns (numeric + named).
+function cleanListingText(v: unknown): string {
+  if (typeof v !== 'string') return v == null ? '' : String(v);
+  return v
+    .replace(/&#174;/g, '(R)').replace(/&#8482;/g, '(TM)').replace(/&#169;/g, '(C)').replace(/&#8480;/g, '(SM)')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/&#8211;/g, '-').replace(/&#8212;/g, '--')
+    .replace(/&#8216;|&#8217;/g, "'").replace(/&#8220;|&#8221;/g, '"')
+    .replace(/&#8226;/g, '*').replace(/&#8230;/g, '...')
+    .replace(/&#(\d+);/g, (_m, n) => String.fromCharCode(Number(n)))
+    .replace(/<sup>\(R\)<\/sup>/g, '(R)')
+    .replace(/<[^>]*>/g, '')
+    .trim();
+}
 
 // Strip ALL trademark markers BEFORE removing non-alphanumerics so the same card
 // matches whether it's written with (R)/(TM)/(SM)/(C) or ®/™/℠/© or nothing.
-// Otherwise e.g. "...Cash(SM) Credit Card" left a stray "sm" that never matched
-// the Card Rating record "...Cash(R) Credit Card", dropping its cardId.
 function normCardName(s: string): string {
   return s.toLowerCase()
     .replace(/\(r\)|\(tm\)|\(sm\)|\(c\)|®|™|℠|©/gi, ' ')
     .replace(/[^a-z0-9]/g, '');
 }
 
-function buildCardRatingIndex(records: any[]): Record<string, any> {
-  const norm = normCardName;
+// Fetch one issuer's listings from the QuinStreet ListingDisplay API.
+async function fetchListingIssuer(ccis: number): Promise<any[]> {
+  const url = `${QS_LISTING_BASE}?json=1&src=${QS_LISTING_SRC}&xml_version=${QS_LISTING_VERSION}&max=${QS_LISTING_MAX}&ccis=${ccis}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`listing ${ccis}: ${res.status}`);
+  const data = await res.json();
+  const listing = data?.ResultSet?.Listings?.Listing;
+  return Array.isArray(listing) ? listing : listing ? [listing] : [];
+}
+
+// Pull every issuer in parallel and dedupe by CreditCardID.
+async function fetchAllCardRatingListings(): Promise<any[]> {
+  const results = await Promise.allSettled(Object.values(QS_ISSUER_CCIS).map(fetchListingIssuer));
+  const out: any[] = [];
+  const seen = new Set<string>();
+  for (const r of results) {
+    if (r.status !== 'fulfilled') { console.log('CardRating issuer fetch failed:', (r as any).reason?.message); continue; }
+    for (const l of r.value) {
+      const id = String(l?.CreditCardID || '');
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      out.push(l);
+    }
+  }
+  return out;
+}
+
+function buildCardRatingIndex(listings: any[]): Record<string, any> {
   const index: Record<string, any> = {};
-  for (const rec of records) {
-    // returnFieldsByFieldId=true → rec.fields is keyed by field ID
-    const f = rec.fields || {};
-    const name = String(f[CR_FIELD.cardName] || '').trim();
+  for (const l of listings) {
+    const name = cleanListingText(l?.CardName);
     if (!name) continue;
-    // Use stable CDN URLs only — Airtable attachment URLs expire within hours
-    const imageUrl =
-      String(f[CR_FIELD.logoUrl] || '').trim() ||
-      String(f[CR_FIELD.rawLogo] || '').trim();
-    index[norm(name)] = {
-      cardId:   String(f[CR_FIELD.cardId]   || '').trim(),
-      cardType: String(f[CR_FIELD.cardType] || '').trim(),
-      cardUse:  String(f[CR_FIELD.cardUse]  || '').trim(),
+    const creative = l?.Creative || {};
+    // Use the stable CDN logo URL (cdn.nextinsure.com).
+    const imageUrl = String(creative.LogoImageUrl || creative.RawLogoImageUrl || '').trim();
+    index[normCardName(name)] = {
+      cardId:   String(l?.CreditCardID || '').trim(),
+      cardType: cleanListingText(l?.DefaultCreditCardTypeName),
+      cardUse:  cleanListingText(l?.CardUse),
       imageUrl,
-      annualFee:        String(f[CR_FIELD.annualFee]        || '').trim(),
-      introBonus:       String(f[CR_FIELD.introBonus]       || '').trim(),
-      introAprRate:     String(f[CR_FIELD.introAprRate]     || '').trim(),
-      introAprDuration: String(f[CR_FIELD.introAprDuration] || '').trim(),
-      bonusMilesFull:   String(f[CR_FIELD.bonusMilesFull]   || '').trim(),
+      annualFee:        cleanListingText(l?.AnnualFeesAmount),
+      introBonus:       cleanListingText(l?.SignupReward),
+      introAprRate:     cleanListingText(l?.IntroAPRRate),
+      introAprDuration: cleanListingText(l?.IntroAPRDuration),
+      bonusMilesFull:   cleanListingText(l?.BonusMilesFull),
     };
   }
   return index;
 }
 
-async function getCachedCardRatingIndex(airtableToken: string): Promise<Record<string, any>> {
-  const cached = await kv.get(CARD_RATING_CACHE_KEY);
-  if (cached && cached.records && cached.fetchedAt) {
-    if (Date.now() - cached.fetchedAt < CARD_RATING_CACHE_TTL_MS) {
-      console.log(`CardRating cache hit (${cached.records.length} records)`);
+// Cached card-rating index. Fetches the QuinStreet ListingDisplay feed (per
+// issuer) at most once per TTL; `force` refetches now (used by the manual sync).
+// The `_airtableToken` arg is kept for call-site compatibility and unused.
+async function getCachedCardRatingIndex(_airtableToken?: string, force = false): Promise<Record<string, any>> {
+  if (!force) {
+    const cached = await kv.get(CARD_RATING_CACHE_KEY);
+    if (cached && cached.records && cached.fetchedAt && Date.now() - cached.fetchedAt < CARD_RATING_CACHE_TTL_MS) {
+      console.log(`CardRating cache hit (${cached.records.length} listings)`);
       return buildCardRatingIndex(cached.records);
     }
   }
-  // Request by field ID so the response is keyed by ID regardless of field name changes
-  const fields = Object.values(CR_FIELD).map(id => `fields[]=${id}`).join('&');
-  const records = await fetchAllAirtableRecords(
-    airtableToken, 'appJq70k9nl9MK2zk', 'tblWMdAiq5KWL6RGK',
-    `${fields}&returnFieldsByFieldId=true`,
-  );
-  await kv.set(CARD_RATING_CACHE_KEY, { records, fetchedAt: Date.now() });
-  console.log(`CardRating cache updated (${records.length} records)`);
-  return buildCardRatingIndex(records);
+  const listings = await fetchAllCardRatingListings();
+  if (listings.length > 0) {
+    await kv.set(CARD_RATING_CACHE_KEY, { records: listings, fetchedAt: Date.now() });
+    console.log(`CardRating cache updated (${listings.length} listings from QuinStreet)`);
+    return buildCardRatingIndex(listings);
+  }
+  // Feed returned nothing — keep serving the last good cache if we have one.
+  const cached = await kv.get(CARD_RATING_CACHE_KEY);
+  if (cached?.records) { console.log('CardRating feed empty — serving stale cache'); return buildCardRatingIndex(cached.records); }
+  return {};
 }
 
 function lookupCardRating(index: Record<string, any>, cardName: string): any {
@@ -2760,35 +2805,24 @@ app.post("/make-server-8dc4138c/manager/import-cpa-data", async (c) => {
   }
 });
 
-// Sync CardRatingAPI data into KV cache.
-// Fetches CreditCardID, card type (Business/Personal), and CardUse from the
-// CardRatingAPI Airtable table and stores them for use in payouts enrichment.
+// Manual refresh of the card-rating index. Pulls fresh from the QuinStreet
+// ListingDisplay feed (per issuer) and caches it in KV for payouts/card enrichment.
 app.post("/make-server-8dc4138c/manager/sync-card-rating-api", async (c) => {
   try {
     const sessionToken = c.req.header('X-Manager-Session');
     const session = await kv.get(`manager_session:${sessionToken}`);
     if (!session) return c.json({ error: 'Unauthorized' }, 401);
 
-    const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
-    if (!airtableToken) return c.json({ error: 'AIRTABLE_API_KEY not configured' }, 500);
-
-    // Bust the stale cache so the next payouts/cpa-rates call fetches fresh data.
-    await kv.del(CARD_RATING_CACHE_KEY);
-
-    // Do a lightweight 1-record probe to verify Airtable connectivity and get
-    // the total record count, without pulling all 209 records in this request
-    // (full fetch happens lazily on next /payouts or /manager/cpa-rates call).
-    const probeFields = `fields[]=${CR_FIELD.cardName}&pageSize=1`;
-    const probeUrl = `https://api.airtable.com/v0/appJq70k9nl9MK2zk/tblWMdAiq5KWL6RGK?${probeFields}&returnFieldsByFieldId=true`;
-    const probeRes = await fetch(probeUrl, { headers: { 'Authorization': `Bearer ${airtableToken}` } });
-    if (!probeRes.ok) {
-      const errText = await probeRes.text();
-      return c.json({ error: `Airtable unreachable: ${probeRes.status} ${errText.substring(0, 100)}` }, 502);
+    // Pull fresh from the QuinStreet ListingDisplay feed (per issuer) and cache it.
+    const index = await getCachedCardRatingIndex('', true);
+    const count = Object.keys(index).length;
+    if (count === 0) {
+      return c.json({ error: 'QuinStreet ListingDisplay returned no cards — try again shortly.' }, 502);
     }
 
     await flushSnapshots();
 
-    return c.json({ success: true, message: 'Card Rating API cache cleared — data will refresh on next load.' });
+    return c.json({ success: true, cards: count, message: `Refreshed ${count} cards from QuinStreet.` });
   } catch (error: any) {
     console.log(`Sync CardRatingAPI error: ${error.message}`);
     return c.json({ error: error.message }, 500);
