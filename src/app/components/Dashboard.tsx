@@ -1286,7 +1286,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
           <div
             ref={linkBarRef}
             data-anim
-            className="sticky top-[60px] z-20 mb-5 -mx-4 sm:-mx-6 lg:-mx-8 bg-white/95 backdrop-blur-md border-b border-hair"
+            className="sticky top-[60px] z-[25] mb-5 -mx-4 sm:-mx-6 lg:-mx-8 bg-white/95 backdrop-blur-md border-b border-hair"
           >
           {/* Compact referral link bar — single line, with a "featured" boost chip */}
           <div ref={boostRef} className="relative flex items-center gap-2 sm:gap-2.5 py-2.5 px-4 sm:px-6 lg:px-8">
@@ -1659,9 +1659,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
               const CardRow = ({ card: rawCard, indent }: { card: any; indent?: boolean }) => {
                 const variants: any[] | undefined = rawCard.variants;
                 const hasVariants = Array.isArray(variants) && variants.length > 1;
-                // Selected variant (default = highest payout = variants[0]). Keyed by the
-                // variant's full (bracketed) name, which is unique — cardId can repeat/blank.
-                const sel = hasVariants ? (variants!.find((v: any) => v.name === variantSel[rawCard.name]) || variants![0]) : rawCard;
+                // Default variant = highest-payout one that can actually be added (has a
+                // cardId), so an addable card shows its "+" by default; only if no variant
+                // has a cardId do we fall back to the highest payout (non-addable) one.
+                // Variants are pre-sorted by payout desc. Keyed by the variant's full
+                // (bracketed) name, which is unique — cardId can repeat/blank.
+                const defaultVariant = hasVariants ? (variants!.find((v: any) => v.cardId) || variants![0]) : rawCard;
+                const sel = hasVariants ? (variants!.find((v: any) => v.name === variantSel[rawCard.name]) || defaultVariant) : rawCard;
                 // Effective card: base identity (name/issuer/id) + the selected variant's payout & details.
                 const card = hasVariants ? { ...sel, name: rawCard.name, issuer: rawCard.issuer, id: rawCard.id, variants } : rawCard;
                 const isAdded = card.cardId && linkBuilderIds.includes(card.cardId);
