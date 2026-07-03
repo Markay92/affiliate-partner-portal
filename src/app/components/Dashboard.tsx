@@ -540,8 +540,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [invoicesPageSize, setInvoicesPageSize] = useState<number>(PAGE_SIZE);
 
   // Stats grid comparison period
-  type StatPeriod = 'today' | 'week' | 'month' | 'lm' | 'year' | 'custom';
-  const [statPeriod, setStatPeriod] = useState<StatPeriod>('month');
+  type StatPeriod = 'today' | 'week' | 'month' | 'lm' | 'year' | 'custom' | 'l31';
+  const [statPeriod, setStatPeriod] = useState<StatPeriod>('l31');
   const [statCustomFrom, setStatCustomFrom] = useState('');
   const [statCustomTo,   setStatCustomTo]   = useState('');
   const statRangeRef = useRef<CustomDateHandle>(null);
@@ -781,6 +781,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     lm:     'Last month vs month before',
     year:   'This year vs last year',
     custom: 'Custom range',
+    l31:    'Last 31 days vs previous 31 days',
   };
 
   // Invoices tab — which rows are expanded to reveal their underlying cards
@@ -1046,6 +1047,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     _thisT = tracking.filter(t => _inMonth(t.clickDate, _lastM, _lastY));
     _lastT = tracking.filter(t => _inMonth(t.clickDate, _prevM, _prevY));
     _periodLabel = 'vs month before';
+  } else if (statPeriod === 'l31') {
+    _thisT = tracking.filter(t => _inRange(t.clickDate, 31, 0));
+    _lastT = tracking.filter(t => _inRange(t.clickDate, 62, 31));
+    _periodLabel = 'vs previous 31 days';
   } else if (statPeriod === 'year') {
     const thisYrStart = new Date(_now.getFullYear(), 0, 1);
     const prevYrStart = new Date(_now.getFullYear() - 1, 0, 1);
@@ -1443,6 +1448,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                   className="flex items-center gap-2.5 cursor-pointer group flex-shrink-0">
                   <ChevronRight className={`w-[15px] h-[15px] text-faint transition-transform duration-200 ${perfOpen ? 'rotate-90' : ''}`} strokeWidth={2.6} />
                   <span className="text-[19px] font-bold text-ink tracking-[-0.02em] group-hover:opacity-70 transition-opacity">Performance</span>
+                  {!perfOpen && (
+                    <span className="text-[12.5px] font-medium text-faint whitespace-nowrap">
+                      · {STAT_PERIOD_LABELS[statPeriod].split(' vs ')[0]}
+                    </span>
+                  )}
                 </button>
 
                 {/* Collapsed: compact inline KPI summary */}
@@ -1463,6 +1473,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     <div className="flex items-center gap-4 sm:gap-5 overflow-x-auto ds-chips -mx-1 px-1">
                       {([
                         { value: 'today',  label: 'Today' },
+                        { value: 'l31',    label: 'Last 31 days' },
                         { value: 'week',   label: 'Week' },
                         { value: 'month',  label: 'Month' },
                         { value: 'lm',     label: 'Last month' },
