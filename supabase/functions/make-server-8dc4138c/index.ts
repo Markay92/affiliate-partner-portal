@@ -1999,7 +1999,7 @@ app.get("/make-server-8dc4138c/manager/tracking-activity", async (c) => {
       const statsByUser: Record<string, { totalClicks: number; totalConversions: number; totalCommissions: number }> = {};
       for (const row of activity) {
         const var2 = norm(row.affiliateId);
-        if (!var2 || var2 === 'N/A') continue;
+        if (!var2 || var2 === 'n/a') continue;
         const userId = idToUser[var2];
         if (!userId) continue;
         if (!statsByUser[userId]) {
