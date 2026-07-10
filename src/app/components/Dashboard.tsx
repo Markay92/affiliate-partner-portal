@@ -39,6 +39,10 @@ import {
   Smartphone,
   MapPin,
   GripVertical,
+  Percent,
+  Briefcase,
+  Plane,
+  Wallet,
 } from 'lucide-react';
 import React from 'react';
 import { ComposedChart, LineChart, Line, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, Cell } from 'recharts';
@@ -247,6 +251,58 @@ function EmptyState({ icon: Icon, title, subtitle, action }: {
 
 // Max cards a partner can feature on their share link (drives the slot meter).
 const LINK_MAX = 6;
+
+// ── Link categories: one-click presets that autofill the Link Builder ──────────
+// A category is a predicate over the assembled cards + a "top N by payout" ranking.
+// Only cards with a QuinStreet `cardId` qualify (that id is what the `shnq=` link
+// needs). Derived from live card data, so categories stay fresh with no upkeep.
+type LinkCategory = {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  cardIds: string[];
+};
+
+const CATEGORY_TOP_N = 5;      // "Top 5 …" — sits under LINK_MAX (6)
+const CATEGORY_MIN   = 2;      // hide a category with too few cards to be useful
+
+// True when a card carries a 0% intro-APR offer. QuinStreet `introAprRate` is a
+// display string ("0%", "0.00%", "N/A", ""); treat a leading zero as 0%.
+function is0AprCard(c: any): boolean {
+  const rate = String(c?.introAprRate ?? '').trim();
+  if (!rate) return false;
+  return /^0(\.0+)?\s*%?$/.test(rate) || parseFloat(rate) === 0;
+}
+
+const CATEGORY_DEFS: { id: string; label: string; icon: LinkCategory['icon']; match: (c: any) => boolean }[] = [
+  { id: 'top',      label: 'Top Paying', icon: Sparkles,  match: () => true },
+  { id: 'apr0',     label: '0% APR',     icon: Percent,   match: is0AprCard },
+  { id: 'business', label: 'Business',   icon: Briefcase, match: (c) => /business/i.test(`${c?.cardType ?? ''} ${c?.cardUse ?? ''}`) },
+  { id: 'cashback', label: 'Cash Back',  icon: Wallet,    match: (c) => /cash\s*back/i.test(String(c?.cardType ?? '')) },
+  { id: 'travel',   label: 'Travel',     icon: Plane,     match: (c) => /travel|miles/i.test(String(c?.cardType ?? '')) },
+];
+
+/** Build the visible link categories from the assembled card list. */
+function deriveLinkCategories(cards: any[]): LinkCategory[] {
+  const featurable = cards.filter(c => c?.cardId);
+  return CATEGORY_DEFS
+    .map(def => {
+      const cardIds = featurable
+        .filter(def.match)
+        .sort((a, b) => (b.cpa || 0) - (a.cpa || 0))
+        .slice(0, CATEGORY_TOP_N)
+        .map(c => c.cardId as string);
+      return { id: def.id, label: def.label, icon: def.icon, cardIds };
+    })
+    .filter(cat => cat.cardIds.length >= CATEGORY_MIN);
+}
+
+/** Order-insensitive equality for two id lists (is this category currently applied?). */
+function sameIdSet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length || a.length === 0) return false;
+  const setB = new Set(b);
+  return a.every(id => setB.has(id));
+}
 
 /** Format a time string (ISO or HH:MM:SS) as "6:46 PM" */
 function formatTime(str: string | undefined): string {
@@ -913,6 +969,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   }, [allCards, cardsGroupBy]);
   // Derive available card types for the filter (only types that actually appear in data)
   const cardTypes = Array.from(new Set(allCards.map(c => c.cardType).filter(Boolean))).sort() as string[];
+  // One-click category presets (autofill the Link Builder / referral link). Derived
+  // from live card data; shared by the referral bar and the Cards tab.
+  const linkCategories = deriveLinkCategories(allCards);
   const displayCards = applySort(
     combinedCards.filter(c => {
       if (cardsSearch && !c.name.toLowerCase().includes(cardsSearch.toLowerCase()) &&
@@ -1637,6 +1696,36 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 ]}
               />
             </Toolbar>
+            {/* Category quick-links — one tap features the top cards in a category on
+                your referral link (updates the link bar above). */}
+            {linkCategories.length > 0 && (
+              <div className="pt-1 pb-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Sparkles className="w-3.5 h-3.5 text-brand" />
+                  <span className="text-[12px] font-semibold text-ink">Quick-fill your link by category</span>
+                  <span className="text-[11.5px] text-faint">— tap to feature the top cards</span>
+                </div>
+                <div className="ds-chips flex items-center gap-2 overflow-x-auto -mx-1 px-1 pb-1">
+                  {linkCategories.map(cat => {
+                    const active = sameIdSet(linkBuilderIds, cat.cardIds);
+                    const Icon = cat.icon;
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => setLinkBuilderIds(active ? [] : cat.cardIds)}
+                        title={`Feature the top ${cat.cardIds.length} ${cat.label} cards on your link`}
+                        className={`flex items-center gap-1.5 h-8 pl-2.5 pr-3 rounded-full border text-[12.5px] font-semibold whitespace-nowrap flex-shrink-0 cursor-pointer transition-colors active:scale-95 ${active ? 'border-brand/30 text-brand bg-brand-soft' : 'border-line text-subtle hover:border-brand/40 hover:text-brand'}`}
+                      >
+                        <Icon className={`w-4 h-4 ${active ? 'text-brand' : 'text-faint2'}`} />
+                        {cat.label}
+                        <span className={`tabular-nums text-[11.5px] ${active ? 'text-brand/70' : 'text-faint'}`}>{cat.cardIds.length}</span>
+                        {active && <Check className="w-3.5 h-3.5 text-brand" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             {/* Column headers — aligned to the card rows; click a column to sort */}
             <div className="flex items-center gap-[18px] pb-2 border-b border-hair text-[11px] font-semibold uppercase tracking-[0.05em] text-faint2">
               <SortHead label="Card" field="name" sort={cardsSort} onSort={f => setCardsSort(s => toggleSort(s, f))} className="flex-1 min-w-0" />
