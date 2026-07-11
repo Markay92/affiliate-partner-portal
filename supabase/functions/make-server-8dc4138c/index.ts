@@ -941,7 +941,91 @@ async function getCachedCpaRecords(airtableToken: string): Promise<any[]> {
   const records = await fetchAllAirtableRecords(airtableToken, baseId, tableId, `${fields}&${sort}`);
   await kv.set(CPA_CACHE_KEY, { records, fetchedAt: Date.now() });
   console.log(`CPA cache updated (${records.length} records)`);
+  await updateCpaRateLog(records);
   return records;
+}
+
+// ── CPA rate history log ─────────────────────────────────────────────────────
+// The Airtable CPA Changes table keeps ONE row per card holding only the
+// current rate (the nightly QuinStreet sync updates rows in place), so the
+// server accumulates its own per-card rate history in KV: every fresh Airtable
+// fetch appends an entry when a card's rate differs from the last logged one.
+// This history is what lets an approval keep the rate that was in effect when
+// it happened — a rate change only re-prices approvals from its effective date
+// forward, never retroactively.
+const CPA_RATE_LOG_KEY = 'cpa_rate_log';
+
+type RateEntry = { date: string; bankCpa: number };
+
+// Effective date of a rate row: "Date Change of Current Net CPA" (an ISO
+// datetime in practice) → YYYY-MM-DD, falling back to Date / createdTime.
+function cpaRowEffectiveDate(rec: any): string {
+  const f = rec.cellValuesByFieldId || rec.fields || {};
+  const raw = f['fldW5olh5ASAJ39uD'] ?? f['Date Change of Current Net CPA']
+           ?? f['fldfL3uObDr0uotjI'] ?? f['Date'] ?? rec.createdTime ?? '';
+  return String(raw).split('T')[0];
+}
+
+// Current rate per normalised card name — first record with a real rate wins,
+// mirroring the most-recent-first dedupe the payout/rate endpoints use.
+function currentCpaByCard(records: any[]): Map<string, RateEntry> {
+  const out = new Map<string, RateEntry>();
+  for (const rec of records) {
+    const f = rec.cellValuesByFieldId || rec.fields || {};
+    const cardName = f['fldN6ug8vDACn4yO1'] ?? f['Card Name'] ?? '';
+    if (!cardName) continue;
+    const key = normCardName(cardName);
+    if (out.has(key)) continue;
+    const bankCpa = parseFloat(String(f['fldr71bjB28kEAsbp'] ?? f['Net CPA 60%'] ?? '0').replace(/[^0-9.]/g, '')) || 0;
+    if (bankCpa <= 0) continue;
+    out.set(key, { date: cpaRowEffectiveDate(rec), bankCpa });
+  }
+  return out;
+}
+
+// Merge the persisted log with the current-rates snapshot. Entries are kept
+// ascending by date; a card's entry is appended only when its rate actually
+// changed. Pure — reads use it to serve history even before the log's first
+// write, and updateCpaRateLog persists the same merge.
+function mergeRateLog(log: Record<string, RateEntry[]>, records: any[]): { merged: Record<string, RateEntry[]>; changed: boolean } {
+  const merged: Record<string, RateEntry[]> = { ...log };
+  let changed = false;
+  const today = new Date().toISOString().split('T')[0];
+  for (const [key, cur] of currentCpaByCard(records)) {
+    const entries = merged[key] || [];
+    const last = entries[entries.length - 1];
+    if (!last || last.bankCpa !== cur.bankCpa) {
+      // Use the reported effective date when it keeps the log ordered;
+      // otherwise stamp today (guards against a backdated change date).
+      const date = (cur.date && (!last || cur.date > last.date)) ? cur.date : today;
+      merged[key] = [...entries, { date, bankCpa: cur.bankCpa }];
+      changed = true;
+    }
+  }
+  return { merged, changed };
+}
+
+async function updateCpaRateLog(records: any[]): Promise<void> {
+  try {
+    const log = (await kv.get(CPA_RATE_LOG_KEY)) || {};
+    const { merged, changed } = mergeRateLog(log, records);
+    if (changed) {
+      await kv.set(CPA_RATE_LOG_KEY, merged);
+      console.log('CPA rate log updated');
+    }
+  } catch (e: any) {
+    console.log('CPA rate log update failed (non-fatal):', e.message);
+  }
+}
+
+// Per-card rate history for API responses, newest first.
+async function getCpaHistories(records: any[]): Promise<Record<string, RateEntry[]>> {
+  let log: Record<string, RateEntry[]> = {};
+  try { log = (await kv.get(CPA_RATE_LOG_KEY)) || {}; } catch (_) { /* serve snapshot-only */ }
+  const { merged } = mergeRateLog(log, records);
+  const out: Record<string, RateEntry[]> = {};
+  for (const [k, v] of Object.entries(merged)) out[k] = v.slice().reverse();
+  return out;
 }
 
 // Get payouts — current CPA rates from Airtable CPA Changes table,
@@ -977,6 +1061,10 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
       console.log('CardRating enrich skipped (non-fatal):', e.message);
     }
 
+    // Per-card rate history (newest first) so the client can price each
+    // approval at the rate in effect on its date — not today's rate.
+    const rateHistories = await getCpaHistories(records);
+
     // Deduplicate — keep the most recent record per card name (data is sorted desc by date)
     const seen = new Set<string>();
     const payouts = [];
@@ -1003,11 +1091,19 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
 
       const enrichment = lookupCardRating(cardRatingIndex, cardName);
 
+      // Rate history at the affiliate's cut (newest first) — used for
+      // effective-dated earnings and the payout-history display.
+      const history = (rateHistories[normCardName(cardName)] || []).map(h => ({
+        date: h.date,
+        amount: Math.round((h.bankCpa * commissionRate / 100) * 100) / 100,
+      }));
+
       payouts.push({
         id: i + 1,
         card: cardName,
         issuer,
         amount: affiliateAmount,
+        history,
         date: date || rateDate || records[i].createdTime?.split('T')[0] || '',
         status: 'current',
         cardId:   enrichment?.cardId   ?? '',
@@ -1903,7 +1999,7 @@ app.get("/make-server-8dc4138c/manager/tracking-activity", async (c) => {
       const statsByUser: Record<string, { totalClicks: number; totalConversions: number; totalCommissions: number }> = {};
       for (const row of activity) {
         const var2 = norm(row.affiliateId);
-        if (!var2 || var2 === 'N/A') continue;
+        if (!var2 || var2 === 'n/a') continue;
         const userId = idToUser[var2];
         if (!userId) continue;
         if (!statsByUser[userId]) {
@@ -2517,6 +2613,9 @@ app.get("/make-server-8dc4138c/manager/cpa-rates", async (c) => {
       console.log('Manager CPA CardRating enrich skipped:', e.message);
     }
 
+    // Per-card rate history (newest first) for the rate-history expansion.
+    const rateHistories = await getCpaHistories(records);
+
     // Deduplicate by card name, keep most recent
     const seen = new Set<string>();
     const rates = [];
@@ -2539,12 +2638,22 @@ app.get("/make-server-8dc4138c/manager/cpa-rates", async (c) => {
 
       const enrichment = lookupCardRating(cardRatingIndex, cardName);
 
+      // Rate history (newest first), with the affiliate's cut when one is selected.
+      const history = (rateHistories[normCardName(cardName)] || []).map(h => ({
+        date: h.date,
+        bankCpa: h.bankCpa,
+        affiliatePayout: (affiliateCommissionRate > 0 && h.bankCpa > 0)
+          ? Math.round(h.bankCpa * affiliateCommissionRate / 100 * 100) / 100
+          : null,
+      }));
+
       rates.push({
         id: i + 1,
         card: cardName,
         issuer,
         bankCpa,
         affiliatePayout,
+        history,
         affiliateCommissionRate: affiliateCommissionRate || null,
         date: date || rateDate || records[i].createdTime?.split('T')[0] || '',
         cardId:   enrichment?.cardId   ?? '',

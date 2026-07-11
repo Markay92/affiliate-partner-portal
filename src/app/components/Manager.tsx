@@ -628,6 +628,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [cpaCpaRange,       setCpaCpaRange]       = useState('all');
   const [cpaGroupBy,        setCpaGroupBy]        = useState(true);
   const [cpaCollapsed,      setCpaCollapsed]      = useState<Set<string>>(new Set());
+  // Rows expanded to reveal their CPA rate history (keyed by rate id)
+  const [cpaHistOpen,       setCpaHistOpen]       = useState<Set<number>>(new Set());
   const cpaCollapseInit = useRef(false);
   // CPA Rates defaults to grouped-by-Issuer with groups collapsed, so "Expand
   // All" is the action. Seed the collapsed set once rates first load.
@@ -2422,20 +2424,83 @@ Please sign in and reset your password from your profile.`;
                   return true;
                 });
 
-                const CpaRow = ({ rate, indent }: { rate: any; indent?: boolean }) => (
-                  <div className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 last:border-b-0 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
-                    <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{prettyCardName(rate.card)}</span>
-                    <span className="hidden sm:block w-[120px] lg:w-[140px] flex-shrink-0 text-right text-[13px] font-medium text-subtle truncate">{rate.issuer || '—'}</span>
-                    <span className="hidden md:block w-[116px] flex-shrink-0 text-right text-[13px] font-medium text-faint tabular-nums whitespace-nowrap">{rate.date ? formatDate(rate.date) : ''}</span>
-                    <span className="hidden lg:flex items-center justify-end w-[96px] flex-shrink-0">
-                      {rate.cardId && <button onClick={() => navigator.clipboard.writeText(rate.cardId)} title={`Copy Card ID: ${rate.cardId}`} className="inline-flex items-center gap-1 font-mono-ds text-[13px] text-faint hover:text-brand transition-colors cursor-pointer"><Copy className="w-3 h-3" />{rate.cardId}</button>}
-                    </span>
-                    {cpaAffiliateFilter !== 'all' && (
-                      <span className="hidden sm:block w-[104px] flex-shrink-0 text-right text-[13px] font-medium text-brand tabular-nums">{rate.affiliatePayout != null && rate.affiliatePayout > 0 ? `$${rate.affiliatePayout.toLocaleString()} payout` : '—'}</span>
-                    )}
-                    <span className="w-[64px] flex-shrink-0 text-right text-[13px] font-medium text-pos tabular-nums">{rate.bankCpa > 0 ? `$${rate.bankCpa.toLocaleString()}` : <span className="text-faint2 font-normal">—</span>}</span>
-                  </div>
-                );
+                const CpaRow = ({ rate, indent }: { rate: any; indent?: boolean }) => {
+                  // Rate history (newest first). More than one entry means the CPA
+                  // changed at some point — the row expands to show the timeline.
+                  // Past approvals stay priced at these older rates.
+                  const hist: { date: string; bankCpa: number; affiliatePayout?: number | null }[] =
+                    Array.isArray(rate.history) ? rate.history : [];
+                  const expandable = hist.length > 1;
+                  const open = expandable && cpaHistOpen.has(rate.id);
+                  const toggleHist = () => {
+                    if (!expandable) return;
+                    setCpaHistOpen(prev => {
+                      const next = new Set(prev);
+                      next.has(rate.id) ? next.delete(rate.id) : next.add(rate.id);
+                      return next;
+                    });
+                  };
+                  const showPayout = cpaAffiliateFilter !== 'all';
+                  return (
+                    <React.Fragment>
+                      <div
+                        onClick={toggleHist}
+                        className={`flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 last:border-b-0 hover:bg-surface transition-colors duration-150 ${expandable ? 'cursor-pointer' : ''}`}
+                        style={{ paddingLeft: indent ? 24 : 0 }}>
+                        <span className="flex items-center gap-1.5 flex-1 min-w-0">
+                          <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate">{prettyCardName(rate.card)}</span>
+                          {expandable && (
+                            <span title={`${hist.length} rates on record`} className="inline-flex items-center gap-0.5 flex-shrink-0 text-[10.5px] font-semibold text-faint">
+                              <ChevronRight className={`w-3 h-3 transition-transform duration-200 ${open ? 'rotate-90' : ''}`} strokeWidth={2.6} />
+                              {hist.length} rates
+                            </span>
+                          )}
+                        </span>
+                        <span className="hidden sm:block w-[120px] lg:w-[140px] flex-shrink-0 text-right text-[13px] font-medium text-subtle truncate">{rate.issuer || '—'}</span>
+                        <span className="hidden md:block w-[116px] flex-shrink-0 text-right text-[13px] font-medium text-faint tabular-nums whitespace-nowrap">{rate.date ? formatDate(rate.date) : ''}</span>
+                        <span className="hidden lg:flex items-center justify-end w-[96px] flex-shrink-0">
+                          {rate.cardId && <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(rate.cardId); }} title={`Copy Card ID: ${rate.cardId}`} className="inline-flex items-center gap-1 font-mono-ds text-[13px] text-faint hover:text-brand transition-colors cursor-pointer"><Copy className="w-3 h-3" />{rate.cardId}</button>}
+                        </span>
+                        {showPayout && (
+                          <span className="hidden sm:block w-[104px] flex-shrink-0 text-right text-[13px] font-medium text-brand tabular-nums">{rate.affiliatePayout != null && rate.affiliatePayout > 0 ? `$${rate.affiliatePayout.toLocaleString()} payout` : '—'}</span>
+                        )}
+                        <span className="w-[64px] flex-shrink-0 text-right text-[13px] font-medium text-pos tabular-nums">{rate.bankCpa > 0 ? `$${rate.bankCpa.toLocaleString()}` : <span className="text-faint2 font-normal">—</span>}</span>
+                      </div>
+                      {/* Rate-history timeline — how this card's CPA moved over time */}
+                      {open && (
+                        <div className="border-b border-hair2 bg-surface/60" style={{ paddingLeft: indent ? 48 : 24 }}>
+                          <div className="py-2 pr-2">
+                            {hist.map((h, hi) => {
+                              const prev = hist[hi + 1]; // chronologically previous rate
+                              const delta = prev ? h.bankCpa - prev.bankCpa : null;
+                              return (
+                                <div key={`${rate.id}-h-${hi}`} className="flex items-center gap-3 sm:gap-4 py-1">
+                                  <span className="flex-1 min-w-0 text-[12px] text-faint tabular-nums">
+                                    {h.date ? formatDate(h.date) : 'Earlier'}
+                                    {hi === 0 && <span className="ml-1.5 text-[10px] font-bold uppercase tracking-[0.05em] text-brand">Current</span>}
+                                  </span>
+                                  {delta != null && delta !== 0 && (
+                                    <span className={`flex-shrink-0 text-[11.5px] font-semibold tabular-nums ${delta > 0 ? 'text-pos' : 'text-neg'}`}>
+                                      {delta > 0 ? '+' : '−'}${Math.abs(delta).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                    </span>
+                                  )}
+                                  {showPayout && (
+                                    <span className="hidden sm:block w-[104px] flex-shrink-0 text-right text-[12px] font-medium text-brand tabular-nums">
+                                      {h.affiliatePayout != null && h.affiliatePayout > 0 ? `$${h.affiliatePayout.toLocaleString()}` : '—'}
+                                    </span>
+                                  )}
+                                  <span className={`w-[64px] flex-shrink-0 text-right text-[12px] font-medium tabular-nums ${hi === 0 ? 'text-ink' : 'text-faint'}`}>
+                                    ${h.bankCpa.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </React.Fragment>
+                  );
+                };
 
                 if (filtered.length === 0) return (
                   <div className="text-center py-16">

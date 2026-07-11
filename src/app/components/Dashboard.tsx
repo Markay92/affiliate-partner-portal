@@ -81,6 +81,8 @@ interface Payout {
   id: number;
   date: string;
   amount: number;
+  /** Rate history, newest first — each approval is priced at the rate in effect on its date */
+  history?: { date: string; amount: number }[];
   card: string;
   issuer?: string;
   status: string;
@@ -843,14 +845,29 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [expandedInvoices, setExpandedInvoices] = useState<Set<string>>(new Set());
 
   // ── Derived display data ────────────────────────────────────────────────────
-  // Affiliate's real earning for a tracking row = their per-card CPA rate (the
-  // same source the Cards tab uses) × approvals — NOT the gross bounty stored on
-  // the row. Joined by normalised card name. Approvals is 1 on approval rows and
-  // 0 on click/application rows, so non-approval rows correctly earn $0.
+  // Affiliate's real earning for a tracking row = their per-card CPA rate ×
+  // approvals — NOT the gross bounty stored on the row. Joined by normalised
+  // card name. Approvals is 1 on approval rows and 0 on click/application rows,
+  // so non-approval rows correctly earn $0.
+  // Each approval is priced at the rate that was IN EFFECT on its process date
+  // (via the payout's rate history) — a CPA change only applies going forward,
+  // it never re-prices past approvals.
   const _normCard = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const _cpaByCard = new Map(payouts.map(p => [_normCard(p.card), p.amount]));
-  const affiliateEarned = (t: { cardName: string; approvals: number }) =>
-    (_cpaByCard.get(_normCard(t.cardName)) ?? 0) * (t.approvals || 0);
+  const _payoutByCard = new Map(payouts.map(p => [_normCard(p.card), p]));
+  const _rateAsOf = (p: Payout | undefined, dateStr: string): number => {
+    if (!p) return 0;
+    const hist = p.history || [];
+    if (hist.length === 0) return p.amount;
+    const t = parseLocalDate(dateStr || '').getTime();
+    if (isNaN(t)) return hist[0].amount; // undated row → current rate
+    for (const h of hist) { // newest → oldest
+      const ht = parseLocalDate(h.date || '').getTime();
+      if (isNaN(ht) || ht <= t) return h.amount;
+    }
+    return hist[hist.length - 1].amount; // predates all known changes → earliest known rate
+  };
+  const affiliateEarned = (t: { cardName: string; approvals: number; processDate?: string; clickDate?: string }) =>
+    _rateAsOf(_payoutByCard.get(_normCard(t.cardName)), t.processDate || t.clickDate || '') * (t.approvals || 0);
 
   // Activity is organised by process date (when the lead was processed).
   const displayTracking = applySort(
@@ -920,6 +937,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
 
   // Cards tab: join links (URL + stats) with payouts (issuer + CPA amount + CardRatingAPI enrichment) by normalised name
   const _norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  // Per-card lifetime earnings, effective-dated from the activity rows (each
+  // approval priced at the rate on its own date). Falls back to current-rate ×
+  // conversions only when no tracking rows are loaded.
+  const _earnedByCard = new Map<string, number>();
+  tracking.forEach(t => {
+    if (!(t.approvals > 0)) return;
+    const k = _normCard(t.cardName);
+    _earnedByCard.set(k, (_earnedByCard.get(k) || 0) + affiliateEarned(t));
+  });
   const allCards = links.map(link => {
     const cpa = payouts.find(p => _norm(p.card) === _norm(link.name));
     return {
@@ -928,10 +954,13 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       issuer:   cpa?.issuer || link.bank || '',
       cpa:      cpa?.amount ?? 0,
       rateDate: cpa?.date   ?? '',
+      history:  cpa?.history ?? [],
       clicks:       link.clicks,
       conversions:  link.conversions,
       conv:     link.clicks > 0 ? (link.conversions / link.clicks) * 100 : 0,
-      earned:   (cpa?.amount ?? 0) * link.conversions,
+      earned:   tracking.length > 0
+        ? (_earnedByCard.get(_norm(link.name)) ?? 0)
+        : (cpa?.amount ?? 0) * link.conversions,
       url:      link.url,
       cardId:   cpa?.cardId   ?? '',
       cardType: cpa?.cardType ?? '',
@@ -1760,7 +1789,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                 const isAdded = card.cardId && linkBuilderIds.includes(card.cardId);
                 const linkFull = !isAdded && linkBuilderIds.length >= LINK_MAX;
                 const af = fmtAnnualFee(card.annualFee);
-                const hasDetails = card.imageUrl || card.introBonus || card.bonusMilesFull || af || card.introAprRate;
+                const rateHistory: { date: string; amount: number }[] = Array.isArray(card.history) ? card.history : [];
+                const hasDetails = card.imageUrl || card.introBonus || card.bonusMilesFull || af || card.introAprRate || rateHistory.length > 1;
                 const detailContent = (
                   <>
                     {card.imageUrl && (
@@ -1780,6 +1810,19 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                         {af && <span className="flex justify-between gap-3"><span className="text-faint">Annual fee</span><span className="text-ink font-medium text-right">{af.replace(' annual fee', '')}</span></span>}
                         {card.introAprRate && <span className="flex justify-between gap-3"><span className="text-faint">Intro APR</span><span className="text-ink font-medium text-right">{card.introAprRate}{card.introAprDuration ? ` · ${card.introAprDuration}` : ''}</span></span>}
                         {card.cardType && <span className="flex justify-between gap-3"><span className="text-faint">Type</span><span className="text-ink font-medium text-right">{card.cardType}</span></span>}
+                      </span>
+                    )}
+                    {/* Payout history — approvals are priced at the rate in effect on
+                        their date, so past rates still matter and are shown here. */}
+                    {rateHistory.length > 1 && (
+                      <span className={`block ${(card.imageUrl || card.introBonus || card.bonusMilesFull || af || card.introAprRate || card.cardType) ? 'mt-2.5 pt-2.5 border-t border-hair2' : ''}`}>
+                        <span className="block text-[10.5px] font-bold uppercase tracking-[0.05em] text-faint2 mb-1">Payout history</span>
+                        {rateHistory.slice(0, 6).map((h, hi) => (
+                          <span key={`${h.date}-${hi}`} className="flex justify-between gap-3 text-[11.5px] leading-relaxed">
+                            <span className="text-faint">{h.date ? formatDate(h.date) : '—'}{hi === 0 ? ' · current' : ''}</span>
+                            <span className={`font-medium text-right tabular-nums ${hi === 0 ? 'text-ink' : 'text-faint'}`}>${h.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                          </span>
+                        ))}
                       </span>
                     )}
                   </>
