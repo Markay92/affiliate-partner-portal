@@ -3,6 +3,13 @@ import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 import { createClient } from "jsr:@supabase/supabase-js@2.49.8";
 import * as kv from "./kv_store.tsx";
+import {
+  RULES,
+  getClientIp,
+  checkRateLimit,
+  isLikelyScraper,
+  type RateLimitRule,
+} from "./abuse-protection.ts";
 
 const app = new Hono();
 
@@ -286,17 +293,123 @@ async function syncToAirtable(airtableRecordId, userData, userId = null) {
   }
 }
 
-// Enable CORS for all routes and methods
+// Browser origins allowed to call this API cross-origin. The API is still
+// reachable server-to-server (CORS only constrains browsers), but restricting
+// this to the real site origins stops other websites from embedding the API
+// and scraping it through a victim's browser. Configurable via the
+// ALLOWED_ORIGINS env var (comma-separated) so new deploy domains can be added
+// without a code change; falls back to the known production + preview origins.
+const ALLOWED_ORIGINS: string[] = (
+  Deno.env.get("ALLOWED_ORIGINS") ||
+  "https://mypointshero.com,https://www.mypointshero.com,http://localhost:3000,http://localhost:5173"
+)
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+function resolveAllowedOrigin(origin: string | undefined | null): string | null {
+  // Requests with no Origin header (same-origin, native apps, curl) are not
+  // subject to CORS in the browser; return null so no CORS header is emitted.
+  if (!origin) return null;
+  if (ALLOWED_ORIGINS.includes(origin)) return origin;
+  // Allow Vercel preview deployments (e.g. https://<branch>-<hash>.vercel.app).
+  try {
+    const host = new URL(origin).hostname;
+    if (host.endsWith(".vercel.app")) return origin;
+  } catch {
+    // malformed origin — deny
+  }
+  return null;
+}
+
+// Enable CORS for all routes and methods, restricted to the allowlist above.
 app.use(
   "/*",
   cors({
-    origin: "*",
+    origin: (origin) => resolveAllowedOrigin(origin),
     allowHeaders: ["Content-Type", "Authorization", "X-Manager-Session", "X-Impersonation-Token"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     exposeHeaders: ["Content-Length"],
     maxAge: 600,
   }),
 );
+
+// Classify a request into a rate-limit rule based on method + path. Returns
+// null for routes that should not be rate limited (health checks, CORS
+// preflight). Content endpoints are additionally flagged for bot filtering.
+function classifyRequest(
+  method: string,
+  path: string,
+): { rule: RateLimitRule; filterBots: boolean } | null {
+  if (method === "OPTIONS") return null;
+  // Strip the function prefix so matching is on the logical route.
+  const route = path.replace(/^\/make-server-8dc4138c/, "");
+
+  if (route === "/health") return null;
+
+  // Auth & account-recovery endpoints — brute force / enumeration targets.
+  if (
+    route === "/login" ||
+    route === "/signup" ||
+    route === "/reset-password" ||
+    route === "/send-password-reset" ||
+    /^\/manager\/user\/[^/]+\/reset-password$/.test(route)
+  ) {
+    return { rule: RULES.auth, filterBots: false };
+  }
+
+  // Manager login — protects the admin surface.
+  if (route === "/manager/login") {
+    return { rule: RULES.managerAuth, filterBots: false };
+  }
+
+  // Public card catalog — the classic scraping target.
+  if (route === "/cards") {
+    return { rule: RULES.content, filterBots: true };
+  }
+
+  // Manager (all-affiliate) data endpoints — high value.
+  if (route.startsWith("/manager/")) {
+    return { rule: RULES.managerData, filterBots: false };
+  }
+
+  // Everything else is an authenticated affiliate data endpoint.
+  return { rule: RULES.data, filterBots: false };
+}
+
+// Global abuse-protection middleware: per-IP rate limiting + bot filtering.
+// Registered after CORS so 429 responses still carry CORS headers, and before
+// the route handlers so limits apply everywhere.
+app.use("/*", async (c, next) => {
+  const classification = classifyRequest(c.req.method, c.req.path);
+  if (!classification) {
+    return next();
+  }
+
+  const { rule, filterBots } = classification;
+  const ip = getClientIp(c.req.raw.headers);
+
+  // Turn away obvious scrapers on public content endpoints.
+  if (filterBots && isLikelyScraper(c.req.header("user-agent"))) {
+    console.log(`Blocked likely scraper on ${c.req.path} (ip=${ip}, ua=${c.req.header("user-agent") ?? "none"})`);
+    return c.json({ error: "Forbidden" }, 403);
+  }
+
+  const result = await checkRateLimit(rule, ip);
+  c.header("X-RateLimit-Limit", String(result.limit));
+  c.header("X-RateLimit-Remaining", String(result.remaining));
+
+  if (!result.allowed) {
+    console.log(`Rate limit exceeded: class=${rule.class} ip=${ip} path=${c.req.path}`);
+    c.header("Retry-After", String(result.retryAfter));
+    return c.json(
+      { error: "Too many requests. Please slow down and try again shortly." },
+      429,
+    );
+  }
+
+  return next();
+});
 
 // Health check endpoint
 app.get("/make-server-8dc4138c/health", (c) => {
@@ -1439,6 +1552,16 @@ app.put("/make-server-8dc4138c/user", async (c) => {
 // Get all available credit cards
 app.get("/make-server-8dc4138c/cards", async (c) => {
   try {
+    // Require a valid affiliate/impersonation session. The full card catalog is
+    // proprietary content, so it is not served anonymously — this closes an
+    // open endpoint that let anyone scrape the entire catalog.
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    const impersonationToken = c.req.header('X-Impersonation-Token');
+    const { user } = await getUserFromToken(accessToken, impersonationToken);
+    if (!user?.id) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
     const cards = await fetchCards();
     return c.json({ cards });
   } catch (error) {
