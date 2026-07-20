@@ -110,6 +110,8 @@ interface TrackingItem {
   cardName: string;
   status: string;
   totalEarnings: number;
+  /** Tier this approval was booked at, resolved against its own month's rate card. */
+  tier?: string;
   clickDate: string;
   clickTime: string;
   processDate: string;
@@ -864,22 +866,9 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   // to rate × approvals for the rare rows with no booked earnings.
   const _grossToAffiliate = 0.9 * (commissionRate / 100);
 
-  // Tier lookup: card → its tiers (with the gross each tier pays). Used to label
-  // an approval with the tier that produced it, by matching the conversion's
-  // booked gross against the tier's gross. Only tiered cards are worth matching.
-  const _tiersByCard = new Map<string, any[]>(
-    payouts.filter(p => p.tiered && p.tiers?.length).map(p => [_normCard(p.card), p.tiers]),
-  );
-  /** Tier label for an approval, or '' when the card isn't tiered / nothing matches. */
-  const tierOf = (t: { cardName: string; approvals: number; totalEarnings?: number }) => {
-    const tiers = _tiersByCard.get(_normCard(t.cardName));
-    if (!tiers) return '';
-    const n = t.approvals || 1;
-    const grossEach = (Number(t.totalEarnings) || 0) / n;
-    if (!grossEach) return '';
-    const hit = tiers.find((x: any) => Math.abs(Number(x.gross) - grossEach) < 0.01);
-    return hit?.tier || '';
-  };
+  // `tier` is resolved server-side against the rate card in force during the
+  // conversion's own month (rates change over time, so today's card can't be
+  // used to read an older approval).
   const affiliateEarned = (t: { cardName: string; approvals: number; totalEarnings?: number }) => {
     const gross = Number(t.totalEarnings) || 0;
     if (gross > 0) return Math.round(gross * _grossToAffiliate * 100) / 100;
@@ -2158,7 +2147,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                           {/* Which tier this approval was booked at, when the card is
                               tiered and the booked gross matches one of its tiers. */}
                           {(() => {
-                            const tier = tierOf(item);
+                            const tier = item.tier || '';
                             return tier ? (
                               <span
                                 title={`Booked at ${tier} — $${fmtMoney(Math.round(((Number(item.totalEarnings) || 0) / (item.approvals || 1)) * 100) / 100)} gross, less 10% and your ${commissionRate}% cut`}

@@ -706,12 +706,64 @@ app.get("/make-server-8dc4138c/tracking", async (c) => {
 
     console.log(`Found ${ownRecords.length} of ${records.length} tracking records for affiliate ${affiliateId}`);
 
+    // ── Month-aware tier resolution ───────────────────────────────────────────
+    // A conversion must be read against the rate card in force during ITS month,
+    // not the current one — rates and tiers change over time. Build
+    // card_key → month → tiers, then for each approval pick the newest snapshot
+    // on/before the conversion's month and match its booked gross to a tier.
+    // If no snapshot covers that month we return no tier rather than guess.
+    const tierIndex = new Map<string, { month: string; tiers: { tier: string; gross: number }[] }[]>();
+    try {
+      const sbT = sbAdmin();
+      const { data: rateRows } = await sbT
+        .from('cpa_rates')
+        .select('card_key, tier, net_cpa, effective_month')
+        .neq('tier', '');
+      const byCardMonth = new Map<string, Map<string, { tier: string; gross: number }[]>>();
+      for (const r of rateRows || []) {
+        const key = r.card_key;
+        if (!key) continue;
+        if (!byCardMonth.has(key)) byCardMonth.set(key, new Map());
+        const months = byCardMonth.get(key)!;
+        if (!months.has(r.effective_month)) months.set(r.effective_month, []);
+        months.get(r.effective_month)!.push({ tier: (r.tier || '').trim(), gross: Number(r.net_cpa) || 0 });
+      }
+      // Newest snapshot first, so a lookup is "first month <= the record's month".
+      for (const [key, months] of byCardMonth) {
+        tierIndex.set(key, [...months.entries()]
+          .map(([month, tiers]) => ({ month, tiers }))
+          .sort((a, b) => (a.month < b.month ? 1 : -1)));
+      }
+    } catch (e: any) {
+      console.log('tier index skipped (non-fatal):', e.message);
+    }
+
+    const normCard = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const resolveTier = (cardName: string, dateStr: string, gross: number, approvals: number) => {
+      if (!(approvals > 0) || !(gross > 0)) return '';
+      const snapshots = tierIndex.get(normCard(cardName));
+      if (!snapshots?.length) return '';
+      const day = String(dateStr || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return '';
+      const monthStart = `${day.slice(0, 7)}-01`;
+      const snap = snapshots.find(s => s.month <= monthStart);
+      if (!snap) return ''; // conversion predates every rate card we hold
+      const each = gross / approvals;
+      return snap.tiers.find(t => Math.abs(t.gross - each) < 0.01)?.tier || '';
+    };
+
     // Format tracking records
     const tracking = ownRecords.map(record => ({
       id: record.id,
       cardName: record.fields['Card Name'] || 'Unknown',
       status: record.fields['Status'] || 'N/A',
       totalEarnings: parseFloat(record.fields['Total Earnings']) || 0,
+      tier: resolveTier(
+        record.fields['Card Name'] || '',
+        record.fields['Process Date'] || record.fields['Click Date'] || '',
+        parseFloat(record.fields['Total Earnings']) || 0,
+        parseInt(record.fields['Approvals']) || 0,
+      ),
       clickDate: record.fields['Click Date'] || '',
       clickTime: record.fields['Click Time'] || '',
       processDate: record.fields['Process Date'] || record.fields['Click Date'] || '',
