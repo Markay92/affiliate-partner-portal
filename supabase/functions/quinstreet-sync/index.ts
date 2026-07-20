@@ -67,9 +67,18 @@ async function upsertPostgres(built: any[], source: string) {
     if (!ck && !kk) continue;
     const key = `${ck}|${kk}`;
     let g = byClick.get(key);
-    if (!g) { g = { ck, kk, clicks: 0, apps: 0, base: f, approvals: [] as any[] }; byClick.set(key, g); }
+    if (!g) { g = { ck, kk, clicks: 0, apps: 0, base: f, anyConv: "", approvals: [] as any[] }; byClick.set(key, g); }
     g.clicks += num(f["Clicks"]);
     g.apps   += num(f["Applications"]);
+    // QuinStreet also assigns a Conversion ID to APPLICATIONS, not just approvals,
+    // and it can sit on any of the click's rows. Remember the first one we see so a
+    // non-approved funnel keys on it consistently — keying off the click row (which
+    // has no Conversion ID) would write a second row for a click already stored
+    // under its application's id.
+    if (!g.anyConv) {
+      const rc = f["Conversion ID"] != null ? String(f["Conversion ID"]).trim() : "";
+      if (rc) g.anyConv = rc;
+    }
     const apprs = num(f["Approvals"]);
     if (apprs > 0) {
       const rawConv = f["Conversion ID"] != null ? String(f["Conversion ID"]).trim() : "";
@@ -97,11 +106,11 @@ async function upsertPostgres(built: any[], source: string) {
       ...extra,
     });
     if (g.approvals.length === 0) {
-      // Funnel only (click / application, no approval).
+      // Funnel only (click / application, no approval). Key on whichever row
+      // carried a Conversion ID (the application), not the arbitrary first row.
       const f0 = g.base;
-      const rawConv = f0["Conversion ID"] != null && String(f0["Conversion ID"]).trim() !== "" ? String(f0["Conversion ID"]).trim() : null;
       rows.push(shared(f0, {
-        conversion_id: rawConv,
+        conversion_id: g.anyConv || null,
         clicks: g.clicks ? String(g.clicks) : null,
         applications: g.apps ? String(g.apps) : null,
         approvals: null,
