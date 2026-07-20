@@ -628,6 +628,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [cpaSearch,         setCpaSearch]         = useState('');
   const [cpaIssuerFilter,   setCpaIssuerFilter]   = useState('all');
   const [cpaCpaRange,       setCpaCpaRange]       = useState('all');
+  const [cpaChangeFilter,   setCpaChangeFilter]   = useState('all'); // all | changed | up | down
   const [cpaGroupBy,        setCpaGroupBy]        = useState(true);
   const [cpaCollapsed,      setCpaCollapsed]      = useState<Set<string>>(new Set());
   const cpaCollapseInit = useRef(false);
@@ -640,6 +641,17 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   // Metadata for the selected month's upload (when the CSV was actually uploaded)
   const [cpaUpload,         setCpaUpload]         = useState<any>(null);
   const cpaFileInput = useRef<HTMLInputElement>(null);
+  /** A card's rate movement for the selected month. QuinStreet's CSV carries the
+   *  previous rate per card, so this works off a single upload — no second
+   *  snapshot required. Returns null when the rate did not move. */
+  const cpaDelta = (r: any) => {
+    const prev = Number(r?.previousNetCpa);
+    const now  = Number(r?.grossCpa);
+    if (!isFinite(prev) || !isFinite(now) || r?.previousNetCpa == null || prev === now) return null;
+    const diff = now - prev;
+    return { prev, now, diff, pct: prev === 0 ? null : Math.round((diff / prev) * 100), up: diff > 0 };
+  };
+
   // "2026-07-01" (or '' → current month) → "July 2026"
   const monthLabel = (m: string) =>
     new Date(`${(m || new Date().toISOString().slice(0, 10)).slice(0, 7)}-01T00:00:00`)
@@ -2530,7 +2542,7 @@ Please sign in and reset your password from your profile.`;
                 {/* Secondary filters folded into one menu with an active-count badge */}
                 {cpaRates.length > 0 && (
                   <FilterMenu
-                    onClear={() => { setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(cpaPageSize); }}
+                    onClear={() => { setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaChangeFilter('all'); setCpaVisible(cpaPageSize); }}
                     groups={[
                       {
                         key: 'issuer', label: 'Issuer', value: cpaIssuerFilter,
@@ -2538,6 +2550,16 @@ Please sign in and reset your password from your profile.`;
                         options: [
                           { value: 'all', label: 'All issuers' },
                           ...Array.from(new Set(cpaRates.map(r => r.issuer).filter(Boolean))).sort().map((iss: any) => ({ value: iss, label: iss })),
+                        ],
+                      },
+                      {
+                        key: 'change', label: 'Rate change', value: cpaChangeFilter,
+                        onChange: (val) => { setCpaChangeFilter(val); setCpaVisible(cpaPageSize); },
+                        options: [
+                          { value: 'all',     label: 'All cards' },
+                          { value: 'changed', label: 'Changed only' },
+                          { value: 'up',      label: 'Increased' },
+                          { value: 'down',    label: 'Decreased' },
                         ],
                       },
                       {
@@ -2593,6 +2615,12 @@ Please sign in and reset your password from your profile.`;
                   if (cpaCpaRange === 'lt100'   && !(amt < 100))               return false;
                   if (cpaCpaRange === '100-299'  && !(amt >= 100 && amt < 300)) return false;
                   if (cpaCpaRange === '300plus'  && !(amt >= 300))              return false;
+                  if (cpaChangeFilter !== 'all') {
+                    const d = cpaDelta(r);
+                    if (!d) return false;
+                    if (cpaChangeFilter === 'up'   && !d.up) return false;
+                    if (cpaChangeFilter === 'down' &&  d.up) return false;
+                  }
                   return true;
                 });
 
@@ -2604,6 +2632,19 @@ Please sign in and reset your password from your profile.`;
                     <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0 inline-flex items-center gap-1.5">
                       {prettyCardName(rate.card)}
                       {rate.tier ? <span className="text-[10px] font-semibold text-faint2 bg-surface border border-hair rounded px-1 py-0.5 flex-shrink-0">{rate.tier}</span> : null}
+                      {(() => {
+                        const d = cpaDelta(rate);
+                        if (!d) return null;
+                        return (
+                          <span
+                            title={`Gross ${d.prev.toLocaleString()} → ${d.now.toLocaleString()}${rate.date ? ` on ${formatDate(rate.date)}` : ''}`}
+                            className={`text-[10.5px] font-semibold tabular-nums whitespace-nowrap flex-shrink-0 ${d.up ? 'text-pos' : 'text-neg'}`}
+                          >
+                            {d.up ? '↑' : '↓'} {d.prev.toLocaleString()}→{d.now.toLocaleString()}
+                            {d.pct !== null ? ` (${d.up ? '+' : ''}${d.pct}%)` : ''}
+                          </span>
+                        );
+                      })()}
                     </span>
                     <span className="hidden sm:block w-[120px] lg:w-[140px] flex-shrink-0 text-right text-[13px] font-medium text-subtle truncate">{rate.issuer || '—'}</span>
                     <span className="hidden md:block w-[116px] flex-shrink-0 text-right text-[13px] font-medium text-faint tabular-nums whitespace-nowrap">{rate.date ? formatDate(rate.date) : ''}</span>
@@ -2620,7 +2661,7 @@ Please sign in and reset your password from your profile.`;
                 if (filtered.length === 0) return (
                   <div className="text-center py-16">
                     <p className="text-faint text-sm">No cards match the filters.</p>
-                    <button onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaVisible(cpaPageSize); }} className="text-xs text-brand hover:underline mt-2 cursor-pointer">Clear filters</button>
+                    <button onClick={() => { setCpaSearch(''); setCpaIssuerFilter('all'); setCpaCpaRange('all'); setCpaChangeFilter('all'); setCpaVisible(cpaPageSize); }} className="text-xs text-brand hover:underline mt-2 cursor-pointer">Clear filters</button>
                   </div>
                 );
 
