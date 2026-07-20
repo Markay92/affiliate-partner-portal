@@ -544,6 +544,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [invoices, setInvoices]     = useState<Invoice[]>([]);
   const [lastUpdated, setLastUpdated] = useState<number | undefined>(undefined);
   const [firstName, setFirstName]   = useState('');
+  const [commissionRate, setCommissionRate] = useState(50); // affiliate's cut %, from /user
   const [masterLink, setMasterLink] = useState('');
   const [ezrxRef,   setEzrxRef]     = useState('');
   const [linkBuilderIds, setLinkBuilderIds] = useState<string[]>([]);
@@ -849,8 +850,17 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   // 0 on click/application rows, so non-approval rows correctly earn $0.
   const _normCard = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   const _cpaByCard = new Map(payouts.map(p => [_normCard(p.card), p.amount]));
-  const affiliateEarned = (t: { cardName: string; approvals: number }) =>
-    (_cpaByCard.get(_normCard(t.cardName)) ?? 0) * (t.approvals || 0);
+  // Affiliate earning = the ACTUAL gross QuinStreet booked for the conversion(s)
+  // × 0.9 (the 10% platform cut) × the affiliate's commission — NOT the headline
+  // CPA rate. The rate over/under-states whenever a conversion paid a non-standard
+  // amount (approval quality/variant) or was booked at an older rate. Falls back
+  // to rate × approvals for the rare rows with no booked earnings.
+  const _grossToAffiliate = 0.9 * (commissionRate / 100);
+  const affiliateEarned = (t: { cardName: string; approvals: number; totalEarnings?: number }) => {
+    const gross = Number(t.totalEarnings) || 0;
+    if (gross > 0) return Math.round(gross * _grossToAffiliate * 100) / 100;
+    return (_cpaByCard.get(_normCard(t.cardName)) ?? 0) * (t.approvals || 0);
+  };
 
   // Activity is organised by process date (when the lead was processed).
   const displayTracking = applySort(
@@ -858,8 +868,37 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       inDateRange(t.processDate || t.clickDate, trackingFilter, trackingCustomFrom, trackingCustomTo) &&
       (trackingStatusFilter === 'all' || t.status === trackingStatusFilter) &&
       (activitySearch === '' || (decodeHtml(t.cardName) || '').toLowerCase().includes(activitySearch.toLowerCase()))
-    // Surface the affiliate's real earning as a sortable field on each row.
-    ).map(t => ({ ...t, earned: affiliateEarned(t), card: decodeHtml(t.cardName) || '' })),
+    // One event per row: a single QuinStreet click can carry multiple approvals
+    // (the importer aggregates events by click_id+click_key, so its unique key
+    // can't split them), so we split at display time — each approval becomes its
+    // own row earning CPA × 1, matching the one-per-row layout in Airtable's API
+    // Output. KPI totals/earnings are computed from the raw `tracking` array, so
+    // they're unaffected by this expansion.
+    ).flatMap(t => {
+      const card = decodeHtml(t.cardName) || '';
+      const unit = t.status === 'approval'    ? t.approvals
+                 : t.status === 'application' ? t.applications
+                 :                              t.clicks;
+      const n = Math.max(1, unit || 1);
+      if (n <= 1) return [{ ...t, earned: affiliateEarned(t), card }];
+      // Keep the upper-funnel counts on the first split row only, so nothing is
+      // double-counted if these fields are read elsewhere.
+      return Array.from({ length: n }, (_, i) => {
+        const row = {
+          ...t,
+          id:           `${t.id}#${i + 1}`,
+          card,
+          clicks:       t.status === 'click'       ? 1 : (i === 0 ? t.clicks       : 0),
+          applications: t.status === 'application' ? 1 : (i === 0 ? t.applications : 0),
+          approvals:    t.status === 'approval'    ? 1 : (i === 0 ? t.approvals    : 0),
+          // Split the booked earnings evenly across the approvals in this record
+          // (the individual per-conversion amounts were merged upstream), so the
+          // rows still sum to the record's real total.
+          totalEarnings: t.status === 'approval' ? (Number(t.totalEarnings) || 0) / n : t.totalEarnings,
+        };
+        return { ...row, earned: affiliateEarned(row) };
+      });
+    }),
     trackingSort,
   );
 
@@ -1042,6 +1081,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       const name = userData.user?.name || '';
       setFirstName(name.split(' ')[0] || '');
       setEzrxRef((userData.user?.ezrxRef || '').trim());
+      setCommissionRate(Number(userData.user?.commissionRate) || 50);
 
       // Surface Airtable errors so they're visible rather than silently empty
       if (payoutsData.error) {
