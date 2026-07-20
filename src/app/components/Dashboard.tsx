@@ -863,6 +863,23 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   // amount (approval quality/variant) or was booked at an older rate. Falls back
   // to rate × approvals for the rare rows with no booked earnings.
   const _grossToAffiliate = 0.9 * (commissionRate / 100);
+
+  // Tier lookup: card → its tiers (with the gross each tier pays). Used to label
+  // an approval with the tier that produced it, by matching the conversion's
+  // booked gross against the tier's gross. Only tiered cards are worth matching.
+  const _tiersByCard = new Map<string, any[]>(
+    payouts.filter(p => p.tiered && p.tiers?.length).map(p => [_normCard(p.card), p.tiers]),
+  );
+  /** Tier label for an approval, or '' when the card isn't tiered / nothing matches. */
+  const tierOf = (t: { cardName: string; approvals: number; totalEarnings?: number }) => {
+    const tiers = _tiersByCard.get(_normCard(t.cardName));
+    if (!tiers) return '';
+    const n = t.approvals || 1;
+    const grossEach = (Number(t.totalEarnings) || 0) / n;
+    if (!grossEach) return '';
+    const hit = tiers.find((x: any) => Math.abs(Number(x.gross) - grossEach) < 0.01);
+    return hit?.tier || '';
+  };
   const affiliateEarned = (t: { cardName: string; approvals: number; totalEarnings?: number }) => {
     const gross = Number(t.totalEarnings) || 0;
     if (gross > 0) return Math.round(gross * _grossToAffiliate * 100) / 100;
@@ -2136,7 +2153,22 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     return (
                       <div key={item.id} className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 last:border-b-0 hover:bg-surface transition-colors duration-150">
                         {/* Card name — flexible left column */}
-                        <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{decodeHtml(item.cardName) || '—'}</span>
+                        <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0 inline-flex items-center gap-1.5">
+                          <span className="truncate">{decodeHtml(item.cardName) || '—'}</span>
+                          {/* Which tier this approval was booked at, when the card is
+                              tiered and the booked gross matches one of its tiers. */}
+                          {(() => {
+                            const tier = tierOf(item);
+                            return tier ? (
+                              <span
+                                title={`Booked at ${tier} — $${fmtMoney(Math.round(((Number(item.totalEarnings) || 0) / (item.approvals || 1)) * 100) / 100)} gross, less 10% and your ${commissionRate}% cut`}
+                                className="flex-shrink-0 text-[10px] font-semibold text-faint bg-surface border border-hair rounded px-1 py-0.5 whitespace-nowrap"
+                              >
+                                {tier}
+                              </span>
+                            ) : null;
+                          })()}
+                        </span>
                         {/* Status */}
                         <span className="hidden sm:inline-flex items-center gap-1.5 w-[100px] flex-shrink-0 text-[13px] font-medium text-faint capitalize">
                           <span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dot }} />{item.status}

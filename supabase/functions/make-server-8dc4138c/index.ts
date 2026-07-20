@@ -979,7 +979,7 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
     // best (max) rate, matching the single-row-per-card payout list.
     // A card can have several tiers (e.g. Amex Platinum Tier 1/2/3), each with its
     // own rate — so collect ALL of them rather than collapsing to one number.
-    const dbByKey = new Map<string, { card: string; issuer: string; date: string; tiers: { tier: string; bankCpa: number }[] }>();
+    const dbByKey = new Map<string, { card: string; issuer: string; date: string; tiers: { tier: string; gross: number; bankCpa: number }[] }>();
     try {
       const sb = sbAdmin();
       const { data: mrow } = await sb.from('cpa_rates').select('effective_month').order('effective_month', { ascending: false }).limit(1);
@@ -996,7 +996,7 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
           }
           if (!cur.issuer && r.issuer) cur.issuer = r.issuer;
           if (!cur.date && r.date_change) cur.date = r.date_change;
-          cur.tiers.push({ tier: (r.tier || '').trim(), bankCpa: Math.round(gross * 0.9 * 100) / 100 });
+          cur.tiers.push({ tier: (r.tier || '').trim(), gross, bankCpa: Math.round(gross * 0.9 * 100) / 100 });
         }
       }
     } catch (e: any) {
@@ -1033,10 +1033,12 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
     // `entries` are the card's tiers (one entry for an untiered card), each with a
     // bankCpa already net of the 10% platform cut. A tiered card reports the full
     // range so nobody sees a single number that over- or under-states their payout.
-    const pushRow = (card: string, issuer: string, date: string, entries: { tier: string; bankCpa: number }[]) => {
+    const pushRow = (card: string, issuer: string, date: string, entries: { tier: string; gross: number; bankCpa: number }[]) => {
       const enrichment = lookupCardRating(cardRatingIndex, card);
+      // `gross` is kept so the Activity tab can match a conversion's booked
+      // total_earnings back to the tier that produced it.
       const tiers = entries
-        .map(e => ({ tier: e.tier, bankCpa: e.bankCpa, amount: affAmt(e.bankCpa) }))
+        .map(e => ({ tier: e.tier, gross: e.gross, bankCpa: e.bankCpa, amount: affAmt(e.bankCpa) }))
         .sort((a, b) => a.amount - b.amount);
       const amountMin = tiers.length ? tiers[0].amount : 0;
       const amountMax = tiers.length ? tiers[tiers.length - 1].amount : 0;
@@ -1070,7 +1072,7 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
     }
     for (const [key, v] of airByKey) {
       if (dbByKey.has(key)) continue; // DB wins
-      pushRow(v.card, v.issuer, v.date, [{ tier: '', bankCpa: v.bankCpa }]);
+      pushRow(v.card, v.issuer, v.date, [{ tier: '', gross: Math.round((v.bankCpa / 0.9) * 100) / 100, bankCpa: v.bankCpa }]);
     }
 
     return c.json({ payouts, source: dbByKey.size ? 'cpa_rates' : 'airtable' });
