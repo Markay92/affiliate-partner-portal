@@ -706,12 +706,64 @@ app.get("/make-server-8dc4138c/tracking", async (c) => {
 
     console.log(`Found ${ownRecords.length} of ${records.length} tracking records for affiliate ${affiliateId}`);
 
+    // ── Month-aware tier resolution ───────────────────────────────────────────
+    // A conversion must be read against the rate card in force during ITS month,
+    // not the current one — rates and tiers change over time. Build
+    // card_key → month → tiers, then for each approval pick the newest snapshot
+    // on/before the conversion's month and match its booked gross to a tier.
+    // If no snapshot covers that month we return no tier rather than guess.
+    const tierIndex = new Map<string, { month: string; tiers: { tier: string; gross: number }[] }[]>();
+    try {
+      const sbT = sbAdmin();
+      const { data: rateRows } = await sbT
+        .from('cpa_rates')
+        .select('card_key, tier, net_cpa, effective_month')
+        .neq('tier', '');
+      const byCardMonth = new Map<string, Map<string, { tier: string; gross: number }[]>>();
+      for (const r of rateRows || []) {
+        const key = r.card_key;
+        if (!key) continue;
+        if (!byCardMonth.has(key)) byCardMonth.set(key, new Map());
+        const months = byCardMonth.get(key)!;
+        if (!months.has(r.effective_month)) months.set(r.effective_month, []);
+        months.get(r.effective_month)!.push({ tier: (r.tier || '').trim(), gross: Number(r.net_cpa) || 0 });
+      }
+      // Newest snapshot first, so a lookup is "first month <= the record's month".
+      for (const [key, months] of byCardMonth) {
+        tierIndex.set(key, [...months.entries()]
+          .map(([month, tiers]) => ({ month, tiers }))
+          .sort((a, b) => (a.month < b.month ? 1 : -1)));
+      }
+    } catch (e: any) {
+      console.log('tier index skipped (non-fatal):', e.message);
+    }
+
+    const normCard = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const resolveTier = (cardName: string, dateStr: string, gross: number, approvals: number) => {
+      if (!(approvals > 0) || !(gross > 0)) return '';
+      const snapshots = tierIndex.get(normCard(cardName));
+      if (!snapshots?.length) return '';
+      const day = String(dateStr || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return '';
+      const monthStart = `${day.slice(0, 7)}-01`;
+      const snap = snapshots.find(s => s.month <= monthStart);
+      if (!snap) return ''; // conversion predates every rate card we hold
+      const each = gross / approvals;
+      return snap.tiers.find(t => Math.abs(t.gross - each) < 0.01)?.tier || '';
+    };
+
     // Format tracking records
     const tracking = ownRecords.map(record => ({
       id: record.id,
       cardName: record.fields['Card Name'] || 'Unknown',
       status: record.fields['Status'] || 'N/A',
       totalEarnings: parseFloat(record.fields['Total Earnings']) || 0,
+      tier: resolveTier(
+        record.fields['Card Name'] || '',
+        record.fields['Process Date'] || record.fields['Click Date'] || '',
+        parseFloat(record.fields['Total Earnings']) || 0,
+        parseInt(record.fields['Approvals']) || 0,
+      ),
       clickDate: record.fields['Click Date'] || '',
       clickTime: record.fields['Click Time'] || '',
       processDate: record.fields['Process Date'] || record.fields['Click Date'] || '',
@@ -944,8 +996,10 @@ async function getCachedCpaRecords(airtableToken: string): Promise<any[]> {
   return records;
 }
 
-// Get payouts — current CPA rates from Airtable CPA Changes table,
-// adjusted to the affiliate's individual commission rate.
+// Get payouts — current CPA rates, adjusted to the affiliate's commission rate.
+// Source of truth is the app DB (cpa_rates, latest monthly snapshot); Airtable
+// CPA Changes is only a FALLBACK for cards the DB snapshot doesn't include, so no
+// card ever loses its rate during/after the migration.
 app.get("/make-server-8dc4138c/payouts", async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
@@ -960,14 +1014,9 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
     const commissionRate = Number(userData.commissionRate) || 50;
 
     const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
-
-    let records: any[];
-    try {
-      records = await getCachedCpaRecords(airtableToken);
-    } catch (airtableErr: any) {
-      console.log('Airtable CPA Changes fetch error:', airtableErr.message);
-      return c.json({ payouts: [], error: airtableErr.message });
-    }
+    const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    // affiliate amount = bankCpa (after the 10% platform cut) × commission rate
+    const affAmt = (bankCpa: number) => bankCpa > 0 ? Math.round((bankCpa * commissionRate / 100) * 100) / 100 : 0;
 
     // Load CardRatingAPI enrichment index (non-fatal if unavailable)
     let cardRatingIndex: Record<string, any> = {};
@@ -977,38 +1026,87 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
       console.log('CardRating enrich skipped (non-fatal):', e.message);
     }
 
-    // Deduplicate — keep the most recent record per card name (data is sorted desc by date)
-    const seen = new Set<string>();
-    const payouts = [];
+    // ── Primary source: cpa_rates latest snapshot. net_cpa is GROSS, so
+    // bankCpa = gross × 0.9. Tiered cards (same name, many tiers) → keep the
+    // best (max) rate, matching the single-row-per-card payout list.
+    // A card can have several tiers (e.g. Amex Platinum Tier 1/2/3), each with its
+    // own rate — so collect ALL of them rather than collapsing to one number.
+    const dbByKey = new Map<string, { card: string; issuer: string; date: string; tiers: { tier: string; gross: number; bankCpa: number }[] }>();
+    try {
+      const sb = sbAdmin();
+      const { data: mrow } = await sb.from('cpa_rates').select('effective_month').order('effective_month', { ascending: false }).limit(1);
+      const month = mrow?.[0]?.effective_month;
+      if (month) {
+        const { data: rows } = await sb.from('cpa_rates').select('card_name, card_key, issuer, tier, net_cpa, date_change').eq('effective_month', month);
+        for (const r of rows || []) {
+          const key = r.card_key || norm(r.card_name);
+          const gross = Number(r.net_cpa) || 0;
+          let cur = dbByKey.get(key);
+          if (!cur) {
+            cur = { card: r.card_name, issuer: r.issuer || '', date: r.date_change || '', tiers: [] };
+            dbByKey.set(key, cur);
+          }
+          if (!cur.issuer && r.issuer) cur.issuer = r.issuer;
+          if (!cur.date && r.date_change) cur.date = r.date_change;
+          cur.tiers.push({ tier: (r.tier || '').trim(), gross, bankCpa: Math.round(gross * 0.9 * 100) / 100 });
+        }
+      }
+    } catch (e: any) {
+      console.log('cpa_rates read failed (falling back to Airtable):', e.message);
+    }
 
-    for (let i = 0; i < records.length; i++) {
-      const f = records[i].cellValuesByFieldId || records[i].fields || {};
+    // ── Fallback source: Airtable CPA Changes, only for cards absent from the DB.
+    // "Net CPA 60%" is already the after-10% (bank) amount.
+    const airByKey = new Map<string, { card: string; issuer: string; bankCpa: number; date: string }>();
+    try {
+      const records = await getCachedCpaRecords(airtableToken);
+      for (const rec of records) {
+        const f = rec.cellValuesByFieldId || rec.fields || {};
+        const cardName = f['fldN6ug8vDACn4yO1'] ?? f['Card Name'] ?? '';
+        if (!cardName) continue;
+        const key = norm(cardName);
+        if (airByKey.has(key)) continue; // records are date-desc → keep most recent
+        const netCpa60 = f['fldr71bjB28kEAsbp'] ?? f['Net CPA 60%'] ?? '0';
+        airByKey.set(key, {
+          card: cardName,
+          issuer: f['fldXsTKc4Op37yXWu'] ?? f['Issuer'] ?? '',
+          bankCpa: parseFloat(String(netCpa60).replace(/[^0-9.]/g, '')) || 0,
+          date: f['fldfL3uObDr0uotjI'] ?? f['Date'] ?? f['fldW5olh5ASAJ39uD'] ?? f['Date Change of Current Net CPA'] ?? '',
+        });
+      }
+    } catch (airErr: any) {
+      console.log('Airtable CPA fallback fetch error:', airErr.message);
+      if (dbByKey.size === 0) return c.json({ payouts: [], error: airErr.message });
+    }
 
-      // Support both fieldId-keyed and field-name-keyed responses
-      const cardName  = f['fldN6ug8vDACn4yO1'] ?? f['Card Name'] ?? '';
-      const issuer    = f['fldXsTKc4Op37yXWu'] ?? f['Issuer'] ?? '';
-      const netCpa60  = f['fldr71bjB28kEAsbp'] ?? f['Net CPA 60%'] ?? '0';
-      const date      = f['fldfL3uObDr0uotjI'] ?? f['Date'] ?? '';
-      const rateDate  = f['fldW5olh5ASAJ39uD'] ?? f['Date Change of Current Net CPA'] ?? '';
-
-      if (!cardName || seen.has(cardName)) continue;
-      seen.add(cardName);
-
-      // Calculate affiliate's amount: bank payout × (affiliate's commission rate / 100)
-      // "Net CPA 60%" is just the field name — it represents the full amount received from the bank.
-      const bankCpa = parseFloat(String(netCpa60).replace(/[^0-9.]/g, '')) || 0;
-      const affiliateAmount = bankCpa > 0
-        ? Math.round((bankCpa * commissionRate / 100) * 100) / 100
-        : 0;
-
-      const enrichment = lookupCardRating(cardRatingIndex, cardName);
-
+    // ── Merge: DB is authoritative; Airtable fills only the cards it doesn't have.
+    const payouts: any[] = [];
+    let idx = 0;
+    // `entries` are the card's tiers (one entry for an untiered card), each with a
+    // bankCpa already net of the 10% platform cut. A tiered card reports the full
+    // range so nobody sees a single number that over- or under-states their payout.
+    const pushRow = (card: string, issuer: string, date: string, entries: { tier: string; gross: number; bankCpa: number }[]) => {
+      const enrichment = lookupCardRating(cardRatingIndex, card);
+      // `gross` is kept so the Activity tab can match a conversion's booked
+      // total_earnings back to the tier that produced it.
+      const tiers = entries
+        .map(e => ({ tier: e.tier, gross: e.gross, bankCpa: e.bankCpa, amount: affAmt(e.bankCpa) }))
+        .sort((a, b) => a.amount - b.amount);
+      const amountMin = tiers.length ? tiers[0].amount : 0;
+      const amountMax = tiers.length ? tiers[tiers.length - 1].amount : 0;
+      const tiered = tiers.length > 1;
       payouts.push({
-        id: i + 1,
-        card: cardName,
+        id: ++idx,
+        card,
         issuer,
-        amount: affiliateAmount,
-        date: date || rateDate || records[i].createdTime?.split('T')[0] || '',
+        // `amount` stays the single representative value (top of range) so existing
+        // sorting/filtering keeps working; the UI shows the range when `tiered`.
+        amount: amountMax,
+        amountMin,
+        amountMax,
+        tiered,
+        tiers: tiered ? tiers : [],
+        date,
         status: 'current',
         cardId:   enrichment?.cardId   ?? '',
         cardType: enrichment?.cardType ?? '',
@@ -1020,9 +1118,16 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
         introAprDuration: enrichment?.introAprDuration ?? '',
         bonusMilesFull:   enrichment?.bonusMilesFull   ?? '',
       });
+    };
+    for (const v of dbByKey.values()) {
+      pushRow(v.card, v.issuer, v.date, v.tiers);
+    }
+    for (const [key, v] of airByKey) {
+      if (dbByKey.has(key)) continue; // DB wins
+      pushRow(v.card, v.issuer, v.date, [{ tier: '', gross: Math.round((v.bankCpa / 0.9) * 100) / 100, bankCpa: v.bankCpa }]);
     }
 
-    return c.json({ payouts });
+    return c.json({ payouts, source: dbByKey.size ? 'cpa_rates' : 'airtable' });
   } catch (error) {
     console.log(`Get payouts error: ${error.message}`);
     return c.json({ error: error.message }, 500);
@@ -1170,7 +1275,9 @@ async function getCachedTracking(_token: string, force = false): Promise<any[]> 
     const derivedStatus = apr > 0 ? 'approval' : app > 0 ? 'application' : clk > 0 ? 'click' : '';
     const aid = (r.affiliate_id || '').toString().trim().toLowerCase();
     return {
-      id: `${r.click_id || ''}|${r.click_key || ''}`,
+      // Must include the conversion: one click can carry several conversions, so
+      // click_id|click_key alone is no longer unique and collides as a React key.
+      id: `${r.click_id || ''}|${r.click_key || ''}|${r.conversion_id || ''}`,
       fields: {
         ...f,
         'affiliate-id':   r.affiliate_id,
@@ -1850,41 +1957,20 @@ app.get("/make-server-8dc4138c/manager/tracking-activity", async (c) => {
 
     console.log('Total records fetched:', records.length);
 
-    // Format activity records
-    const activity = records.map(record => ({
-      id: record.id,
-      affiliateId: record.fields['affiliate-id'] || 'N/A',
-      memberName: record.fields['Member Name (from AffiliateID)'] || 'Unknown',
-      cardName: record.fields['Card Name'] || 'Unknown',
-      status: record.fields['Status'] || 'N/A',
-      totalEarnings: parseFloat(record.fields['Total Earnings']) || 0,
-      clickDate: record.fields['Click Date'] || '',
-      clickTime: record.fields['Click Time'] || '',
-      processDate: record.fields['Process Date'] || record.fields['Click Date'] || '',
-      clicks: parseInt(record.fields['Clicks']) || 0,
-      applications: parseInt(record.fields['Applications']) || 0,
-      approvals: parseInt(record.fields['Approvals']) || 0,
-      deviceType: record.fields['Device Type'] || '',
-      state: record.fields['State'] || '',
-      stateCode: record.fields['State Code'] || '',
-      country: record.fields['Country Code'] || ''
-    }));
-
-    // Aggregate per-affiliate stats and write to KV so the Affiliates tab
-    // shows correct Earned / Clicks / Conversions without a separate sync.
+    // Map every affiliate identifier (their Affiliate-ID *and* their ezrxref-
+    // value) to the owning user and that user's commission rate, so each row can
+    // carry the affiliate's REAL earning rather than QuinStreet's gross.
+    const norm = (v: any) => (v || '').toString().trim().toLowerCase();
+    const ezrxKey = (v: any) => {
+      const t = norm(v);
+      if (!t) return '';
+      return t.startsWith('ezrxref-') ? t : `ezrxref-${t}`;
+    };
+    const idToUser: Record<string, string> = {};
+    const idToRate: Record<string, number> = {};
     try {
-      const norm = (v: any) => (v || '').toString().trim().toLowerCase();
-      const ezrxKey = (v: any) => {
-        const t = norm(v);
-        if (!t) return '';
-        return t.startsWith('ezrxref-') ? t : `ezrxref-${t}`;
-      };
-
-      // Build identifier → userId map. A click's Var2 may be the affiliate's
-      // code (Affiliate-ID) OR their ezrxref- link value — map both.
       const supabaseUrl  = Deno.env.get('SUPABASE_URL')!;
       const serviceKey   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const idToUser: Record<string, string> = {};
       const usersRes = await fetch(`${supabaseUrl}/auth/v1/admin/users?per_page=200`, {
         headers: { 'Authorization': `Bearer ${serviceKey}`, 'apikey': serviceKey }
       });
@@ -1892,26 +1978,68 @@ app.get("/make-server-8dc4138c/manager/tracking-activity", async (c) => {
         const usersData = await usersRes.json();
         for (const user of (usersData.users || [])) {
           const userData = await kv.get(`user:${user.id}`);
-          if (userData?.affiliateId) idToUser[norm(userData.affiliateId)] = user.id;
+          const rate = Number(userData?.commissionRate) || 50;
+          if (userData?.affiliateId) {
+            idToUser[norm(userData.affiliateId)] = user.id;
+            idToRate[norm(userData.affiliateId)] = rate;
+          }
           const ez = ezrxKey(userData?.ezrxRef);
-          if (ez) idToUser[ez] = user.id;
+          if (ez) { idToUser[ez] = user.id; idToRate[ez] = rate; }
         }
       }
+    } catch (mapErr: any) {
+      console.log('Affiliate rate map failed (commission falls back to 50%):', mapErr.message);
+    }
 
+    // Format activity records. `totalEarnings` stays the raw QuinStreet GROSS;
+    // `commission` is what the affiliate actually earns — gross × 0.9 (the 10%
+    // platform cut) × their commission rate. Consumers should show `commission`
+    // wherever the label says commission/earned.
+    const activity = records.map(record => {
+      const gross = parseFloat(record.fields['Total Earnings']) || 0;
+      const affiliateId = record.fields['affiliate-id'] || 'N/A';
+      const rate = idToRate[norm(affiliateId)] ?? 50;
+      return {
+        id: record.id,
+        affiliateId,
+        memberName: record.fields['Member Name (from AffiliateID)'] || 'Unknown',
+        cardName: record.fields['Card Name'] || 'Unknown',
+        status: record.fields['Status'] || 'N/A',
+        totalEarnings: gross,
+        commissionRate: rate,
+        commission: Math.round(gross * 0.9 * (rate / 100) * 100) / 100,
+        clickDate: record.fields['Click Date'] || '',
+        clickTime: record.fields['Click Time'] || '',
+        processDate: record.fields['Process Date'] || record.fields['Click Date'] || '',
+        clicks: parseInt(record.fields['Clicks']) || 0,
+        applications: parseInt(record.fields['Applications']) || 0,
+        approvals: parseInt(record.fields['Approvals']) || 0,
+        deviceType: record.fields['Device Type'] || '',
+        state: record.fields['State'] || '',
+        stateCode: record.fields['State Code'] || '',
+        country: record.fields['Country Code'] || ''
+      };
+    });
+
+    // Aggregate per-affiliate stats and write to KV so the Affiliates tab
+    // shows correct Earned / Clicks / Conversions without a separate sync.
+    try {
       // Aggregate stats per user (a user may have clicks under both their code
       // and their ezrxref- value, so merge by userId).
-      const statsByUser: Record<string, { totalClicks: number; totalConversions: number; totalCommissions: number }> = {};
+      const statsByUser: Record<string, { totalClicks: number; totalConversions: number; totalCommissions: number; totalGross: number }> = {};
       for (const row of activity) {
         const var2 = norm(row.affiliateId);
         if (!var2 || var2 === 'N/A') continue;
         const userId = idToUser[var2];
         if (!userId) continue;
         if (!statsByUser[userId]) {
-          statsByUser[userId] = { totalClicks: 0, totalConversions: 0, totalCommissions: 0 };
+          statsByUser[userId] = { totalClicks: 0, totalConversions: 0, totalCommissions: 0, totalGross: 0 };
         }
         statsByUser[userId].totalClicks      += row.clicks;
         statsByUser[userId].totalConversions += (row.applications + row.approvals);
-        statsByUser[userId].totalCommissions += row.totalEarnings;
+        // Earned = the affiliate's commission, NOT QuinStreet's gross.
+        statsByUser[userId].totalCommissions += row.commission;
+        statsByUser[userId].totalGross       += row.totalEarnings;
       }
 
       // Write merged stats to each matched user. Only bump `statsUpdatedAt`
@@ -1924,7 +2052,8 @@ app.get("/make-server-8dc4138c/manager/tracking-activity", async (c) => {
         const unchanged = prev
           && prev.totalClicks === stats.totalClicks
           && prev.totalConversions === stats.totalConversions
-          && prev.totalCommissions === stats.totalCommissions;
+          && prev.totalCommissions === stats.totalCommissions
+          && prev.totalGross === stats.totalGross;
         if (unchanged) continue;
         userData.stats = stats;
         userData.statsUpdatedAt = new Date().toISOString();
@@ -2562,6 +2691,203 @@ app.get("/make-server-8dc4138c/manager/cpa-rates", async (c) => {
     return c.json({ rates, affiliateName, affiliateCommissionRate });
   } catch (error) {
     console.log(`Manager CPA rates error: ${error.message}`);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ── CPA rate history (Supabase-backed — the app DB is the source of truth) ─────
+// cpa_rates stores the GROSS reported CPA per (effective_month, card, tier). The
+// app applies the 10% platform cut (× 0.9) and then the affiliate's cut, exactly
+// like the Airtable earnings waterfall. These endpoints power the manager's CPA
+// Rates tab (monthly snapshot), the per-card payout history, and CSV uploads.
+const TEN_PCT_KEEP = 0.9; // gross reported CPA → after the 10% platform cut
+
+function sbAdmin() {
+  return createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
+}
+
+// Shape a cpa_rates DB row to match the legacy Airtable rate row the manager UI
+// already renders (card / issuer / bankCpa / affiliatePayout / date), plus the
+// extra history fields (gross, previous, % change, tier).
+function shapeCpaRow(r: any, idx: number, commissionRate: number) {
+  const gross = Number(r.net_cpa) || 0;
+  const bankCpa = Math.round(gross * TEN_PCT_KEEP * 100) / 100; // after 10% (matches Airtable "Net CPA 60%")
+  const affiliatePayout = (commissionRate > 0 && bankCpa > 0)
+    ? Math.round(bankCpa * commissionRate / 100 * 100) / 100
+    : null;
+  return {
+    id: idx + 1,
+    card: r.card_name,
+    issuer: r.issuer || '',
+    tier: r.tier || '',
+    cardId: '',
+    grossCpa: gross,
+    bankCpa,
+    affiliatePayout,
+    affiliateCommissionRate: commissionRate || null,
+    previousNetCpa: r.previous_net_cpa != null ? Number(r.previous_net_cpa) : null,
+    percentChange: r.percent_change || '',
+    date: r.date_change || '',
+    effectiveMonth: r.effective_month,
+  };
+}
+
+async function requireManager(c: any) {
+  const token = c.req.header('X-Manager-Session');
+  const session = await kv.get(`manager_session:${token}`);
+  return session || null;
+}
+
+// List available snapshot months (newest first).
+app.get("/make-server-8dc4138c/manager/cpa/months", async (c) => {
+  try {
+    if (!await requireManager(c)) return c.json({ error: 'Unauthorized' }, 401);
+    const sb = sbAdmin();
+    const { data, error } = await sb.from('cpa_rates').select('effective_month').order('effective_month', { ascending: false });
+    if (error) return c.json({ error: error.message }, 500);
+    const months = [...new Set((data || []).map((d: any) => d.effective_month))];
+    return c.json({ months });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Rates for a given month (default: latest snapshot). Drop-in compatible with the
+// legacy /manager/cpa-rates response ({ rates, affiliateName, affiliateCommissionRate }).
+app.get("/make-server-8dc4138c/manager/cpa/rates", async (c) => {
+  try {
+    if (!await requireManager(c)) return c.json({ error: 'Unauthorized' }, 401);
+    const sb = sbAdmin();
+
+    let month = c.req.query('month');
+    if (!month) {
+      const { data: mrow } = await sb.from('cpa_rates').select('effective_month').order('effective_month', { ascending: false }).limit(1);
+      month = mrow?.[0]?.effective_month;
+    }
+    if (!month) return c.json({ rates: [], month: null, months: [] });
+
+    const affiliateUserId = c.req.query('userId');
+    let commissionRate = 0, affiliateName = '';
+    if (affiliateUserId && affiliateUserId !== 'all') {
+      const kvData = await kv.get(`user:${affiliateUserId}`) || {};
+      commissionRate = Number(kvData.commissionRate) || 50;
+      affiliateName = kvData.name || kvData.email || affiliateUserId;
+    }
+
+    const { data, error } = await sb.from('cpa_rates').select('*').eq('effective_month', month).order('card_name', { ascending: true });
+    if (error) return c.json({ error: error.message }, 500);
+
+    const monthsRes = await sb.from('cpa_rates').select('effective_month').order('effective_month', { ascending: false });
+    const months = [...new Set((monthsRes.data || []).map((d: any) => d.effective_month))];
+
+    // When this month's rate card was actually uploaded (not when the client fetched).
+    let upload: any = null;
+    try {
+      const { data: up } = await sb
+        .from('cpa_uploads')
+        .select('uploaded_at, file_name, row_count, skipped_count, uploaded_by')
+        .eq('effective_month', month)
+        .order('uploaded_at', { ascending: false })
+        .limit(1);
+      upload = up?.[0] || null;
+    } catch (_) { /* non-fatal */ }
+
+    const rates = (data || []).map((r: any, i: number) => shapeCpaRow(r, i, commissionRate));
+    return c.json({ rates, month, months, upload, affiliateName, affiliateCommissionRate: commissionRate || null });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Per-card payout history across every snapshot month.
+app.get("/make-server-8dc4138c/manager/cpa/history", async (c) => {
+  try {
+    if (!await requireManager(c)) return c.json({ error: 'Unauthorized' }, 401);
+    const card = c.req.query('card');
+    const tier = c.req.query('tier') || '';
+    if (!card) return c.json({ error: 'card required' }, 400);
+    const sb = sbAdmin();
+    const { data, error } = await sb
+      .from('cpa_rates')
+      .select('effective_month, net_cpa, previous_net_cpa, percent_change, date_change, tier')
+      .eq('card_name', card)
+      .order('effective_month', { ascending: true });
+    if (error) return c.json({ error: error.message }, 500);
+    const history = (data || [])
+      .filter((r: any) => (r.tier || '') === tier)
+      .map((r: any) => {
+        const gross = Number(r.net_cpa) || 0;
+        return {
+          month: r.effective_month,
+          gross,
+          afterTenPct: Math.round(gross * TEN_PCT_KEEP * 100) / 100,
+          previous: r.previous_net_cpa != null ? Number(r.previous_net_cpa) : null,
+          percentChange: r.percent_change || '',
+          dateChange: r.date_change || '',
+        };
+      });
+    return c.json({ card, tier, history });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Upload a monthly CPA CSV snapshot. Rows are parsed client-side and posted as
+// JSON. Re-uploading a month cleanly replaces that month's snapshot.
+app.post("/make-server-8dc4138c/manager/cpa/upload", async (c) => {
+  try {
+    const session = await requireManager(c);
+    if (!session) return c.json({ error: 'Unauthorized' }, 401);
+    const body = await c.req.json();
+    const month = String(body.month || '').slice(0, 7); // YYYY-MM
+    if (!/^\d{4}-\d{2}$/.test(month)) return c.json({ error: 'month must be YYYY-MM' }, 400);
+    const effectiveMonth = `${month}-01`;
+    const rows = Array.isArray(body.rows) ? body.rows : [];
+    if (!rows.length) return c.json({ error: 'no rows provided' }, 400);
+
+    const toNum = (v: any) => { const n = parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, '')); return isFinite(n) ? n : null; };
+    const toDate = (v: any) => { const s = String(v ?? '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null; };
+
+    let skipped = 0;
+    const byKey = new Map<string, any>();
+    for (const r of rows) {
+      const card = String(r.card || '').trim();
+      const netCpa = toNum(r.netCpa);
+      if (!card || netCpa == null) { skipped++; continue; }
+      const tier = String(r.tier || '').trim();
+      byKey.set(`${card}|${tier}`, {
+        effective_month: effectiveMonth,
+        placement: r.placement || null,
+        issuer: r.issuer || null,
+        card_name: card,
+        tier,
+        net_cpa: netCpa,
+        previous_net_cpa: toNum(r.previousNetCpa),
+        percent_change: (r.percentChange && r.percentChange !== '-') ? String(r.percentChange) : null,
+        date_change: toDate(r.dateChange),
+        source: 'csv',
+      });
+    }
+    const clean = [...byKey.values()];
+    if (!clean.length) return c.json({ error: 'no valid rows (need Card Name + Current Net CPA)' }, 400);
+
+    const sb = sbAdmin();
+    await sb.from('cpa_rates').delete().eq('effective_month', effectiveMonth);
+    const { error: insErr } = await sb.from('cpa_rates').insert(clean);
+    if (insErr) return c.json({ error: insErr.message }, 500);
+    await sb.from('cpa_uploads').insert({
+      effective_month: effectiveMonth,
+      file_name: body.fileName || null,
+      row_count: clean.length,
+      skipped_count: skipped,
+      uploaded_by: (session.email || session.name || 'manager'),
+    });
+
+    // Bust the payout cache so new rates surface immediately once /payouts reads DB.
+    try { await kv.del(CPA_CACHE_KEY); } catch (_) { /* non-fatal */ }
+
+    return c.json({ ok: true, month: effectiveMonth, inserted: clean.length, skipped });
+  } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
 });

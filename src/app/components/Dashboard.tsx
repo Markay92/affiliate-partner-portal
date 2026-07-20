@@ -110,6 +110,8 @@ interface TrackingItem {
   cardName: string;
   status: string;
   totalEarnings: number;
+  /** Tier this approval was booked at, resolved against its own month's rate card. */
+  tier?: string;
   clickDate: string;
   clickTime: string;
   processDate: string;
@@ -328,8 +330,8 @@ function getDateBounds(filter: DateFilter, customFrom: string, customTo: string)
   switch (filter) {
     case 'today': return { from: today, to: null };
     case 'week': {
-      const daysFromMon = (today.getDay() + 6) % 7;
-      return { from: new Date(today.getTime() - daysFromMon * 86400000), to: null };
+      const daysFromSun = today.getDay(); // Sun=0 … Sat=6 (US week starts Sunday)
+      return { from: new Date(today.getTime() - daysFromSun * 86400000), to: null };
     }
     case 'month': {
       return { from: new Date(today.getFullYear(), today.getMonth(), 1), to: null };
@@ -363,6 +365,13 @@ function inDateRange(
   if (from && date < from) return false;
   if (to   && date > to)   return false;
   return true;
+}
+
+/** Money without a ragged trailing digit: 216 → "216", 105.3 → "105.30". */
+function fmtMoney(n: number): string {
+  return n % 1 === 0
+    ? n.toLocaleString()
+    : n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function applySort<T>(items: T[], sort: SortState): T[] {
@@ -544,6 +553,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const [invoices, setInvoices]     = useState<Invoice[]>([]);
   const [lastUpdated, setLastUpdated] = useState<number | undefined>(undefined);
   const [firstName, setFirstName]   = useState('');
+  const [commissionRate, setCommissionRate] = useState(50); // affiliate's cut %, from /user
   const [masterLink, setMasterLink] = useState('');
   const [ezrxRef,   setEzrxRef]     = useState('');
   const [linkBuilderIds, setLinkBuilderIds] = useState<string[]>([]);
@@ -849,8 +859,21 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   // 0 on click/application rows, so non-approval rows correctly earn $0.
   const _normCard = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   const _cpaByCard = new Map(payouts.map(p => [_normCard(p.card), p.amount]));
-  const affiliateEarned = (t: { cardName: string; approvals: number }) =>
-    (_cpaByCard.get(_normCard(t.cardName)) ?? 0) * (t.approvals || 0);
+  // Affiliate earning = the ACTUAL gross QuinStreet booked for the conversion(s)
+  // × 0.9 (the 10% platform cut) × the affiliate's commission — NOT the headline
+  // CPA rate. The rate over/under-states whenever a conversion paid a non-standard
+  // amount (approval quality/variant) or was booked at an older rate. Falls back
+  // to rate × approvals for the rare rows with no booked earnings.
+  const _grossToAffiliate = 0.9 * (commissionRate / 100);
+
+  // `tier` is resolved server-side against the rate card in force during the
+  // conversion's own month (rates change over time, so today's card can't be
+  // used to read an older approval).
+  const affiliateEarned = (t: { cardName: string; approvals: number; totalEarnings?: number }) => {
+    const gross = Number(t.totalEarnings) || 0;
+    if (gross > 0) return Math.round(gross * _grossToAffiliate * 100) / 100;
+    return (_cpaByCard.get(_normCard(t.cardName)) ?? 0) * (t.approvals || 0);
+  };
 
   // Activity is organised by process date (when the lead was processed).
   const displayTracking = applySort(
@@ -858,8 +881,37 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       inDateRange(t.processDate || t.clickDate, trackingFilter, trackingCustomFrom, trackingCustomTo) &&
       (trackingStatusFilter === 'all' || t.status === trackingStatusFilter) &&
       (activitySearch === '' || (decodeHtml(t.cardName) || '').toLowerCase().includes(activitySearch.toLowerCase()))
-    // Surface the affiliate's real earning as a sortable field on each row.
-    ).map(t => ({ ...t, earned: affiliateEarned(t), card: decodeHtml(t.cardName) || '' })),
+    // One event per row: a single QuinStreet click can carry multiple approvals
+    // (the importer aggregates events by click_id+click_key, so its unique key
+    // can't split them), so we split at display time — each approval becomes its
+    // own row earning CPA × 1, matching the one-per-row layout in Airtable's API
+    // Output. KPI totals/earnings are computed from the raw `tracking` array, so
+    // they're unaffected by this expansion.
+    ).flatMap(t => {
+      const card = decodeHtml(t.cardName) || '';
+      const unit = t.status === 'approval'    ? t.approvals
+                 : t.status === 'application' ? t.applications
+                 :                              t.clicks;
+      const n = Math.max(1, unit || 1);
+      if (n <= 1) return [{ ...t, earned: affiliateEarned(t), card }];
+      // Keep the upper-funnel counts on the first split row only, so nothing is
+      // double-counted if these fields are read elsewhere.
+      return Array.from({ length: n }, (_, i) => {
+        const row = {
+          ...t,
+          id:           `${t.id}#${i + 1}`,
+          card,
+          clicks:       t.status === 'click'       ? 1 : (i === 0 ? t.clicks       : 0),
+          applications: t.status === 'application' ? 1 : (i === 0 ? t.applications : 0),
+          approvals:    t.status === 'approval'    ? 1 : (i === 0 ? t.approvals    : 0),
+          // Split the booked earnings evenly across the approvals in this record
+          // (the individual per-conversion amounts were merged upstream), so the
+          // rows still sum to the record's real total.
+          totalEarnings: t.status === 'approval' ? (Number(t.totalEarnings) || 0) / n : t.totalEarnings,
+        };
+        return { ...row, earned: affiliateEarned(row) };
+      });
+    }),
     trackingSort,
   );
 
@@ -927,6 +979,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       name:     decodeHtml(link.name),
       issuer:   cpa?.issuer || link.bank || '',
       cpa:      cpa?.amount ?? 0,
+      // Tiered cards (e.g. Amex Platinum Tier 1/2/3) pay a range, not one rate.
+      cpaMin:   cpa?.amountMin ?? cpa?.amount ?? 0,
+      cpaMax:   cpa?.amountMax ?? cpa?.amount ?? 0,
+      tiered:   !!cpa?.tiered,
+      tiers:    cpa?.tiers ?? [],
       rateDate: cpa?.date   ?? '',
       clicks:       link.clicks,
       conversions:  link.conversions,
@@ -1042,6 +1099,7 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       const name = userData.user?.name || '';
       setFirstName(name.split(' ')[0] || '');
       setEzrxRef((userData.user?.ezrxRef || '').trim());
+      setCommissionRate(Number(userData.user?.commissionRate) || 50);
 
       // Surface Airtable errors so they're visible rather than silently empty
       if (payoutsData.error) {
@@ -1075,41 +1133,45 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     return d.getMonth() === m && d.getFullYear() === y;
   };
 
+  /** Stat cards bucket by the BOOKING date (when QuinStreet processed it), not
+   *  the click date — earnings belong to the period they were booked in. */
+  const _statDate = (t: any) => t?.processDate || t?.clickDate || '';
+
   // _thisT = records in the selected period (drives both the card numbers AND the % badge)
   // _lastT = records in the prior period (drives the % badge comparison)
   let _thisT: TrackingItem[], _lastT: TrackingItem[], _periodLabel: string;
 
   if (statPeriod === 'today') {
-    _thisT = tracking.filter(t => _inRange(t.clickDate, 1, 0));
-    _lastT = tracking.filter(t => _inRange(t.clickDate, 2, 1));
+    _thisT = tracking.filter(t => _inRange(_statDate(t), 1, 0));
+    _lastT = tracking.filter(t => _inRange(_statDate(t), 2, 1));
     _periodLabel = 'vs yesterday';
   } else if (statPeriod === 'week') {
-    const daysFromMon = (_today.getDay() + 6) % 7; // Mon=0 … Sun=6
-    const weekStart   = new Date(_today.getTime() - daysFromMon * 86_400_000);
+    const daysFromSun = _today.getDay(); // Sun=0 … Sat=6 (US week starts Sunday)
+    const weekStart   = new Date(_today.getTime() - daysFromSun * 86_400_000);
     const prevWkStart = new Date(weekStart.getTime() - 7 * 86_400_000);
-    _thisT = tracking.filter(t => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= weekStart && d <= _now; });
-    _lastT = tracking.filter(t => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= prevWkStart && d < weekStart; });
+    _thisT = tracking.filter(t => { const ds = _statDate(t); if (!ds) return false; const d = parseLocalDate(ds); return d >= weekStart && d <= _now; });
+    _lastT = tracking.filter(t => { const ds = _statDate(t); if (!ds) return false; const d = parseLocalDate(ds); return d >= prevWkStart && d < weekStart; });
     _periodLabel = 'vs last week';
   } else if (statPeriod === 'month') {
     const _thisM = _now.getMonth(), _thisY = _now.getFullYear();
     const _lastM = _thisM === 0 ? 11 : _thisM - 1;
     const _lastY  = _thisM === 0 ? _thisY - 1 : _thisY;
-    _thisT = tracking.filter(t => _inMonth(t.clickDate, _thisM, _thisY));
-    _lastT = tracking.filter(t => _inMonth(t.clickDate, _lastM, _lastY));
+    _thisT = tracking.filter(t => _inMonth(_statDate(t), _thisM, _thisY));
+    _lastT = tracking.filter(t => _inMonth(_statDate(t), _lastM, _lastY));
     _periodLabel = 'vs last month';
   } else if (statPeriod === 'lm') {
     const _lastM  = _now.getMonth() === 0 ? 11 : _now.getMonth() - 1;
     const _lastY  = _now.getMonth() === 0 ? _now.getFullYear() - 1 : _now.getFullYear();
     const _prevM  = _lastM === 0 ? 11 : _lastM - 1;
     const _prevY  = _lastM === 0 ? _lastY - 1 : _lastY;
-    _thisT = tracking.filter(t => _inMonth(t.clickDate, _lastM, _lastY));
-    _lastT = tracking.filter(t => _inMonth(t.clickDate, _prevM, _prevY));
+    _thisT = tracking.filter(t => _inMonth(_statDate(t), _lastM, _lastY));
+    _lastT = tracking.filter(t => _inMonth(_statDate(t), _prevM, _prevY));
     _periodLabel = 'vs month before';
   } else if (statPeriod === 'year') {
     const thisYrStart = new Date(_now.getFullYear(), 0, 1);
     const prevYrStart = new Date(_now.getFullYear() - 1, 0, 1);
-    _thisT = tracking.filter(t => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= thisYrStart; });
-    _lastT = tracking.filter(t => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= prevYrStart && d < thisYrStart; });
+    _thisT = tracking.filter(t => { const ds = _statDate(t); if (!ds) return false; const d = parseLocalDate(ds); return d >= thisYrStart; });
+    _lastT = tracking.filter(t => { const ds = _statDate(t); if (!ds) return false; const d = parseLocalDate(ds); return d >= prevYrStart && d < thisYrStart; });
     _periodLabel = 'vs last year';
   } else {
     // custom
@@ -1135,8 +1197,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const totalPayouts      = payouts.reduce((s, p) => s + p.amount, 0);
   const avgEPC            = totalClicks > 0 ? totalCommissions / totalClicks : 0;
 
+  // Infinity = grew from a zero baseline. A percentage is meaningless there, and
+  // the old "+100%" read like a doubling when it actually came from nothing.
   const _calcPct = (cur: number, prev: number): number | null =>
-    prev === 0 ? (cur > 0 ? 100 : null) : Math.round(((cur - prev) / prev) * 100);
+    prev === 0 ? (cur > 0 ? Infinity : null) : Math.round(((cur - prev) / prev) * 100);
 
   const clicksPct        = _calcPct(
     _thisT.reduce((s, t) => s + t.clicks, 0),
@@ -1162,6 +1226,14 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         ? <span className="text-faint2 text-xs">—</span>
         : <span className="text-faint text-xs">No prior-period data</span>;
     }
+    if (!Number.isFinite(pct)) {
+      return (
+        <div className="flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full text-emerald-700 bg-emerald-50">
+          <TrendingUp className="w-3 h-3" />
+          <span>New{!compact ? ` ${_periodLabel}` : ''}</span>
+        </div>
+      );
+    }
     if (pct === 0) {
       return compact
         ? <span className="text-faint text-xs font-medium">No change</span>
@@ -1179,6 +1251,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   // Borderless inline delta for the KPI band (colored arrow + %, no pill)
   const DeltaInline = ({ pct }: { pct: number | null }) => {
     if (pct === null) return <span className="text-faint2 text-[13px] font-medium">—</span>;
+    // Grew from a zero baseline — a percentage would be meaningless here.
+    if (!Number.isFinite(pct)) return <span className="text-brand text-[13px] font-semibold">New</span>;
     if (pct === 0) return <span className="text-faint text-[13px] font-medium">No change</span>;
     const up = pct > 0;
     const color = up ? 'text-brand' : 'text-neg';
@@ -1851,8 +1925,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </div>
                     <span className="hidden sm:block w-[120px] lg:w-[150px] flex-shrink-0 text-right text-[13px] font-medium text-subtle truncate">{card.issuer || '—'}</span>
                     <div className="flex items-baseline gap-3 sm:gap-4 flex-shrink-0">
-                      <span className="inline-block sm:min-w-[72px] text-right text-[13px] font-medium text-ink tracking-[-0.02em] tabular-nums whitespace-nowrap">
-                        {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : '—'}
+                      <span
+                        title={card.tiered
+                          ? `Tiered payout — ${card.tiers.map((t: any) => `${t.tier}: $${t.amount.toLocaleString()}`).join(' · ')}`
+                          : undefined}
+                        className="inline-block sm:min-w-[72px] text-right text-[13px] font-medium text-ink tracking-[-0.02em] tabular-nums whitespace-nowrap"
+                      >
+                        {card.tiered && card.cpaMin !== card.cpaMax
+                          ? `$${fmtMoney(card.cpaMin)} – $${fmtMoney(card.cpaMax)}`
+                          : card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : '—'}
                       </span>
                     </div>
                     {card.cardId && (
@@ -2077,7 +2158,22 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     return (
                       <div key={item.id} className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 last:border-b-0 hover:bg-surface transition-colors duration-150">
                         {/* Card name — flexible left column */}
-                        <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{decodeHtml(item.cardName) || '—'}</span>
+                        <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0 inline-flex items-center gap-1.5">
+                          <span className="truncate">{decodeHtml(item.cardName) || '—'}</span>
+                          {/* Which tier this approval was booked at, when the card is
+                              tiered and the booked gross matches one of its tiers. */}
+                          {(() => {
+                            const tier = item.tier || '';
+                            return tier ? (
+                              <span
+                                title={`Booked at ${tier} — $${fmtMoney(Math.round(((Number(item.totalEarnings) || 0) / (item.approvals || 1)) * 100) / 100)} gross, less 10% and your ${commissionRate}% cut`}
+                                className="flex-shrink-0 text-[10px] font-semibold text-faint bg-surface border border-hair rounded px-1 py-0.5 whitespace-nowrap"
+                              >
+                                {tier}
+                              </span>
+                            ) : null;
+                          })()}
+                        </span>
                         {/* Status */}
                         <span className="hidden sm:inline-flex items-center gap-1.5 w-[100px] flex-shrink-0 text-[13px] font-medium text-faint capitalize">
                           <span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: dot }} />{item.status}

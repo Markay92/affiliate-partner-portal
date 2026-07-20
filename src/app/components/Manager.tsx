@@ -30,6 +30,8 @@ import {
   Monitor,
   Smartphone,
   MapPin,
+  Calendar,
+  Upload,
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -194,8 +196,8 @@ function getDateBounds(filter: DateFilter, customFrom: string, customTo: string)
   switch (filter) {
     case 'today': return { from: today, to: null };
     case 'week': {
-      const daysFromMon = (today.getDay() + 6) % 7;
-      return { from: new Date(today.getTime() - daysFromMon * 86400000), to: null };
+      const daysFromSun = today.getDay(); // Sun=0 … Sat=6 (US week starts Sunday)
+      return { from: new Date(today.getTime() - daysFromSun * 86400000), to: null };
     }
     case 'month': {
       return { from: new Date(today.getFullYear(), today.getMonth(), 1), to: null };
@@ -629,6 +631,19 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [cpaGroupBy,        setCpaGroupBy]        = useState(true);
   const [cpaCollapsed,      setCpaCollapsed]      = useState<Set<string>>(new Set());
   const cpaCollapseInit = useRef(false);
+  // CPA history / monthly snapshots (app DB is the source of truth)
+  const [cpaMonths,         setCpaMonths]         = useState<string[]>([]);
+  const [cpaMonth,          setCpaMonth]          = useState<string>('');   // '' = latest
+  const [cpaUploading,      setCpaUploading]      = useState(false);
+  const [cpaHistoryCard,    setCpaHistoryCard]    = useState<{ card: string; tier: string } | null>(null);
+  const [cpaHistory,        setCpaHistory]        = useState<any[] | null>(null);
+  // Metadata for the selected month's upload (when the CSV was actually uploaded)
+  const [cpaUpload,         setCpaUpload]         = useState<any>(null);
+  const cpaFileInput = useRef<HTMLInputElement>(null);
+  // "2026-07-01" (or '' → current month) → "July 2026"
+  const monthLabel = (m: string) =>
+    new Date(`${(m || new Date().toISOString().slice(0, 10)).slice(0, 7)}-01T00:00:00`)
+      .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   // CPA Rates defaults to grouped-by-Issuer with groups collapsed, so "Expand
   // All" is the action. Seed the collapsed set once rates first load.
   useEffect(() => {
@@ -714,6 +729,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       .sort((a, b) => parseLocalDate(b.clickDate).getTime() - parseLocalDate(a.clickDate).getTime());
   };
 
+  /** Stat cards are period-bucketed by the BOOKING date (when QuinStreet
+   *  processed it), matching the affiliate dashboard — not the click date. */
+  const _statDate = (t: any) => t?.processDate || t?.clickDate || '';
+  /** The affiliate's real commission. `totalEarnings` is QuinStreet's GROSS;
+   *  the server sends `commission` = gross × 0.9 × the affiliate's rate. */
+  const _commissionOf = (t: any) =>
+    typeof t?.commission === 'number' ? t.commission : (t?.totalEarnings || 0) * 0.9 * 0.5;
+
   // Summary: cards ranked by number of approvals across all affiliates (all-time),
   // for the "Most Approved Cards" card on the Tracking tab.
   const mostApprovedCards = (() => {
@@ -723,7 +746,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       const key = a.cardName || 'Unknown';
       if (!byCard[key]) byCard[key] = { name: key, approvals: 0, earnings: 0 };
       byCard[key].approvals += 1;
-      byCard[key].earnings  += a.totalEarnings || 0;
+      byCard[key].earnings  += _commissionOf(a);
     });
     return Object.values(byCard).sort((a, b) => b.approvals - a.approvals || b.earnings - a.earnings).slice(0, 5);
   })();
@@ -761,44 +784,45 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   let _thisT: any[], _lastT: any[], _periodLabel: string;
 
   if (statPeriod === 'today') {
-    _thisT = trackingActivity.filter((t: any) => _inRange(t.clickDate, 1, 0));
-    _lastT = trackingActivity.filter((t: any) => _inRange(t.clickDate, 2, 1));
+    _thisT = trackingActivity.filter((t: any) => _inRange(_statDate(t), 1, 0));
+    _lastT = trackingActivity.filter((t: any) => _inRange(_statDate(t), 2, 1));
     _periodLabel = 'vs yesterday';
   } else if (statPeriod === 'week') {
-    const daysFromMon = (_today.getDay() + 6) % 7; // Mon=0 … Sun=6
-    const weekStart   = new Date(_today.getTime() - daysFromMon * 86_400_000);
+    const daysFromSun = _today.getDay(); // Sun=0 … Sat=6 (US week starts Sunday)
+    const weekStart   = new Date(_today.getTime() - daysFromSun * 86_400_000);
     const prevWkStart = new Date(weekStart.getTime() - 7 * 86_400_000);
-    _thisT = trackingActivity.filter((t: any) => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= weekStart && d <= _now; });
-    _lastT = trackingActivity.filter((t: any) => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= prevWkStart && d < weekStart; });
+    _thisT = trackingActivity.filter((t: any) => { const ds = _statDate(t); if (!ds) return false; const d = parseLocalDate(ds); return d >= weekStart && d <= _now; });
+    _lastT = trackingActivity.filter((t: any) => { const ds = _statDate(t); if (!ds) return false; const d = parseLocalDate(ds); return d >= prevWkStart && d < weekStart; });
     _periodLabel = 'vs last week';
   } else if (statPeriod === 'month') {
     const _thisM = _now.getMonth(), _thisY = _now.getFullYear();
     const _lastM = _thisM === 0 ? 11 : _thisM - 1;
     const _lastY  = _thisM === 0 ? _thisY - 1 : _thisY;
-    _thisT = trackingActivity.filter((t: any) => _inMonth(t.clickDate, _thisM, _thisY));
-    _lastT = trackingActivity.filter((t: any) => _inMonth(t.clickDate, _lastM, _lastY));
+    _thisT = trackingActivity.filter((t: any) => _inMonth(_statDate(t), _thisM, _thisY));
+    _lastT = trackingActivity.filter((t: any) => _inMonth(_statDate(t), _lastM, _lastY));
     _periodLabel = 'vs last month';
   } else if (statPeriod === 'lm') {
     const _lastM  = _now.getMonth() === 0 ? 11 : _now.getMonth() - 1;
     const _lastY  = _now.getMonth() === 0 ? _now.getFullYear() - 1 : _now.getFullYear();
     const _prevM  = _lastM === 0 ? 11 : _lastM - 1;
     const _prevY  = _lastM === 0 ? _lastY - 1 : _lastY;
-    _thisT = trackingActivity.filter((t: any) => _inMonth(t.clickDate, _lastM, _lastY));
-    _lastT = trackingActivity.filter((t: any) => _inMonth(t.clickDate, _prevM, _prevY));
+    _thisT = trackingActivity.filter((t: any) => _inMonth(_statDate(t), _lastM, _lastY));
+    _lastT = trackingActivity.filter((t: any) => _inMonth(_statDate(t), _prevM, _prevY));
     _periodLabel = 'vs month before';
   } else if (statPeriod === 'year') {
     const thisYrStart = new Date(_now.getFullYear(), 0, 1);
     const prevYrStart = new Date(_now.getFullYear() - 1, 0, 1);
-    _thisT = trackingActivity.filter((t: any) => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= thisYrStart; });
-    _lastT = trackingActivity.filter((t: any) => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= prevYrStart && d < thisYrStart; });
+    _thisT = trackingActivity.filter((t: any) => { const ds = _statDate(t); if (!ds) return false; const d = parseLocalDate(ds); return d >= thisYrStart; });
+    _lastT = trackingActivity.filter((t: any) => { const ds = _statDate(t); if (!ds) return false; const d = parseLocalDate(ds); return d >= prevYrStart && d < thisYrStart; });
     _periodLabel = 'vs last year';
   } else {
     // custom
     const fromD = statCustomFrom ? parseLocalDate(statCustomFrom) : null;
     const toD   = statCustomTo   ? (() => { const d = parseLocalDate(statCustomTo); d.setDate(d.getDate() + 1); return d; })() : null;
     _thisT = trackingActivity.filter((t: any) => {
-      if (!t.clickDate) return false;
-      const d = parseLocalDate(t.clickDate);
+      const ds = _statDate(t);
+      if (!ds) return false;
+      const d = parseLocalDate(ds);
       if (fromD && d < fromD) return false;
       if (toD   && d >= toD)  return false;
       return true;
@@ -815,19 +839,21 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         clicks:       _thisT.reduce((s, t) => s + (t.clicks       || 0), 0),
         applications: _thisT.reduce((s, t) => s + (t.applications || 0), 0),
         conversions:  _thisT.reduce((s, t) => s + (t.approvals    || 0), 0),
-        commissions:  _thisT.reduce((s, t) => s + (t.totalEarnings|| 0), 0),
+        commissions:  _thisT.reduce((s, t) => s + _commissionOf(t), 0),
       }
     : totalStatsFallback;
 
   const avgEPC = totalStats.clicks > 0 ? totalStats.commissions / totalStats.clicks : 0;
 
+  // Infinity = grew from a zero baseline. A percentage is meaningless there, and
+  // the old "+100%" read like a doubling when it actually came from nothing.
   const _calcPct = (cur: number, prev: number): number | null =>
-    prev === 0 ? (cur > 0 ? 100 : null) : Math.round(((cur - prev) / prev) * 100);
+    prev === 0 ? (cur > 0 ? Infinity : null) : Math.round(((cur - prev) / prev) * 100);
 
   const clicksPct       = hasTracking ? _calcPct(_thisT.reduce((s, t) => s + (t.clicks       || 0), 0), _lastT.reduce((s, t) => s + (t.clicks       || 0), 0)) : null;
   const approvalsPct    = hasTracking ? _calcPct(_thisT.reduce((s, t) => s + (t.approvals    || 0), 0), _lastT.reduce((s, t) => s + (t.approvals    || 0), 0)) : null;
   const applicationsPct = hasTracking ? _calcPct(_thisT.reduce((s, t) => s + (t.applications || 0), 0), _lastT.reduce((s, t) => s + (t.applications || 0), 0)) : null;
-  const commissionsPct  = hasTracking ? _calcPct(_thisT.reduce((s, t) => s + (t.totalEarnings|| 0), 0), _lastT.reduce((s, t) => s + (t.totalEarnings|| 0), 0)) : null;
+  const commissionsPct  = hasTracking ? _calcPct(_thisT.reduce((s, t) => s + _commissionOf(t), 0), _lastT.reduce((s, t) => s + _commissionOf(t), 0)) : null;
 
   /** Coloured percentage badge shown under each stat card */
   const PctBadge = ({ pct, compact = false }: { pct: number | null; compact?: boolean }) => {
@@ -835,6 +861,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       return compact
         ? <span className="text-faint2 text-xs">—</span>
         : <span className="text-faint text-xs">No prior-period data</span>;
+    }
+    if (!Number.isFinite(pct)) {
+      return (
+        <div className="flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full text-emerald-700 bg-emerald-50">
+          <TrendingUp className="w-3 h-3" />
+          <span>New{!compact ? ` ${_periodLabel}` : ''}</span>
+        </div>
+      );
     }
     if (pct === 0) {
       return compact
@@ -853,6 +887,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   // Borderless inline delta for the KPI band (colored arrow + %, no pill)
   const DeltaInline = ({ pct }: { pct: number | null }) => {
     if (pct === null) return <span className="text-faint2 text-[13px] font-medium">—</span>;
+    // Grew from a zero baseline — a percentage would be meaningless here.
+    if (!Number.isFinite(pct)) return <span className="text-brand text-[13px] font-semibold">New</span>;
     if (pct === 0) return <span className="text-faint text-[13px] font-medium">No change</span>;
     const up = pct > 0;
     return (
@@ -1382,12 +1418,15 @@ Please sign in and reset your password from your profile.`;
     }
   };
 
-  const fetchCpaRates = async (userId = 'all') => {
+  const fetchCpaRates = async (userId = 'all', month = cpaMonth) => {
     setCpaRatesLoading(true);
     try {
-      const url = userId !== 'all'
-        ? `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/cpa-rates?userId=${userId}`
-        : `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/cpa-rates`;
+      // App DB (cpa_rates) is the rate source; Airtable is no longer read here.
+      const params = new URLSearchParams();
+      if (userId && userId !== 'all') params.set('userId', userId);
+      if (month) params.set('month', month);
+      const qs = params.toString();
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/cpa/rates${qs ? `?${qs}` : ''}`;
       const res = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${publicAnonKey}`,
@@ -1397,12 +1436,110 @@ Please sign in and reset your password from your profile.`;
       });
       const data = await res.json();
       setCpaRates(data.rates || []);
-      setLastUpdated(prev => ({ ...prev, cpa: Date.now() }));
+      if (Array.isArray(data.months)) setCpaMonths(data.months);
+      if (data.month && !month) setCpaMonth(data.month);
+      setCpaUpload(data.upload || null);
+      // "Last updated" reflects when this month's CSV was uploaded — not when the
+      // client happened to fetch it.
+      setLastUpdated(prev => ({ ...prev, cpa: data.upload?.uploaded_at ? new Date(data.upload.uploaded_at).getTime() : undefined }));
       setCpaAffiliateLabel(data.affiliateName || '');
     } catch (err: any) {
       setMessageWithTimeout(`Failed to load CPA rates: ${err.message}`, 6000);
     } finally {
       setCpaRatesLoading(false);
+    }
+  };
+
+  // Parse a QMP "CPA Report" CSV into upload rows. Handles the BOM, quoted
+  // fields, and the optional "Report Name / Day of" preamble; skips tier-header
+  // rows that carry no Current Net CPA.
+  const parseCpaCsv = (text: string) => {
+    const clean = text.replace(/^﻿/, '');
+    const parseLine = (line: string) => {
+      const out: string[] = [];
+      let cur = '', inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (inQ) {
+          if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+          else if (ch === '"') inQ = false;
+          else cur += ch;
+        } else if (ch === '"') inQ = true;
+        else if (ch === ',') { out.push(cur); cur = ''; }
+        else cur += ch;
+      }
+      out.push(cur);
+      return out;
+    };
+    const rows: any[] = [];
+    let headerSeen = false;
+    for (const raw of clean.split(/\r?\n/)) {
+      if (!raw.trim()) continue;
+      const cols = parseLine(raw);
+      if (cols[0] === 'Placement Name') { headerSeen = true; continue; }
+      if (!headerSeen) continue; // skip preamble lines
+      if (cols.length < 8) continue;
+      const [placement, issuer, card, tier, cur, prev, pct, dchg] = cols;
+      if (!card?.trim() || !(cur || '').trim()) continue; // need a card + a CPA
+      rows.push({
+        placement: placement?.trim() || '',
+        issuer: issuer?.trim() || '',
+        card: card.trim(),
+        tier: (tier || '').trim(),
+        netCpa: cur.trim(),
+        previousNetCpa: (prev || '').trim(),
+        percentChange: (pct || '').trim(),
+        dateChange: (dchg || '').trim(),
+      });
+    }
+    return rows;
+  };
+
+  const uploadCpaCsv = async (file: File, month: string) => {
+    setCpaUploading(true);
+    setMessage('');
+    try {
+      const text = await file.text();
+      const rows = parseCpaCsv(text);
+      if (!rows.length) { setMessageWithTimeout('No valid rows found in that CSV.', 6000); return; }
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/cpa/upload`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'X-Manager-Session': sessionToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ month, fileName: file.name, rows }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+      setMessageWithTimeout(`Uploaded ${data.inserted} rates for ${month}${data.skipped ? ` (${data.skipped} skipped)` : ''}.`, 6000);
+      setCpaMonth(month);
+      await fetchCpaRates(cpaAffiliateFilter, month);
+    } catch (err: any) {
+      setMessageWithTimeout(`CPA upload failed: ${err.message}`, 8000);
+    } finally {
+      setCpaUploading(false);
+    }
+  };
+
+  const openCpaHistory = async (card: string, tier: string) => {
+    setCpaHistoryCard({ card, tier });
+    setCpaHistory(null);
+    try {
+      const params = new URLSearchParams({ card });
+      if (tier) params.set('tier', tier);
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/cpa/history?${params}`,
+        { headers: { 'Authorization': `Bearer ${publicAnonKey}`, 'X-Manager-Session': sessionToken } },
+      );
+      const data = await res.json();
+      setCpaHistory(data.history || []);
+    } catch {
+      setCpaHistory([]);
     }
   };
 
@@ -2137,7 +2274,7 @@ Please sign in and reset your password from your profile.`;
                     { field: 'clickDate', label: 'Date' },
                     { field: 'deviceType', label: 'Device' },
                     { field: 'state', label: 'Location' },
-                    { field: 'totalEarnings', label: 'Earned' },
+                    { field: 'commission', label: 'Earned' },
                   ]}
                 />
               </Toolbar>
@@ -2158,7 +2295,7 @@ Please sign in and reset your password from your profile.`;
                         <SortHead label="Date" field="clickDate" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="hidden md:inline-flex w-[116px]" />
                         <SortHead label="Device" field="deviceType" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="hidden lg:inline-flex w-[104px]" />
                         <SortHead label="Location" field="state" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="hidden xl:inline-flex w-[132px]" />
-                        <SortHead label="Earned" field="totalEarnings" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="w-[76px]" />
+                        <SortHead label="Earned" field="commission" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="w-[76px]" />
                       </div>
                       {(() => {
                             const dotColor = (s: string) => s === 'approval' ? 'var(--ds-pos)' : s === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
@@ -2190,7 +2327,7 @@ Please sign in and reset your password from your profile.`;
                                     ? <><MapPin className="w-3.5 h-3.5 flex-shrink-0 text-faint2" /><span className="truncate">{a.country && a.country !== 'US' ? `${a.state} · ${a.country}` : a.state}</span></>
                                     : <span className="text-faint2">—</span>}
                                 </span>
-                                <span className={`w-[76px] flex-shrink-0 text-right text-[13px] font-medium tabular-nums ${a.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>{a.totalEarnings > 0 ? `$${a.totalEarnings.toFixed(2)}` : '—'}</span>
+                                <span className={`w-[76px] flex-shrink-0 text-right text-[13px] font-medium tabular-nums ${_commissionOf(a) > 0 ? 'text-ink' : 'text-faint2'}`}>{_commissionOf(a) > 0 ? `$${_commissionOf(a).toFixed(2)}` : '—'}</span>
                               </div>
                             );
 
@@ -2235,7 +2372,7 @@ Please sign in and reset your password from your profile.`;
                               const grpClicks    = rows.reduce((s: number, r: any) => s + (r.clicks       || 0), 0);
                               const grpApps      = rows.reduce((s: number, r: any) => s + (r.applications || 0), 0);
                               const grpApprovals = rows.reduce((s: number, r: any) => s + (r.approvals    || 0), 0);
-                              const grpEarnings  = rows.reduce((s: number, r: any) => s + (r.totalEarnings|| 0), 0);
+                              const grpEarnings  = rows.reduce((s: number, r: any) => s + _commissionOf(r), 0);
                               const label        = getLabel(key, rows);
                               // Show affiliateId as sub-label when grouped by affiliate
                               const sublabel     = trackingGroupBy === 'affiliate' ? key : undefined;
@@ -2317,16 +2454,53 @@ Please sign in and reset your password from your profile.`;
               {/* Toolbar — condensed: search · group · affiliate · filters · sort */}
               <Toolbar
                 stickyTop={60}
-                head={<TabHead title="CPA Rates" ts={lastUpdated.cpa} count={cpaRates.length} noun="rates" />}
+                head={<TabHead title={`CPA Rates · ${monthLabel(cpaMonth)}`} ts={lastUpdated.cpa} count={cpaRates.length} noun="rates" />}
                 trailing={
-                  <ToolbarButton
-                    icon={<RefreshCw className="w-3.5 h-3.5" />}
-                    title="Refresh CPA rates"
-                    onClick={() => { setCpaVisible(cpaPageSize); fetchCpaRates(cpaAffiliateFilter); }}
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      ref={cpaFileInput}
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        const month = cpaMonth ? cpaMonth.slice(0, 7) : new Date().toISOString().slice(0, 7);
+                        if (f) uploadCpaCsv(f, month);
+                        e.target.value = '';
+                      }}
+                    />
+                    <button
+                      onClick={() => { if (!cpaUploading) cpaFileInput.current?.click(); }}
+                      disabled={cpaUploading}
+                      title={`Upload a QuinStreet CPA Report CSV — saved as the rate card for ${monthLabel(cpaMonth)}`}
+                      className="flex items-center gap-1.5 h-8 px-3 bg-brand text-white rounded-full hover:bg-brand-dark transition-colors text-[12.5px] font-medium shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-wait whitespace-nowrap"
+                    >
+                      {cpaUploading ? <Spinner className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
+                      <span>{cpaUploading ? 'Uploading…' : 'Upload CSV'}</span>
+                    </button>
+                    <ToolbarButton
+                      icon={<RefreshCw className="w-3.5 h-3.5" />}
+                      title="Refresh CPA rates"
+                      onClick={() => { setCpaVisible(cpaPageSize); fetchCpaRates(cpaAffiliateFilter); }}
+                    />
+                  </div>
                 }
                 search={<ToolbarSearch value={cpaSearch} onChange={v => { setCpaSearch(v); setCpaVisible(cpaPageSize); }} placeholder="Search cards…" />}
               >
+                {/* Month snapshot selector — each upload is one month's rate card */}
+                {cpaMonths.length > 0 && (
+                  <PopupButton
+                    label="Month"
+                    icon={<Calendar className="w-3.5 h-3.5 text-faint2" />}
+                    value={cpaMonth || cpaMonths[0]}
+                    options={cpaMonths.map((m) => ({
+                      value: m,
+                      label: new Date(m + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+                    }))}
+                    onChange={(val) => { setCpaMonth(val); setCpaVisible(cpaPageSize); fetchCpaRates(cpaAffiliateFilter, val); }}
+                  />
+                )}
+
                 {/* Group (Collapse/Expand folded into the menu) */}
                 <PopupButton
                   label="Group by"
@@ -2399,14 +2573,14 @@ Please sign in and reset your password from your profile.`;
               {cpaRatesLoading ? (
                 <div className="flex flex-col items-center gap-4 py-16">
                   <Spinner className="w-10 h-10" />
-                  <p className="text-faint text-sm">Loading CPA rates from Airtable…</p>
+                  <p className="text-faint text-sm">Loading CPA rates…</p>
                 </div>
               ) : cpaRates.length === 0 ? (
                 <div className="text-center py-16">
                   <div className="w-14 h-14 bg-surface rounded-2xl flex items-center justify-center mx-auto mb-4">
                     <DollarSign className="w-7 h-7 text-faint2" />
                   </div>
-                  <p className="text-faint text-sm">No CPA rates found. Try refreshing.</p>
+                  <p className="text-faint text-sm">No CPA rates for this month yet — use <span className="font-medium text-subtle">Upload CSV</span> to add a QuinStreet CPA Report.</p>
                 </div>
               ) : (() => {
                 // Apply all filters + sort
@@ -2423,8 +2597,14 @@ Please sign in and reset your password from your profile.`;
                 });
 
                 const CpaRow = ({ rate, indent }: { rate: any; indent?: boolean }) => (
-                  <div className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 last:border-b-0 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
-                    <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{prettyCardName(rate.card)}</span>
+                  <div
+                    onClick={() => openCpaHistory(rate.card, rate.tier || '')}
+                    title="View payout history"
+                    className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 last:border-b-0 hover:bg-surface transition-colors duration-150 cursor-pointer" style={{ paddingLeft: indent ? 24 : 0 }}>
+                    <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0 inline-flex items-center gap-1.5">
+                      {prettyCardName(rate.card)}
+                      {rate.tier ? <span className="text-[10px] font-semibold text-faint2 bg-surface border border-hair rounded px-1 py-0.5 flex-shrink-0">{rate.tier}</span> : null}
+                    </span>
                     <span className="hidden sm:block w-[120px] lg:w-[140px] flex-shrink-0 text-right text-[13px] font-medium text-subtle truncate">{rate.issuer || '—'}</span>
                     <span className="hidden md:block w-[116px] flex-shrink-0 text-right text-[13px] font-medium text-faint tabular-nums whitespace-nowrap">{rate.date ? formatDate(rate.date) : ''}</span>
                     <span className="hidden lg:flex items-center justify-end w-[96px] flex-shrink-0">
@@ -2501,6 +2681,8 @@ Please sign in and reset your password from your profile.`;
                         Showing {pagedFiltered.length} of {filtered.length} cards
                         {filtered.length !== cpaRates.length ? ` (${cpaRates.length} total)` : ''}
                         {cpaAffiliateLabel ? ` · ${cpaAffiliateLabel}` : ''}
+                        {cpaUpload?.file_name ? ` · from ${cpaUpload.file_name}` : ''}
+                        {cpaUpload?.skipped_count ? ` (${cpaUpload.skipped_count} rows skipped)` : ''}
                       </p>
                       {!cpaGroupBy && (
                       <div className="flex items-center gap-1.5 text-xs text-faint">
@@ -2736,7 +2918,7 @@ Please sign in and reset your password from your profile.`;
                                               <div className="text-sm font-semibold text-ink truncate">{prettyCardName(c.cardName)}</div>
                                               <div className="text-xs text-faint mt-0.5">{formatDate(c.clickDate)}{formatTime(c.clickTime) ? ` · ${formatTime(c.clickTime)}` : ''}</div>
                                             </div>
-                                            <div className={`text-sm font-bold tabular-nums flex-shrink-0 ${c.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>{c.totalEarnings > 0 ? `$${c.totalEarnings.toFixed(2)}` : '—'}</div>
+                                            <div className={`text-sm font-bold tabular-nums flex-shrink-0 ${_commissionOf(c) > 0 ? 'text-ink' : 'text-faint2'}`}>{_commissionOf(c) > 0 ? `$${_commissionOf(c).toFixed(2)}` : '—'}</div>
                                           </div>
                                         ))}
                                       </>
@@ -2859,6 +3041,79 @@ Please sign in and reset your password from your profile.`;
         {/* ── Modals ── */}
 
         {/* Create Affiliate */}
+        {/* CPA payout history — per-card, across every uploaded monthly snapshot */}
+        <Dialog.Root open={!!cpaHistoryCard} onOpenChange={(o) => { if (!o) { setCpaHistoryCard(null); setCpaHistory(null); } }}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 bg-ink/60 backdrop-blur-sm z-50" />
+            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl ring-1 ring-ink/10 z-50">
+              <Dialog.Title className="text-base font-semibold text-ink pr-8 leading-snug">
+                {cpaHistoryCard ? prettyCardName(cpaHistoryCard.card) : ''}
+                {cpaHistoryCard?.tier ? <span className="text-faint2 font-medium"> · {cpaHistoryCard.tier}</span> : null}
+              </Dialog.Title>
+              <Dialog.Description className="text-[12.5px] text-faint mt-0.5 mb-4">Reported CPA payout over time (gross → after 10%)</Dialog.Description>
+              <Dialog.Close className="absolute top-5 right-5 text-faint2 hover:text-ink transition-colors"><X className="w-4 h-4" /></Dialog.Close>
+              {cpaHistory === null ? (
+                <div className="flex justify-center py-10"><Spinner className="w-8 h-8" /></div>
+              ) : (() => {
+                const hist = cpaHistory as any[];
+                if (!hist.length) return <p className="text-faint text-sm py-8 text-center">No history for this card yet.</p>;
+                // Build a trend series; seed a "prev" point from the earliest row's previous value.
+                const series: any[] = [];
+                if (hist[0].previous != null) {
+                  series.push({ label: 'prev', gross: hist[0].previous, after: Math.round(hist[0].previous * 0.9 * 100) / 100 });
+                }
+                hist.forEach((h) => series.push({
+                  label: new Date(h.month + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+                  gross: h.gross, after: h.afterTenPct,
+                }));
+                const latest = hist[hist.length - 1];
+                return (
+                  <div>
+                    <div className="flex items-end gap-4 mb-4">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.05em] text-faint2 font-semibold">Current gross</p>
+                        <p className="text-2xl font-bold text-ink tabular-nums">${Number(latest.gross).toLocaleString()}</p>
+                      </div>
+                      <div className="pb-1">
+                        <p className="text-[11px] uppercase tracking-[0.05em] text-faint2 font-semibold">After 10%</p>
+                        <p className="text-lg font-semibold text-pos tabular-nums">${Number(latest.afterTenPct).toLocaleString()}</p>
+                      </div>
+                      {latest.percentChange && latest.percentChange !== '0.00%' && (
+                        <span className={`ml-auto text-[13px] font-semibold tabular-nums ${latest.percentChange.startsWith('-') ? 'text-red-500' : 'text-pos'}`}>{latest.percentChange}</span>
+                      )}
+                    </div>
+                    <div className="h-40 -ml-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={series} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                          <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--ds-faint2)' }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fontSize: 11, fill: 'var(--ds-faint2)' }} axisLine={false} tickLine={false} width={40} />
+                          <Tooltip formatter={(v: any, n: any) => [`$${Number(v).toLocaleString()}`, n === 'gross' ? 'Gross' : 'After 10%']} labelStyle={{ fontSize: 12 }} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                          <Bar dataKey="gross" radius={[4, 4, 0, 0]} fill="var(--ds-brand)" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-4 border-t border-hair2 pt-3 max-h-44 overflow-y-auto">
+                      <table className="w-full text-[13px]">
+                        <thead><tr className="text-[11px] uppercase tracking-[0.04em] text-faint2 font-semibold"><td className="text-left pb-1.5">Month</td><td className="text-right pb-1.5">Gross</td><td className="text-right pb-1.5">After 10%</td><td className="text-right pb-1.5">Changed</td></tr></thead>
+                        <tbody>
+                          {[...hist].reverse().map((h, i) => (
+                            <tr key={i} className="border-t border-hair2/60">
+                              <td className="py-1.5 text-ink font-medium">{new Date(h.month + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</td>
+                              <td className="py-1.5 text-right tabular-nums text-ink">${Number(h.gross).toLocaleString()}</td>
+                              <td className="py-1.5 text-right tabular-nums text-pos">${Number(h.afterTenPct).toLocaleString()}</td>
+                              <td className="py-1.5 text-right tabular-nums text-faint whitespace-nowrap">{h.dateChange ? formatDate(h.dateChange) : '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+
         <Dialog.Root open={showCreateModal} onOpenChange={setShowCreateModal}>
           <Dialog.Portal>
             <Dialog.Overlay className="fixed inset-0 bg-ink/60 backdrop-blur-sm z-50" />
