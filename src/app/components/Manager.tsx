@@ -30,6 +30,8 @@ import {
   Monitor,
   Smartphone,
   MapPin,
+  Calendar,
+  Upload,
 } from 'lucide-react';
 import { projectId, publicAnonKey } from '/utils/supabase/info';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -629,6 +631,19 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const [cpaGroupBy,        setCpaGroupBy]        = useState(true);
   const [cpaCollapsed,      setCpaCollapsed]      = useState<Set<string>>(new Set());
   const cpaCollapseInit = useRef(false);
+  // CPA history / monthly snapshots (app DB is the source of truth)
+  const [cpaMonths,         setCpaMonths]         = useState<string[]>([]);
+  const [cpaMonth,          setCpaMonth]          = useState<string>('');   // '' = latest
+  const [cpaUploading,      setCpaUploading]      = useState(false);
+  const [cpaHistoryCard,    setCpaHistoryCard]    = useState<{ card: string; tier: string } | null>(null);
+  const [cpaHistory,        setCpaHistory]        = useState<any[] | null>(null);
+  // Metadata for the selected month's upload (when the CSV was actually uploaded)
+  const [cpaUpload,         setCpaUpload]         = useState<any>(null);
+  const cpaFileInput = useRef<HTMLInputElement>(null);
+  // "2026-07-01" (or '' → current month) → "July 2026"
+  const monthLabel = (m: string) =>
+    new Date(`${(m || new Date().toISOString().slice(0, 10)).slice(0, 7)}-01T00:00:00`)
+      .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   // CPA Rates defaults to grouped-by-Issuer with groups collapsed, so "Expand
   // All" is the action. Seed the collapsed set once rates first load.
   useEffect(() => {
@@ -1382,12 +1397,15 @@ Please sign in and reset your password from your profile.`;
     }
   };
 
-  const fetchCpaRates = async (userId = 'all') => {
+  const fetchCpaRates = async (userId = 'all', month = cpaMonth) => {
     setCpaRatesLoading(true);
     try {
-      const url = userId !== 'all'
-        ? `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/cpa-rates?userId=${userId}`
-        : `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/cpa-rates`;
+      // App DB (cpa_rates) is the rate source; Airtable is no longer read here.
+      const params = new URLSearchParams();
+      if (userId && userId !== 'all') params.set('userId', userId);
+      if (month) params.set('month', month);
+      const qs = params.toString();
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/cpa/rates${qs ? `?${qs}` : ''}`;
       const res = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${publicAnonKey}`,
@@ -1397,12 +1415,110 @@ Please sign in and reset your password from your profile.`;
       });
       const data = await res.json();
       setCpaRates(data.rates || []);
-      setLastUpdated(prev => ({ ...prev, cpa: Date.now() }));
+      if (Array.isArray(data.months)) setCpaMonths(data.months);
+      if (data.month && !month) setCpaMonth(data.month);
+      setCpaUpload(data.upload || null);
+      // "Last updated" reflects when this month's CSV was uploaded — not when the
+      // client happened to fetch it.
+      setLastUpdated(prev => ({ ...prev, cpa: data.upload?.uploaded_at ? new Date(data.upload.uploaded_at).getTime() : undefined }));
       setCpaAffiliateLabel(data.affiliateName || '');
     } catch (err: any) {
       setMessageWithTimeout(`Failed to load CPA rates: ${err.message}`, 6000);
     } finally {
       setCpaRatesLoading(false);
+    }
+  };
+
+  // Parse a QMP "CPA Report" CSV into upload rows. Handles the BOM, quoted
+  // fields, and the optional "Report Name / Day of" preamble; skips tier-header
+  // rows that carry no Current Net CPA.
+  const parseCpaCsv = (text: string) => {
+    const clean = text.replace(/^﻿/, '');
+    const parseLine = (line: string) => {
+      const out: string[] = [];
+      let cur = '', inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (inQ) {
+          if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+          else if (ch === '"') inQ = false;
+          else cur += ch;
+        } else if (ch === '"') inQ = true;
+        else if (ch === ',') { out.push(cur); cur = ''; }
+        else cur += ch;
+      }
+      out.push(cur);
+      return out;
+    };
+    const rows: any[] = [];
+    let headerSeen = false;
+    for (const raw of clean.split(/\r?\n/)) {
+      if (!raw.trim()) continue;
+      const cols = parseLine(raw);
+      if (cols[0] === 'Placement Name') { headerSeen = true; continue; }
+      if (!headerSeen) continue; // skip preamble lines
+      if (cols.length < 8) continue;
+      const [placement, issuer, card, tier, cur, prev, pct, dchg] = cols;
+      if (!card?.trim() || !(cur || '').trim()) continue; // need a card + a CPA
+      rows.push({
+        placement: placement?.trim() || '',
+        issuer: issuer?.trim() || '',
+        card: card.trim(),
+        tier: (tier || '').trim(),
+        netCpa: cur.trim(),
+        previousNetCpa: (prev || '').trim(),
+        percentChange: (pct || '').trim(),
+        dateChange: (dchg || '').trim(),
+      });
+    }
+    return rows;
+  };
+
+  const uploadCpaCsv = async (file: File, month: string) => {
+    setCpaUploading(true);
+    setMessage('');
+    try {
+      const text = await file.text();
+      const rows = parseCpaCsv(text);
+      if (!rows.length) { setMessageWithTimeout('No valid rows found in that CSV.', 6000); return; }
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/cpa/upload`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'X-Manager-Session': sessionToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ month, fileName: file.name, rows }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+      setMessageWithTimeout(`Uploaded ${data.inserted} rates for ${month}${data.skipped ? ` (${data.skipped} skipped)` : ''}.`, 6000);
+      setCpaMonth(month);
+      await fetchCpaRates(cpaAffiliateFilter, month);
+    } catch (err: any) {
+      setMessageWithTimeout(`CPA upload failed: ${err.message}`, 8000);
+    } finally {
+      setCpaUploading(false);
+    }
+  };
+
+  const openCpaHistory = async (card: string, tier: string) => {
+    setCpaHistoryCard({ card, tier });
+    setCpaHistory(null);
+    try {
+      const params = new URLSearchParams({ card });
+      if (tier) params.set('tier', tier);
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8dc4138c/manager/cpa/history?${params}`,
+        { headers: { 'Authorization': `Bearer ${publicAnonKey}`, 'X-Manager-Session': sessionToken } },
+      );
+      const data = await res.json();
+      setCpaHistory(data.history || []);
+    } catch {
+      setCpaHistory([]);
     }
   };
 
@@ -2317,16 +2433,53 @@ Please sign in and reset your password from your profile.`;
               {/* Toolbar — condensed: search · group · affiliate · filters · sort */}
               <Toolbar
                 stickyTop={60}
-                head={<TabHead title="CPA Rates" ts={lastUpdated.cpa} count={cpaRates.length} noun="rates" />}
+                head={<TabHead title={`CPA Rates · ${monthLabel(cpaMonth)}`} ts={lastUpdated.cpa} count={cpaRates.length} noun="rates" />}
                 trailing={
-                  <ToolbarButton
-                    icon={<RefreshCw className="w-3.5 h-3.5" />}
-                    title="Refresh CPA rates"
-                    onClick={() => { setCpaVisible(cpaPageSize); fetchCpaRates(cpaAffiliateFilter); }}
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      ref={cpaFileInput}
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        const month = cpaMonth ? cpaMonth.slice(0, 7) : new Date().toISOString().slice(0, 7);
+                        if (f) uploadCpaCsv(f, month);
+                        e.target.value = '';
+                      }}
+                    />
+                    <button
+                      onClick={() => { if (!cpaUploading) cpaFileInput.current?.click(); }}
+                      disabled={cpaUploading}
+                      title={`Upload a QuinStreet CPA Report CSV — saved as the rate card for ${monthLabel(cpaMonth)}`}
+                      className="flex items-center gap-1.5 h-8 px-3 bg-brand text-white rounded-full hover:bg-brand-dark transition-colors text-[12.5px] font-medium shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-wait whitespace-nowrap"
+                    >
+                      {cpaUploading ? <Spinner className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
+                      <span>{cpaUploading ? 'Uploading…' : 'Upload CSV'}</span>
+                    </button>
+                    <ToolbarButton
+                      icon={<RefreshCw className="w-3.5 h-3.5" />}
+                      title="Refresh CPA rates"
+                      onClick={() => { setCpaVisible(cpaPageSize); fetchCpaRates(cpaAffiliateFilter); }}
+                    />
+                  </div>
                 }
                 search={<ToolbarSearch value={cpaSearch} onChange={v => { setCpaSearch(v); setCpaVisible(cpaPageSize); }} placeholder="Search cards…" />}
               >
+                {/* Month snapshot selector — each upload is one month's rate card */}
+                {cpaMonths.length > 0 && (
+                  <PopupButton
+                    label="Month"
+                    icon={<Calendar className="w-3.5 h-3.5 text-faint2" />}
+                    value={cpaMonth || cpaMonths[0]}
+                    options={cpaMonths.map((m) => ({
+                      value: m,
+                      label: new Date(m + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+                    }))}
+                    onChange={(val) => { setCpaMonth(val); setCpaVisible(cpaPageSize); fetchCpaRates(cpaAffiliateFilter, val); }}
+                  />
+                )}
+
                 {/* Group (Collapse/Expand folded into the menu) */}
                 <PopupButton
                   label="Group by"
@@ -2399,14 +2552,14 @@ Please sign in and reset your password from your profile.`;
               {cpaRatesLoading ? (
                 <div className="flex flex-col items-center gap-4 py-16">
                   <Spinner className="w-10 h-10" />
-                  <p className="text-faint text-sm">Loading CPA rates from Airtable…</p>
+                  <p className="text-faint text-sm">Loading CPA rates…</p>
                 </div>
               ) : cpaRates.length === 0 ? (
                 <div className="text-center py-16">
                   <div className="w-14 h-14 bg-surface rounded-2xl flex items-center justify-center mx-auto mb-4">
                     <DollarSign className="w-7 h-7 text-faint2" />
                   </div>
-                  <p className="text-faint text-sm">No CPA rates found. Try refreshing.</p>
+                  <p className="text-faint text-sm">No CPA rates for this month yet — use <span className="font-medium text-subtle">Upload CSV</span> to add a QuinStreet CPA Report.</p>
                 </div>
               ) : (() => {
                 // Apply all filters + sort
@@ -2423,8 +2576,14 @@ Please sign in and reset your password from your profile.`;
                 });
 
                 const CpaRow = ({ rate, indent }: { rate: any; indent?: boolean }) => (
-                  <div className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 last:border-b-0 hover:bg-surface transition-colors duration-150" style={{ paddingLeft: indent ? 24 : 0 }}>
-                    <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0">{prettyCardName(rate.card)}</span>
+                  <div
+                    onClick={() => openCpaHistory(rate.card, rate.tier || '')}
+                    title="View payout history"
+                    className="flex items-center gap-3 sm:gap-4 py-2.5 border-b border-hair2 last:border-b-0 hover:bg-surface transition-colors duration-150 cursor-pointer" style={{ paddingLeft: indent ? 24 : 0 }}>
+                    <span className="text-[13px] font-medium text-ink tracking-[-0.01em] truncate flex-1 min-w-0 inline-flex items-center gap-1.5">
+                      {prettyCardName(rate.card)}
+                      {rate.tier ? <span className="text-[10px] font-semibold text-faint2 bg-surface border border-hair rounded px-1 py-0.5 flex-shrink-0">{rate.tier}</span> : null}
+                    </span>
                     <span className="hidden sm:block w-[120px] lg:w-[140px] flex-shrink-0 text-right text-[13px] font-medium text-subtle truncate">{rate.issuer || '—'}</span>
                     <span className="hidden md:block w-[116px] flex-shrink-0 text-right text-[13px] font-medium text-faint tabular-nums whitespace-nowrap">{rate.date ? formatDate(rate.date) : ''}</span>
                     <span className="hidden lg:flex items-center justify-end w-[96px] flex-shrink-0">
@@ -2501,6 +2660,8 @@ Please sign in and reset your password from your profile.`;
                         Showing {pagedFiltered.length} of {filtered.length} cards
                         {filtered.length !== cpaRates.length ? ` (${cpaRates.length} total)` : ''}
                         {cpaAffiliateLabel ? ` · ${cpaAffiliateLabel}` : ''}
+                        {cpaUpload?.file_name ? ` · from ${cpaUpload.file_name}` : ''}
+                        {cpaUpload?.skipped_count ? ` (${cpaUpload.skipped_count} rows skipped)` : ''}
                       </p>
                       {!cpaGroupBy && (
                       <div className="flex items-center gap-1.5 text-xs text-faint">
@@ -2859,6 +3020,79 @@ Please sign in and reset your password from your profile.`;
         {/* ── Modals ── */}
 
         {/* Create Affiliate */}
+        {/* CPA payout history — per-card, across every uploaded monthly snapshot */}
+        <Dialog.Root open={!!cpaHistoryCard} onOpenChange={(o) => { if (!o) { setCpaHistoryCard(null); setCpaHistory(null); } }}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 bg-ink/60 backdrop-blur-sm z-50" />
+            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl ring-1 ring-ink/10 z-50">
+              <Dialog.Title className="text-base font-semibold text-ink pr-8 leading-snug">
+                {cpaHistoryCard ? prettyCardName(cpaHistoryCard.card) : ''}
+                {cpaHistoryCard?.tier ? <span className="text-faint2 font-medium"> · {cpaHistoryCard.tier}</span> : null}
+              </Dialog.Title>
+              <Dialog.Description className="text-[12.5px] text-faint mt-0.5 mb-4">Reported CPA payout over time (gross → after 10%)</Dialog.Description>
+              <Dialog.Close className="absolute top-5 right-5 text-faint2 hover:text-ink transition-colors"><X className="w-4 h-4" /></Dialog.Close>
+              {cpaHistory === null ? (
+                <div className="flex justify-center py-10"><Spinner className="w-8 h-8" /></div>
+              ) : (() => {
+                const hist = cpaHistory as any[];
+                if (!hist.length) return <p className="text-faint text-sm py-8 text-center">No history for this card yet.</p>;
+                // Build a trend series; seed a "prev" point from the earliest row's previous value.
+                const series: any[] = [];
+                if (hist[0].previous != null) {
+                  series.push({ label: 'prev', gross: hist[0].previous, after: Math.round(hist[0].previous * 0.9 * 100) / 100 });
+                }
+                hist.forEach((h) => series.push({
+                  label: new Date(h.month + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+                  gross: h.gross, after: h.afterTenPct,
+                }));
+                const latest = hist[hist.length - 1];
+                return (
+                  <div>
+                    <div className="flex items-end gap-4 mb-4">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.05em] text-faint2 font-semibold">Current gross</p>
+                        <p className="text-2xl font-bold text-ink tabular-nums">${Number(latest.gross).toLocaleString()}</p>
+                      </div>
+                      <div className="pb-1">
+                        <p className="text-[11px] uppercase tracking-[0.05em] text-faint2 font-semibold">After 10%</p>
+                        <p className="text-lg font-semibold text-pos tabular-nums">${Number(latest.afterTenPct).toLocaleString()}</p>
+                      </div>
+                      {latest.percentChange && latest.percentChange !== '0.00%' && (
+                        <span className={`ml-auto text-[13px] font-semibold tabular-nums ${latest.percentChange.startsWith('-') ? 'text-red-500' : 'text-pos'}`}>{latest.percentChange}</span>
+                      )}
+                    </div>
+                    <div className="h-40 -ml-2">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={series} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                          <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--ds-faint2)' }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fontSize: 11, fill: 'var(--ds-faint2)' }} axisLine={false} tickLine={false} width={40} />
+                          <Tooltip formatter={(v: any, n: any) => [`$${Number(v).toLocaleString()}`, n === 'gross' ? 'Gross' : 'After 10%']} labelStyle={{ fontSize: 12 }} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                          <Bar dataKey="gross" radius={[4, 4, 0, 0]} fill="var(--ds-brand)" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-4 border-t border-hair2 pt-3 max-h-44 overflow-y-auto">
+                      <table className="w-full text-[13px]">
+                        <thead><tr className="text-[11px] uppercase tracking-[0.04em] text-faint2 font-semibold"><td className="text-left pb-1.5">Month</td><td className="text-right pb-1.5">Gross</td><td className="text-right pb-1.5">After 10%</td><td className="text-right pb-1.5">Changed</td></tr></thead>
+                        <tbody>
+                          {[...hist].reverse().map((h, i) => (
+                            <tr key={i} className="border-t border-hair2/60">
+                              <td className="py-1.5 text-ink font-medium">{new Date(h.month + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</td>
+                              <td className="py-1.5 text-right tabular-nums text-ink">${Number(h.gross).toLocaleString()}</td>
+                              <td className="py-1.5 text-right tabular-nums text-pos">${Number(h.afterTenPct).toLocaleString()}</td>
+                              <td className="py-1.5 text-right tabular-nums text-faint whitespace-nowrap">{h.dateChange ? formatDate(h.dateChange) : '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+
         <Dialog.Root open={showCreateModal} onOpenChange={setShowCreateModal}>
           <Dialog.Portal>
             <Dialog.Overlay className="fixed inset-0 bg-ink/60 backdrop-blur-sm z-50" />

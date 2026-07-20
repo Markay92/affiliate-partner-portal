@@ -944,8 +944,10 @@ async function getCachedCpaRecords(airtableToken: string): Promise<any[]> {
   return records;
 }
 
-// Get payouts — current CPA rates from Airtable CPA Changes table,
-// adjusted to the affiliate's individual commission rate.
+// Get payouts — current CPA rates, adjusted to the affiliate's commission rate.
+// Source of truth is the app DB (cpa_rates, latest monthly snapshot); Airtable
+// CPA Changes is only a FALLBACK for cards the DB snapshot doesn't include, so no
+// card ever loses its rate during/after the migration.
 app.get("/make-server-8dc4138c/payouts", async (c) => {
   try {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
@@ -960,14 +962,9 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
     const commissionRate = Number(userData.commissionRate) || 50;
 
     const airtableToken = Deno.env.get('AIRTABLE_API_KEY');
-
-    let records: any[];
-    try {
-      records = await getCachedCpaRecords(airtableToken);
-    } catch (airtableErr: any) {
-      console.log('Airtable CPA Changes fetch error:', airtableErr.message);
-      return c.json({ payouts: [], error: airtableErr.message });
-    }
+    const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    // affiliate amount = bankCpa (after the 10% platform cut) × commission rate
+    const affAmt = (bankCpa: number) => bankCpa > 0 ? Math.round((bankCpa * commissionRate / 100) * 100) / 100 : 0;
 
     // Load CardRatingAPI enrichment index (non-fatal if unavailable)
     let cardRatingIndex: Record<string, any> = {};
@@ -977,38 +974,62 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
       console.log('CardRating enrich skipped (non-fatal):', e.message);
     }
 
-    // Deduplicate — keep the most recent record per card name (data is sorted desc by date)
-    const seen = new Set<string>();
-    const payouts = [];
+    // ── Primary source: cpa_rates latest snapshot. net_cpa is GROSS, so
+    // bankCpa = gross × 0.9. Tiered cards (same name, many tiers) → keep the
+    // best (max) rate, matching the single-row-per-card payout list.
+    const dbByKey = new Map<string, { gross: number; card: string; issuer: string; date: string }>();
+    try {
+      const sb = sbAdmin();
+      const { data: mrow } = await sb.from('cpa_rates').select('effective_month').order('effective_month', { ascending: false }).limit(1);
+      const month = mrow?.[0]?.effective_month;
+      if (month) {
+        const { data: rows } = await sb.from('cpa_rates').select('card_name, card_key, issuer, net_cpa, date_change').eq('effective_month', month);
+        for (const r of rows || []) {
+          const key = r.card_key || norm(r.card_name);
+          const gross = Number(r.net_cpa) || 0;
+          const cur = dbByKey.get(key);
+          if (!cur || gross > cur.gross) dbByKey.set(key, { gross, card: r.card_name, issuer: r.issuer || '', date: r.date_change || '' });
+        }
+      }
+    } catch (e: any) {
+      console.log('cpa_rates read failed (falling back to Airtable):', e.message);
+    }
 
-    for (let i = 0; i < records.length; i++) {
-      const f = records[i].cellValuesByFieldId || records[i].fields || {};
+    // ── Fallback source: Airtable CPA Changes, only for cards absent from the DB.
+    // "Net CPA 60%" is already the after-10% (bank) amount.
+    const airByKey = new Map<string, { card: string; issuer: string; bankCpa: number; date: string }>();
+    try {
+      const records = await getCachedCpaRecords(airtableToken);
+      for (const rec of records) {
+        const f = rec.cellValuesByFieldId || rec.fields || {};
+        const cardName = f['fldN6ug8vDACn4yO1'] ?? f['Card Name'] ?? '';
+        if (!cardName) continue;
+        const key = norm(cardName);
+        if (airByKey.has(key)) continue; // records are date-desc → keep most recent
+        const netCpa60 = f['fldr71bjB28kEAsbp'] ?? f['Net CPA 60%'] ?? '0';
+        airByKey.set(key, {
+          card: cardName,
+          issuer: f['fldXsTKc4Op37yXWu'] ?? f['Issuer'] ?? '',
+          bankCpa: parseFloat(String(netCpa60).replace(/[^0-9.]/g, '')) || 0,
+          date: f['fldfL3uObDr0uotjI'] ?? f['Date'] ?? f['fldW5olh5ASAJ39uD'] ?? f['Date Change of Current Net CPA'] ?? '',
+        });
+      }
+    } catch (airErr: any) {
+      console.log('Airtable CPA fallback fetch error:', airErr.message);
+      if (dbByKey.size === 0) return c.json({ payouts: [], error: airErr.message });
+    }
 
-      // Support both fieldId-keyed and field-name-keyed responses
-      const cardName  = f['fldN6ug8vDACn4yO1'] ?? f['Card Name'] ?? '';
-      const issuer    = f['fldXsTKc4Op37yXWu'] ?? f['Issuer'] ?? '';
-      const netCpa60  = f['fldr71bjB28kEAsbp'] ?? f['Net CPA 60%'] ?? '0';
-      const date      = f['fldfL3uObDr0uotjI'] ?? f['Date'] ?? '';
-      const rateDate  = f['fldW5olh5ASAJ39uD'] ?? f['Date Change of Current Net CPA'] ?? '';
-
-      if (!cardName || seen.has(cardName)) continue;
-      seen.add(cardName);
-
-      // Calculate affiliate's amount: bank payout × (affiliate's commission rate / 100)
-      // "Net CPA 60%" is just the field name — it represents the full amount received from the bank.
-      const bankCpa = parseFloat(String(netCpa60).replace(/[^0-9.]/g, '')) || 0;
-      const affiliateAmount = bankCpa > 0
-        ? Math.round((bankCpa * commissionRate / 100) * 100) / 100
-        : 0;
-
-      const enrichment = lookupCardRating(cardRatingIndex, cardName);
-
+    // ── Merge: DB is authoritative; Airtable fills only the cards it doesn't have.
+    const payouts: any[] = [];
+    let idx = 0;
+    const pushRow = (card: string, issuer: string, bankCpa: number, date: string) => {
+      const enrichment = lookupCardRating(cardRatingIndex, card);
       payouts.push({
-        id: i + 1,
-        card: cardName,
+        id: ++idx,
+        card,
         issuer,
-        amount: affiliateAmount,
-        date: date || rateDate || records[i].createdTime?.split('T')[0] || '',
+        amount: affAmt(bankCpa),
+        date,
         status: 'current',
         cardId:   enrichment?.cardId   ?? '',
         cardType: enrichment?.cardType ?? '',
@@ -1020,9 +1041,16 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
         introAprDuration: enrichment?.introAprDuration ?? '',
         bonusMilesFull:   enrichment?.bonusMilesFull   ?? '',
       });
+    };
+    for (const v of dbByKey.values()) {
+      pushRow(v.card, v.issuer, Math.round(v.gross * 0.9 * 100) / 100, v.date);
+    }
+    for (const [key, v] of airByKey) {
+      if (dbByKey.has(key)) continue; // DB wins
+      pushRow(v.card, v.issuer, v.bankCpa, v.date);
     }
 
-    return c.json({ payouts });
+    return c.json({ payouts, source: dbByKey.size ? 'cpa_rates' : 'airtable' });
   } catch (error) {
     console.log(`Get payouts error: ${error.message}`);
     return c.json({ error: error.message }, 500);
@@ -2562,6 +2590,203 @@ app.get("/make-server-8dc4138c/manager/cpa-rates", async (c) => {
     return c.json({ rates, affiliateName, affiliateCommissionRate });
   } catch (error) {
     console.log(`Manager CPA rates error: ${error.message}`);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// ── CPA rate history (Supabase-backed — the app DB is the source of truth) ─────
+// cpa_rates stores the GROSS reported CPA per (effective_month, card, tier). The
+// app applies the 10% platform cut (× 0.9) and then the affiliate's cut, exactly
+// like the Airtable earnings waterfall. These endpoints power the manager's CPA
+// Rates tab (monthly snapshot), the per-card payout history, and CSV uploads.
+const TEN_PCT_KEEP = 0.9; // gross reported CPA → after the 10% platform cut
+
+function sbAdmin() {
+  return createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
+}
+
+// Shape a cpa_rates DB row to match the legacy Airtable rate row the manager UI
+// already renders (card / issuer / bankCpa / affiliatePayout / date), plus the
+// extra history fields (gross, previous, % change, tier).
+function shapeCpaRow(r: any, idx: number, commissionRate: number) {
+  const gross = Number(r.net_cpa) || 0;
+  const bankCpa = Math.round(gross * TEN_PCT_KEEP * 100) / 100; // after 10% (matches Airtable "Net CPA 60%")
+  const affiliatePayout = (commissionRate > 0 && bankCpa > 0)
+    ? Math.round(bankCpa * commissionRate / 100 * 100) / 100
+    : null;
+  return {
+    id: idx + 1,
+    card: r.card_name,
+    issuer: r.issuer || '',
+    tier: r.tier || '',
+    cardId: '',
+    grossCpa: gross,
+    bankCpa,
+    affiliatePayout,
+    affiliateCommissionRate: commissionRate || null,
+    previousNetCpa: r.previous_net_cpa != null ? Number(r.previous_net_cpa) : null,
+    percentChange: r.percent_change || '',
+    date: r.date_change || '',
+    effectiveMonth: r.effective_month,
+  };
+}
+
+async function requireManager(c: any) {
+  const token = c.req.header('X-Manager-Session');
+  const session = await kv.get(`manager_session:${token}`);
+  return session || null;
+}
+
+// List available snapshot months (newest first).
+app.get("/make-server-8dc4138c/manager/cpa/months", async (c) => {
+  try {
+    if (!await requireManager(c)) return c.json({ error: 'Unauthorized' }, 401);
+    const sb = sbAdmin();
+    const { data, error } = await sb.from('cpa_rates').select('effective_month').order('effective_month', { ascending: false });
+    if (error) return c.json({ error: error.message }, 500);
+    const months = [...new Set((data || []).map((d: any) => d.effective_month))];
+    return c.json({ months });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Rates for a given month (default: latest snapshot). Drop-in compatible with the
+// legacy /manager/cpa-rates response ({ rates, affiliateName, affiliateCommissionRate }).
+app.get("/make-server-8dc4138c/manager/cpa/rates", async (c) => {
+  try {
+    if (!await requireManager(c)) return c.json({ error: 'Unauthorized' }, 401);
+    const sb = sbAdmin();
+
+    let month = c.req.query('month');
+    if (!month) {
+      const { data: mrow } = await sb.from('cpa_rates').select('effective_month').order('effective_month', { ascending: false }).limit(1);
+      month = mrow?.[0]?.effective_month;
+    }
+    if (!month) return c.json({ rates: [], month: null, months: [] });
+
+    const affiliateUserId = c.req.query('userId');
+    let commissionRate = 0, affiliateName = '';
+    if (affiliateUserId && affiliateUserId !== 'all') {
+      const kvData = await kv.get(`user:${affiliateUserId}`) || {};
+      commissionRate = Number(kvData.commissionRate) || 50;
+      affiliateName = kvData.name || kvData.email || affiliateUserId;
+    }
+
+    const { data, error } = await sb.from('cpa_rates').select('*').eq('effective_month', month).order('card_name', { ascending: true });
+    if (error) return c.json({ error: error.message }, 500);
+
+    const monthsRes = await sb.from('cpa_rates').select('effective_month').order('effective_month', { ascending: false });
+    const months = [...new Set((monthsRes.data || []).map((d: any) => d.effective_month))];
+
+    // When this month's rate card was actually uploaded (not when the client fetched).
+    let upload: any = null;
+    try {
+      const { data: up } = await sb
+        .from('cpa_uploads')
+        .select('uploaded_at, file_name, row_count, skipped_count, uploaded_by')
+        .eq('effective_month', month)
+        .order('uploaded_at', { ascending: false })
+        .limit(1);
+      upload = up?.[0] || null;
+    } catch (_) { /* non-fatal */ }
+
+    const rates = (data || []).map((r: any, i: number) => shapeCpaRow(r, i, commissionRate));
+    return c.json({ rates, month, months, upload, affiliateName, affiliateCommissionRate: commissionRate || null });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Per-card payout history across every snapshot month.
+app.get("/make-server-8dc4138c/manager/cpa/history", async (c) => {
+  try {
+    if (!await requireManager(c)) return c.json({ error: 'Unauthorized' }, 401);
+    const card = c.req.query('card');
+    const tier = c.req.query('tier') || '';
+    if (!card) return c.json({ error: 'card required' }, 400);
+    const sb = sbAdmin();
+    const { data, error } = await sb
+      .from('cpa_rates')
+      .select('effective_month, net_cpa, previous_net_cpa, percent_change, date_change, tier')
+      .eq('card_name', card)
+      .order('effective_month', { ascending: true });
+    if (error) return c.json({ error: error.message }, 500);
+    const history = (data || [])
+      .filter((r: any) => (r.tier || '') === tier)
+      .map((r: any) => {
+        const gross = Number(r.net_cpa) || 0;
+        return {
+          month: r.effective_month,
+          gross,
+          afterTenPct: Math.round(gross * TEN_PCT_KEEP * 100) / 100,
+          previous: r.previous_net_cpa != null ? Number(r.previous_net_cpa) : null,
+          percentChange: r.percent_change || '',
+          dateChange: r.date_change || '',
+        };
+      });
+    return c.json({ card, tier, history });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Upload a monthly CPA CSV snapshot. Rows are parsed client-side and posted as
+// JSON. Re-uploading a month cleanly replaces that month's snapshot.
+app.post("/make-server-8dc4138c/manager/cpa/upload", async (c) => {
+  try {
+    const session = await requireManager(c);
+    if (!session) return c.json({ error: 'Unauthorized' }, 401);
+    const body = await c.req.json();
+    const month = String(body.month || '').slice(0, 7); // YYYY-MM
+    if (!/^\d{4}-\d{2}$/.test(month)) return c.json({ error: 'month must be YYYY-MM' }, 400);
+    const effectiveMonth = `${month}-01`;
+    const rows = Array.isArray(body.rows) ? body.rows : [];
+    if (!rows.length) return c.json({ error: 'no rows provided' }, 400);
+
+    const toNum = (v: any) => { const n = parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, '')); return isFinite(n) ? n : null; };
+    const toDate = (v: any) => { const s = String(v ?? '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null; };
+
+    let skipped = 0;
+    const byKey = new Map<string, any>();
+    for (const r of rows) {
+      const card = String(r.card || '').trim();
+      const netCpa = toNum(r.netCpa);
+      if (!card || netCpa == null) { skipped++; continue; }
+      const tier = String(r.tier || '').trim();
+      byKey.set(`${card}|${tier}`, {
+        effective_month: effectiveMonth,
+        placement: r.placement || null,
+        issuer: r.issuer || null,
+        card_name: card,
+        tier,
+        net_cpa: netCpa,
+        previous_net_cpa: toNum(r.previousNetCpa),
+        percent_change: (r.percentChange && r.percentChange !== '-') ? String(r.percentChange) : null,
+        date_change: toDate(r.dateChange),
+        source: 'csv',
+      });
+    }
+    const clean = [...byKey.values()];
+    if (!clean.length) return c.json({ error: 'no valid rows (need Card Name + Current Net CPA)' }, 400);
+
+    const sb = sbAdmin();
+    await sb.from('cpa_rates').delete().eq('effective_month', effectiveMonth);
+    const { error: insErr } = await sb.from('cpa_rates').insert(clean);
+    if (insErr) return c.json({ error: insErr.message }, 500);
+    await sb.from('cpa_uploads').insert({
+      effective_month: effectiveMonth,
+      file_name: body.fileName || null,
+      row_count: clean.length,
+      skipped_count: skipped,
+      uploaded_by: (session.email || session.name || 'manager'),
+    });
+
+    // Bust the payout cache so new rates surface immediately once /payouts reads DB.
+    try { await kv.del(CPA_CACHE_KEY); } catch (_) { /* non-fatal */ }
+
+    return c.json({ ok: true, month: effectiveMonth, inserted: clean.length, skipped });
+  } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
 });
