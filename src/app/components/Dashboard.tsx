@@ -330,8 +330,8 @@ function getDateBounds(filter: DateFilter, customFrom: string, customTo: string)
   switch (filter) {
     case 'today': return { from: today, to: null };
     case 'week': {
-      const daysFromMon = (today.getDay() + 6) % 7;
-      return { from: new Date(today.getTime() - daysFromMon * 86400000), to: null };
+      const daysFromSun = today.getDay(); // Sun=0 … Sat=6 (US week starts Sunday)
+      return { from: new Date(today.getTime() - daysFromSun * 86400000), to: null };
     }
     case 'month': {
       return { from: new Date(today.getFullYear(), today.getMonth(), 1), to: null };
@@ -1133,41 +1133,45 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
     return d.getMonth() === m && d.getFullYear() === y;
   };
 
+  /** Stat cards bucket by the BOOKING date (when QuinStreet processed it), not
+   *  the click date — earnings belong to the period they were booked in. */
+  const _statDate = (t: any) => t?.processDate || t?.clickDate || '';
+
   // _thisT = records in the selected period (drives both the card numbers AND the % badge)
   // _lastT = records in the prior period (drives the % badge comparison)
   let _thisT: TrackingItem[], _lastT: TrackingItem[], _periodLabel: string;
 
   if (statPeriod === 'today') {
-    _thisT = tracking.filter(t => _inRange(t.clickDate, 1, 0));
-    _lastT = tracking.filter(t => _inRange(t.clickDate, 2, 1));
+    _thisT = tracking.filter(t => _inRange(_statDate(t), 1, 0));
+    _lastT = tracking.filter(t => _inRange(_statDate(t), 2, 1));
     _periodLabel = 'vs yesterday';
   } else if (statPeriod === 'week') {
-    const daysFromMon = (_today.getDay() + 6) % 7; // Mon=0 … Sun=6
-    const weekStart   = new Date(_today.getTime() - daysFromMon * 86_400_000);
+    const daysFromSun = _today.getDay(); // Sun=0 … Sat=6 (US week starts Sunday)
+    const weekStart   = new Date(_today.getTime() - daysFromSun * 86_400_000);
     const prevWkStart = new Date(weekStart.getTime() - 7 * 86_400_000);
-    _thisT = tracking.filter(t => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= weekStart && d <= _now; });
-    _lastT = tracking.filter(t => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= prevWkStart && d < weekStart; });
+    _thisT = tracking.filter(t => { const ds = _statDate(t); if (!ds) return false; const d = parseLocalDate(ds); return d >= weekStart && d <= _now; });
+    _lastT = tracking.filter(t => { const ds = _statDate(t); if (!ds) return false; const d = parseLocalDate(ds); return d >= prevWkStart && d < weekStart; });
     _periodLabel = 'vs last week';
   } else if (statPeriod === 'month') {
     const _thisM = _now.getMonth(), _thisY = _now.getFullYear();
     const _lastM = _thisM === 0 ? 11 : _thisM - 1;
     const _lastY  = _thisM === 0 ? _thisY - 1 : _thisY;
-    _thisT = tracking.filter(t => _inMonth(t.clickDate, _thisM, _thisY));
-    _lastT = tracking.filter(t => _inMonth(t.clickDate, _lastM, _lastY));
+    _thisT = tracking.filter(t => _inMonth(_statDate(t), _thisM, _thisY));
+    _lastT = tracking.filter(t => _inMonth(_statDate(t), _lastM, _lastY));
     _periodLabel = 'vs last month';
   } else if (statPeriod === 'lm') {
     const _lastM  = _now.getMonth() === 0 ? 11 : _now.getMonth() - 1;
     const _lastY  = _now.getMonth() === 0 ? _now.getFullYear() - 1 : _now.getFullYear();
     const _prevM  = _lastM === 0 ? 11 : _lastM - 1;
     const _prevY  = _lastM === 0 ? _lastY - 1 : _lastY;
-    _thisT = tracking.filter(t => _inMonth(t.clickDate, _lastM, _lastY));
-    _lastT = tracking.filter(t => _inMonth(t.clickDate, _prevM, _prevY));
+    _thisT = tracking.filter(t => _inMonth(_statDate(t), _lastM, _lastY));
+    _lastT = tracking.filter(t => _inMonth(_statDate(t), _prevM, _prevY));
     _periodLabel = 'vs month before';
   } else if (statPeriod === 'year') {
     const thisYrStart = new Date(_now.getFullYear(), 0, 1);
     const prevYrStart = new Date(_now.getFullYear() - 1, 0, 1);
-    _thisT = tracking.filter(t => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= thisYrStart; });
-    _lastT = tracking.filter(t => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= prevYrStart && d < thisYrStart; });
+    _thisT = tracking.filter(t => { const ds = _statDate(t); if (!ds) return false; const d = parseLocalDate(ds); return d >= thisYrStart; });
+    _lastT = tracking.filter(t => { const ds = _statDate(t); if (!ds) return false; const d = parseLocalDate(ds); return d >= prevYrStart && d < thisYrStart; });
     _periodLabel = 'vs last year';
   } else {
     // custom

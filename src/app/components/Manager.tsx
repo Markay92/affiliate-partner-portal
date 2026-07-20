@@ -196,8 +196,8 @@ function getDateBounds(filter: DateFilter, customFrom: string, customTo: string)
   switch (filter) {
     case 'today': return { from: today, to: null };
     case 'week': {
-      const daysFromMon = (today.getDay() + 6) % 7;
-      return { from: new Date(today.getTime() - daysFromMon * 86400000), to: null };
+      const daysFromSun = today.getDay(); // Sun=0 … Sat=6 (US week starts Sunday)
+      return { from: new Date(today.getTime() - daysFromSun * 86400000), to: null };
     }
     case 'month': {
       return { from: new Date(today.getFullYear(), today.getMonth(), 1), to: null };
@@ -788,8 +788,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
     _lastT = trackingActivity.filter((t: any) => _inRange(_statDate(t), 2, 1));
     _periodLabel = 'vs yesterday';
   } else if (statPeriod === 'week') {
-    const daysFromMon = (_today.getDay() + 6) % 7; // Mon=0 … Sun=6
-    const weekStart   = new Date(_today.getTime() - daysFromMon * 86_400_000);
+    const daysFromSun = _today.getDay(); // Sun=0 … Sat=6 (US week starts Sunday)
+    const weekStart   = new Date(_today.getTime() - daysFromSun * 86_400_000);
     const prevWkStart = new Date(weekStart.getTime() - 7 * 86_400_000);
     _thisT = trackingActivity.filter((t: any) => { const ds = _statDate(t); if (!ds) return false; const d = parseLocalDate(ds); return d >= weekStart && d <= _now; });
     _lastT = trackingActivity.filter((t: any) => { const ds = _statDate(t); if (!ds) return false; const d = parseLocalDate(ds); return d >= prevWkStart && d < weekStart; });
