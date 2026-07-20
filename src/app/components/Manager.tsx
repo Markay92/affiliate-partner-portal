@@ -845,8 +845,10 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
 
   const avgEPC = totalStats.clicks > 0 ? totalStats.commissions / totalStats.clicks : 0;
 
+  // Infinity = grew from a zero baseline. A percentage is meaningless there, and
+  // the old "+100%" read like a doubling when it actually came from nothing.
   const _calcPct = (cur: number, prev: number): number | null =>
-    prev === 0 ? (cur > 0 ? 100 : null) : Math.round(((cur - prev) / prev) * 100);
+    prev === 0 ? (cur > 0 ? Infinity : null) : Math.round(((cur - prev) / prev) * 100);
 
   const clicksPct       = hasTracking ? _calcPct(_thisT.reduce((s, t) => s + (t.clicks       || 0), 0), _lastT.reduce((s, t) => s + (t.clicks       || 0), 0)) : null;
   const approvalsPct    = hasTracking ? _calcPct(_thisT.reduce((s, t) => s + (t.approvals    || 0), 0), _lastT.reduce((s, t) => s + (t.approvals    || 0), 0)) : null;
@@ -859,6 +861,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       return compact
         ? <span className="text-faint2 text-xs">—</span>
         : <span className="text-faint text-xs">No prior-period data</span>;
+    }
+    if (!Number.isFinite(pct)) {
+      return (
+        <div className="flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full text-emerald-700 bg-emerald-50">
+          <TrendingUp className="w-3 h-3" />
+          <span>New{!compact ? ` ${_periodLabel}` : ''}</span>
+        </div>
+      );
     }
     if (pct === 0) {
       return compact
@@ -877,6 +887,8 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   // Borderless inline delta for the KPI band (colored arrow + %, no pill)
   const DeltaInline = ({ pct }: { pct: number | null }) => {
     if (pct === null) return <span className="text-faint2 text-[13px] font-medium">—</span>;
+    // Grew from a zero baseline — a percentage would be meaningless here.
+    if (!Number.isFinite(pct)) return <span className="text-brand text-[13px] font-semibold">New</span>;
     if (pct === 0) return <span className="text-faint text-[13px] font-medium">No change</span>;
     const up = pct > 0;
     return (

@@ -1193,8 +1193,10 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   const totalPayouts      = payouts.reduce((s, p) => s + p.amount, 0);
   const avgEPC            = totalClicks > 0 ? totalCommissions / totalClicks : 0;
 
+  // Infinity = grew from a zero baseline. A percentage is meaningless there, and
+  // the old "+100%" read like a doubling when it actually came from nothing.
   const _calcPct = (cur: number, prev: number): number | null =>
-    prev === 0 ? (cur > 0 ? 100 : null) : Math.round(((cur - prev) / prev) * 100);
+    prev === 0 ? (cur > 0 ? Infinity : null) : Math.round(((cur - prev) / prev) * 100);
 
   const clicksPct        = _calcPct(
     _thisT.reduce((s, t) => s + t.clicks, 0),
@@ -1220,6 +1222,14 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
         ? <span className="text-faint2 text-xs">—</span>
         : <span className="text-faint text-xs">No prior-period data</span>;
     }
+    if (!Number.isFinite(pct)) {
+      return (
+        <div className="flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full text-emerald-700 bg-emerald-50">
+          <TrendingUp className="w-3 h-3" />
+          <span>New{!compact ? ` ${_periodLabel}` : ''}</span>
+        </div>
+      );
+    }
     if (pct === 0) {
       return compact
         ? <span className="text-faint text-xs font-medium">No change</span>
@@ -1237,6 +1247,8 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
   // Borderless inline delta for the KPI band (colored arrow + %, no pill)
   const DeltaInline = ({ pct }: { pct: number | null }) => {
     if (pct === null) return <span className="text-faint2 text-[13px] font-medium">—</span>;
+    // Grew from a zero baseline — a percentage would be meaningless here.
+    if (!Number.isFinite(pct)) return <span className="text-brand text-[13px] font-semibold">New</span>;
     if (pct === 0) return <span className="text-faint text-[13px] font-medium">No change</span>;
     const up = pct > 0;
     const color = up ? 'text-brand' : 'text-neg';
