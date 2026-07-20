@@ -729,6 +729,14 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       .sort((a, b) => parseLocalDate(b.clickDate).getTime() - parseLocalDate(a.clickDate).getTime());
   };
 
+  /** Stat cards are period-bucketed by the BOOKING date (when QuinStreet
+   *  processed it), matching the affiliate dashboard — not the click date. */
+  const _statDate = (t: any) => t?.processDate || t?.clickDate || '';
+  /** The affiliate's real commission. `totalEarnings` is QuinStreet's GROSS;
+   *  the server sends `commission` = gross × 0.9 × the affiliate's rate. */
+  const _commissionOf = (t: any) =>
+    typeof t?.commission === 'number' ? t.commission : (t?.totalEarnings || 0) * 0.9 * 0.5;
+
   // Summary: cards ranked by number of approvals across all affiliates (all-time),
   // for the "Most Approved Cards" card on the Tracking tab.
   const mostApprovedCards = (() => {
@@ -738,7 +746,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
       const key = a.cardName || 'Unknown';
       if (!byCard[key]) byCard[key] = { name: key, approvals: 0, earnings: 0 };
       byCard[key].approvals += 1;
-      byCard[key].earnings  += a.totalEarnings || 0;
+      byCard[key].earnings  += _commissionOf(a);
     });
     return Object.values(byCard).sort((a, b) => b.approvals - a.approvals || b.earnings - a.earnings).slice(0, 5);
   })();
@@ -776,44 +784,45 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   let _thisT: any[], _lastT: any[], _periodLabel: string;
 
   if (statPeriod === 'today') {
-    _thisT = trackingActivity.filter((t: any) => _inRange(t.clickDate, 1, 0));
-    _lastT = trackingActivity.filter((t: any) => _inRange(t.clickDate, 2, 1));
+    _thisT = trackingActivity.filter((t: any) => _inRange(_statDate(t), 1, 0));
+    _lastT = trackingActivity.filter((t: any) => _inRange(_statDate(t), 2, 1));
     _periodLabel = 'vs yesterday';
   } else if (statPeriod === 'week') {
     const daysFromMon = (_today.getDay() + 6) % 7; // Mon=0 … Sun=6
     const weekStart   = new Date(_today.getTime() - daysFromMon * 86_400_000);
     const prevWkStart = new Date(weekStart.getTime() - 7 * 86_400_000);
-    _thisT = trackingActivity.filter((t: any) => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= weekStart && d <= _now; });
-    _lastT = trackingActivity.filter((t: any) => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= prevWkStart && d < weekStart; });
+    _thisT = trackingActivity.filter((t: any) => { const ds = _statDate(t); if (!ds) return false; const d = parseLocalDate(ds); return d >= weekStart && d <= _now; });
+    _lastT = trackingActivity.filter((t: any) => { const ds = _statDate(t); if (!ds) return false; const d = parseLocalDate(ds); return d >= prevWkStart && d < weekStart; });
     _periodLabel = 'vs last week';
   } else if (statPeriod === 'month') {
     const _thisM = _now.getMonth(), _thisY = _now.getFullYear();
     const _lastM = _thisM === 0 ? 11 : _thisM - 1;
     const _lastY  = _thisM === 0 ? _thisY - 1 : _thisY;
-    _thisT = trackingActivity.filter((t: any) => _inMonth(t.clickDate, _thisM, _thisY));
-    _lastT = trackingActivity.filter((t: any) => _inMonth(t.clickDate, _lastM, _lastY));
+    _thisT = trackingActivity.filter((t: any) => _inMonth(_statDate(t), _thisM, _thisY));
+    _lastT = trackingActivity.filter((t: any) => _inMonth(_statDate(t), _lastM, _lastY));
     _periodLabel = 'vs last month';
   } else if (statPeriod === 'lm') {
     const _lastM  = _now.getMonth() === 0 ? 11 : _now.getMonth() - 1;
     const _lastY  = _now.getMonth() === 0 ? _now.getFullYear() - 1 : _now.getFullYear();
     const _prevM  = _lastM === 0 ? 11 : _lastM - 1;
     const _prevY  = _lastM === 0 ? _lastY - 1 : _lastY;
-    _thisT = trackingActivity.filter((t: any) => _inMonth(t.clickDate, _lastM, _lastY));
-    _lastT = trackingActivity.filter((t: any) => _inMonth(t.clickDate, _prevM, _prevY));
+    _thisT = trackingActivity.filter((t: any) => _inMonth(_statDate(t), _lastM, _lastY));
+    _lastT = trackingActivity.filter((t: any) => _inMonth(_statDate(t), _prevM, _prevY));
     _periodLabel = 'vs month before';
   } else if (statPeriod === 'year') {
     const thisYrStart = new Date(_now.getFullYear(), 0, 1);
     const prevYrStart = new Date(_now.getFullYear() - 1, 0, 1);
-    _thisT = trackingActivity.filter((t: any) => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= thisYrStart; });
-    _lastT = trackingActivity.filter((t: any) => { if (!t.clickDate) return false; const d = parseLocalDate(t.clickDate); return d >= prevYrStart && d < thisYrStart; });
+    _thisT = trackingActivity.filter((t: any) => { const ds = _statDate(t); if (!ds) return false; const d = parseLocalDate(ds); return d >= thisYrStart; });
+    _lastT = trackingActivity.filter((t: any) => { const ds = _statDate(t); if (!ds) return false; const d = parseLocalDate(ds); return d >= prevYrStart && d < thisYrStart; });
     _periodLabel = 'vs last year';
   } else {
     // custom
     const fromD = statCustomFrom ? parseLocalDate(statCustomFrom) : null;
     const toD   = statCustomTo   ? (() => { const d = parseLocalDate(statCustomTo); d.setDate(d.getDate() + 1); return d; })() : null;
     _thisT = trackingActivity.filter((t: any) => {
-      if (!t.clickDate) return false;
-      const d = parseLocalDate(t.clickDate);
+      const ds = _statDate(t);
+      if (!ds) return false;
+      const d = parseLocalDate(ds);
       if (fromD && d < fromD) return false;
       if (toD   && d >= toD)  return false;
       return true;
@@ -830,7 +839,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
         clicks:       _thisT.reduce((s, t) => s + (t.clicks       || 0), 0),
         applications: _thisT.reduce((s, t) => s + (t.applications || 0), 0),
         conversions:  _thisT.reduce((s, t) => s + (t.approvals    || 0), 0),
-        commissions:  _thisT.reduce((s, t) => s + (t.totalEarnings|| 0), 0),
+        commissions:  _thisT.reduce((s, t) => s + _commissionOf(t), 0),
       }
     : totalStatsFallback;
 
@@ -842,7 +851,7 @@ export function Manager({ sessionToken, managerName, onLogout, onLoginAsUser }: 
   const clicksPct       = hasTracking ? _calcPct(_thisT.reduce((s, t) => s + (t.clicks       || 0), 0), _lastT.reduce((s, t) => s + (t.clicks       || 0), 0)) : null;
   const approvalsPct    = hasTracking ? _calcPct(_thisT.reduce((s, t) => s + (t.approvals    || 0), 0), _lastT.reduce((s, t) => s + (t.approvals    || 0), 0)) : null;
   const applicationsPct = hasTracking ? _calcPct(_thisT.reduce((s, t) => s + (t.applications || 0), 0), _lastT.reduce((s, t) => s + (t.applications || 0), 0)) : null;
-  const commissionsPct  = hasTracking ? _calcPct(_thisT.reduce((s, t) => s + (t.totalEarnings|| 0), 0), _lastT.reduce((s, t) => s + (t.totalEarnings|| 0), 0)) : null;
+  const commissionsPct  = hasTracking ? _calcPct(_thisT.reduce((s, t) => s + _commissionOf(t), 0), _lastT.reduce((s, t) => s + _commissionOf(t), 0)) : null;
 
   /** Coloured percentage badge shown under each stat card */
   const PctBadge = ({ pct, compact = false }: { pct: number | null; compact?: boolean }) => {
@@ -2253,7 +2262,7 @@ Please sign in and reset your password from your profile.`;
                     { field: 'clickDate', label: 'Date' },
                     { field: 'deviceType', label: 'Device' },
                     { field: 'state', label: 'Location' },
-                    { field: 'totalEarnings', label: 'Earned' },
+                    { field: 'commission', label: 'Earned' },
                   ]}
                 />
               </Toolbar>
@@ -2274,7 +2283,7 @@ Please sign in and reset your password from your profile.`;
                         <SortHead label="Date" field="clickDate" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="hidden md:inline-flex w-[116px]" />
                         <SortHead label="Device" field="deviceType" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="hidden lg:inline-flex w-[104px]" />
                         <SortHead label="Location" field="state" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="hidden xl:inline-flex w-[132px]" />
-                        <SortHead label="Earned" field="totalEarnings" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="w-[76px]" />
+                        <SortHead label="Earned" field="commission" sort={mgTrackingSort} onSort={f => setMgTrackingSort(s => toggleSort(s, f))} align="right" className="w-[76px]" />
                       </div>
                       {(() => {
                             const dotColor = (s: string) => s === 'approval' ? 'var(--ds-pos)' : s === 'application' ? 'var(--ds-subtle)' : 'var(--ds-faint2)';
@@ -2306,7 +2315,7 @@ Please sign in and reset your password from your profile.`;
                                     ? <><MapPin className="w-3.5 h-3.5 flex-shrink-0 text-faint2" /><span className="truncate">{a.country && a.country !== 'US' ? `${a.state} · ${a.country}` : a.state}</span></>
                                     : <span className="text-faint2">—</span>}
                                 </span>
-                                <span className={`w-[76px] flex-shrink-0 text-right text-[13px] font-medium tabular-nums ${a.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>{a.totalEarnings > 0 ? `$${a.totalEarnings.toFixed(2)}` : '—'}</span>
+                                <span className={`w-[76px] flex-shrink-0 text-right text-[13px] font-medium tabular-nums ${_commissionOf(a) > 0 ? 'text-ink' : 'text-faint2'}`}>{_commissionOf(a) > 0 ? `$${_commissionOf(a).toFixed(2)}` : '—'}</span>
                               </div>
                             );
 
@@ -2351,7 +2360,7 @@ Please sign in and reset your password from your profile.`;
                               const grpClicks    = rows.reduce((s: number, r: any) => s + (r.clicks       || 0), 0);
                               const grpApps      = rows.reduce((s: number, r: any) => s + (r.applications || 0), 0);
                               const grpApprovals = rows.reduce((s: number, r: any) => s + (r.approvals    || 0), 0);
-                              const grpEarnings  = rows.reduce((s: number, r: any) => s + (r.totalEarnings|| 0), 0);
+                              const grpEarnings  = rows.reduce((s: number, r: any) => s + _commissionOf(r), 0);
                               const label        = getLabel(key, rows);
                               // Show affiliateId as sub-label when grouped by affiliate
                               const sublabel     = trackingGroupBy === 'affiliate' ? key : undefined;
@@ -2897,7 +2906,7 @@ Please sign in and reset your password from your profile.`;
                                               <div className="text-sm font-semibold text-ink truncate">{prettyCardName(c.cardName)}</div>
                                               <div className="text-xs text-faint mt-0.5">{formatDate(c.clickDate)}{formatTime(c.clickTime) ? ` · ${formatTime(c.clickTime)}` : ''}</div>
                                             </div>
-                                            <div className={`text-sm font-bold tabular-nums flex-shrink-0 ${c.totalEarnings > 0 ? 'text-ink' : 'text-faint2'}`}>{c.totalEarnings > 0 ? `$${c.totalEarnings.toFixed(2)}` : '—'}</div>
+                                            <div className={`text-sm font-bold tabular-nums flex-shrink-0 ${_commissionOf(c) > 0 ? 'text-ink' : 'text-faint2'}`}>{_commissionOf(c) > 0 ? `$${_commissionOf(c).toFixed(2)}` : '—'}</div>
                                           </div>
                                         ))}
                                       </>

@@ -1955,41 +1955,20 @@ app.get("/make-server-8dc4138c/manager/tracking-activity", async (c) => {
 
     console.log('Total records fetched:', records.length);
 
-    // Format activity records
-    const activity = records.map(record => ({
-      id: record.id,
-      affiliateId: record.fields['affiliate-id'] || 'N/A',
-      memberName: record.fields['Member Name (from AffiliateID)'] || 'Unknown',
-      cardName: record.fields['Card Name'] || 'Unknown',
-      status: record.fields['Status'] || 'N/A',
-      totalEarnings: parseFloat(record.fields['Total Earnings']) || 0,
-      clickDate: record.fields['Click Date'] || '',
-      clickTime: record.fields['Click Time'] || '',
-      processDate: record.fields['Process Date'] || record.fields['Click Date'] || '',
-      clicks: parseInt(record.fields['Clicks']) || 0,
-      applications: parseInt(record.fields['Applications']) || 0,
-      approvals: parseInt(record.fields['Approvals']) || 0,
-      deviceType: record.fields['Device Type'] || '',
-      state: record.fields['State'] || '',
-      stateCode: record.fields['State Code'] || '',
-      country: record.fields['Country Code'] || ''
-    }));
-
-    // Aggregate per-affiliate stats and write to KV so the Affiliates tab
-    // shows correct Earned / Clicks / Conversions without a separate sync.
+    // Map every affiliate identifier (their Affiliate-ID *and* their ezrxref-
+    // value) to the owning user and that user's commission rate, so each row can
+    // carry the affiliate's REAL earning rather than QuinStreet's gross.
+    const norm = (v: any) => (v || '').toString().trim().toLowerCase();
+    const ezrxKey = (v: any) => {
+      const t = norm(v);
+      if (!t) return '';
+      return t.startsWith('ezrxref-') ? t : `ezrxref-${t}`;
+    };
+    const idToUser: Record<string, string> = {};
+    const idToRate: Record<string, number> = {};
     try {
-      const norm = (v: any) => (v || '').toString().trim().toLowerCase();
-      const ezrxKey = (v: any) => {
-        const t = norm(v);
-        if (!t) return '';
-        return t.startsWith('ezrxref-') ? t : `ezrxref-${t}`;
-      };
-
-      // Build identifier → userId map. A click's Var2 may be the affiliate's
-      // code (Affiliate-ID) OR their ezrxref- link value — map both.
       const supabaseUrl  = Deno.env.get('SUPABASE_URL')!;
       const serviceKey   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const idToUser: Record<string, string> = {};
       const usersRes = await fetch(`${supabaseUrl}/auth/v1/admin/users?per_page=200`, {
         headers: { 'Authorization': `Bearer ${serviceKey}`, 'apikey': serviceKey }
       });
@@ -1997,26 +1976,68 @@ app.get("/make-server-8dc4138c/manager/tracking-activity", async (c) => {
         const usersData = await usersRes.json();
         for (const user of (usersData.users || [])) {
           const userData = await kv.get(`user:${user.id}`);
-          if (userData?.affiliateId) idToUser[norm(userData.affiliateId)] = user.id;
+          const rate = Number(userData?.commissionRate) || 50;
+          if (userData?.affiliateId) {
+            idToUser[norm(userData.affiliateId)] = user.id;
+            idToRate[norm(userData.affiliateId)] = rate;
+          }
           const ez = ezrxKey(userData?.ezrxRef);
-          if (ez) idToUser[ez] = user.id;
+          if (ez) { idToUser[ez] = user.id; idToRate[ez] = rate; }
         }
       }
+    } catch (mapErr: any) {
+      console.log('Affiliate rate map failed (commission falls back to 50%):', mapErr.message);
+    }
 
+    // Format activity records. `totalEarnings` stays the raw QuinStreet GROSS;
+    // `commission` is what the affiliate actually earns — gross × 0.9 (the 10%
+    // platform cut) × their commission rate. Consumers should show `commission`
+    // wherever the label says commission/earned.
+    const activity = records.map(record => {
+      const gross = parseFloat(record.fields['Total Earnings']) || 0;
+      const affiliateId = record.fields['affiliate-id'] || 'N/A';
+      const rate = idToRate[norm(affiliateId)] ?? 50;
+      return {
+        id: record.id,
+        affiliateId,
+        memberName: record.fields['Member Name (from AffiliateID)'] || 'Unknown',
+        cardName: record.fields['Card Name'] || 'Unknown',
+        status: record.fields['Status'] || 'N/A',
+        totalEarnings: gross,
+        commissionRate: rate,
+        commission: Math.round(gross * 0.9 * (rate / 100) * 100) / 100,
+        clickDate: record.fields['Click Date'] || '',
+        clickTime: record.fields['Click Time'] || '',
+        processDate: record.fields['Process Date'] || record.fields['Click Date'] || '',
+        clicks: parseInt(record.fields['Clicks']) || 0,
+        applications: parseInt(record.fields['Applications']) || 0,
+        approvals: parseInt(record.fields['Approvals']) || 0,
+        deviceType: record.fields['Device Type'] || '',
+        state: record.fields['State'] || '',
+        stateCode: record.fields['State Code'] || '',
+        country: record.fields['Country Code'] || ''
+      };
+    });
+
+    // Aggregate per-affiliate stats and write to KV so the Affiliates tab
+    // shows correct Earned / Clicks / Conversions without a separate sync.
+    try {
       // Aggregate stats per user (a user may have clicks under both their code
       // and their ezrxref- value, so merge by userId).
-      const statsByUser: Record<string, { totalClicks: number; totalConversions: number; totalCommissions: number }> = {};
+      const statsByUser: Record<string, { totalClicks: number; totalConversions: number; totalCommissions: number; totalGross: number }> = {};
       for (const row of activity) {
         const var2 = norm(row.affiliateId);
         if (!var2 || var2 === 'N/A') continue;
         const userId = idToUser[var2];
         if (!userId) continue;
         if (!statsByUser[userId]) {
-          statsByUser[userId] = { totalClicks: 0, totalConversions: 0, totalCommissions: 0 };
+          statsByUser[userId] = { totalClicks: 0, totalConversions: 0, totalCommissions: 0, totalGross: 0 };
         }
         statsByUser[userId].totalClicks      += row.clicks;
         statsByUser[userId].totalConversions += (row.applications + row.approvals);
-        statsByUser[userId].totalCommissions += row.totalEarnings;
+        // Earned = the affiliate's commission, NOT QuinStreet's gross.
+        statsByUser[userId].totalCommissions += row.commission;
+        statsByUser[userId].totalGross       += row.totalEarnings;
       }
 
       // Write merged stats to each matched user. Only bump `statsUpdatedAt`
@@ -2029,7 +2050,8 @@ app.get("/make-server-8dc4138c/manager/tracking-activity", async (c) => {
         const unchanged = prev
           && prev.totalClicks === stats.totalClicks
           && prev.totalConversions === stats.totalConversions
-          && prev.totalCommissions === stats.totalCommissions;
+          && prev.totalCommissions === stats.totalCommissions
+          && prev.totalGross === stats.totalGross;
         if (unchanged) continue;
         userData.stats = stats;
         userData.statsUpdatedAt = new Date().toISOString();
