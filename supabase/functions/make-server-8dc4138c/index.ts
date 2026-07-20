@@ -1275,7 +1275,9 @@ async function getCachedTracking(_token: string, force = false): Promise<any[]> 
     const derivedStatus = apr > 0 ? 'approval' : app > 0 ? 'application' : clk > 0 ? 'click' : '';
     const aid = (r.affiliate_id || '').toString().trim().toLowerCase();
     return {
-      id: `${r.click_id || ''}|${r.click_key || ''}`,
+      // Must include the conversion: one click can carry several conversions, so
+      // click_id|click_key alone is no longer unique and collides as a React key.
+      id: `${r.click_id || ''}|${r.click_key || ''}|${r.conversion_id || ''}`,
       fields: {
         ...f,
         'affiliate-id':   r.affiliate_id,
