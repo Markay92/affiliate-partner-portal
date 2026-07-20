@@ -50,57 +50,81 @@ async function airtable(method: string, table: string, token: string, base: stri
 
 async function upsertPostgres(built: any[], source: string) {
   // QMP returns one row per status (click / application / approval) for the same
-  // Click ID + Key. Since the table is unique on (click_id, click_key), AGGREGATE
-  // the metrics across those rows instead of letting the last one overwrite —
-  // otherwise approvals + earnings get dropped.
+  // Click ID + Key — and a click can carry SEVERAL approval rows, each with its
+  // own Conversion ID + Total Earnings. The table is unique on
+  // (click_id, click_key, conv_key) where conv_key = coalesce(conversion_id,'').
+  // So we keep ONE row per conversion (preserving each conversion's real gross)
+  // rather than summing approvals into a single row. The click/application funnel
+  // counts are folded onto the FIRST conversion row for a click, so non-approved
+  // funnels stay a single row and nothing is double-counted.
   const num = (v: any) => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
   const earnOf = (v: any) => typeof v === "number" ? v : (parseFloat(String(v ?? "").replace(/[$,]/g, "")) || 0);
-  const byKey = new Map<string, any>();
+
+  const byClick = new Map<string, any>();
   for (const b of built) {
     const f = b.fields;
     const ck = String(f["Click ID"] ?? ""), kk = String(f["Click Key"] ?? "");
     if (!ck && !kk) continue;
     const key = `${ck}|${kk}`;
-    const cur = byKey.get(key);
-    if (!cur) {
-      byKey.set(key, {
-        click_id: ck, click_key: kk,
-        item_name: f["Item Name"] ?? null,
-        advertiser: f["Advertiser"] ?? null,
-        card_name: f["Card Name"] ?? null,
-        affiliate_id: f["Var2"] ?? null,
-        _clicks: num(f["Clicks"]), _apps: num(f["Applications"]),
-        _apprs: num(f["Approvals"]), _earn: earnOf(f["Total Earnings"]),
-        conversion_id: f["Conversion ID"] != null ? String(f["Conversion ID"]) : null,
-        click_date: dateOrNull(f["Click Date"]),
-        process_date: dateOrNull(f["Process Date"]),
-        source, fields: f,
-      });
-    } else {
-      cur._clicks += num(f["Clicks"]);
-      cur._apps   += num(f["Applications"]);
-      cur._apprs  += num(f["Approvals"]);
-      cur._earn   += earnOf(f["Total Earnings"]);
-      cur.process_date = dateOrNull(f["Process Date"]) ?? cur.process_date;
-      if (!cur.conversion_id && f["Conversion ID"] != null) cur.conversion_id = String(f["Conversion ID"]);
+    let g = byClick.get(key);
+    if (!g) { g = { ck, kk, clicks: 0, apps: 0, base: f, approvals: [] as any[] }; byClick.set(key, g); }
+    g.clicks += num(f["Clicks"]);
+    g.apps   += num(f["Applications"]);
+    const apprs = num(f["Approvals"]);
+    if (apprs > 0) {
+      const rawConv = f["Conversion ID"] != null ? String(f["Conversion ID"]).trim() : "";
+      const earnEach = earnOf(f["Total Earnings"]) / apprs; // usually apprs=1 → full amount
+      for (let i = 0; i < apprs; i++) {
+        // Unique conversion key: the real Conversion ID, or a synthetic one when
+        // QMP omits it, so distinct conversions never collide on the unique index.
+        const convId = rawConv || `${ck}-${kk}-syn${g.approvals.length}`;
+        g.approvals.push({ convId, earn: earnEach, fields: f });
+      }
     }
   }
-  const rows = [...byKey.values()].map((r) => ({
-    click_id: r.click_id, click_key: r.click_key,
-    item_name: r.item_name, advertiser: r.advertiser, card_name: r.card_name,
-    affiliate_id: r.affiliate_id,
-    total_earnings: r._earn || null,
-    applications: r._apps ? String(r._apps) : null,
-    approvals: r._apprs ? String(r._apprs) : null,
-    clicks: r._clicks ? String(r._clicks) : null,
-    conversion_id: r.conversion_id,
-    click_date: r.click_date, process_date: r.process_date,
-    source: r.source, fields: r.fields,
-  }));
+
+  const rows: any[] = [];
+  for (const g of byClick.values()) {
+    const shared = (f: any, extra: any) => ({
+      click_id: g.ck, click_key: g.kk,
+      item_name: f["Item Name"] ?? null,
+      advertiser: f["Advertiser"] ?? null,
+      card_name: f["Card Name"] ?? null,
+      affiliate_id: f["Var2"] ?? null,
+      click_date: dateOrNull(f["Click Date"]),
+      process_date: dateOrNull(f["Process Date"]),
+      source, fields: f,
+      ...extra,
+    });
+    if (g.approvals.length === 0) {
+      // Funnel only (click / application, no approval).
+      const f0 = g.base;
+      const rawConv = f0["Conversion ID"] != null && String(f0["Conversion ID"]).trim() !== "" ? String(f0["Conversion ID"]).trim() : null;
+      rows.push(shared(f0, {
+        conversion_id: rawConv,
+        clicks: g.clicks ? String(g.clicks) : null,
+        applications: g.apps ? String(g.apps) : null,
+        approvals: null,
+        total_earnings: null,
+      }));
+    } else {
+      g.approvals.forEach((a: any, i: number) => {
+        rows.push(shared(a.fields, {
+          conversion_id: a.convId,
+          // Funnel counts on the first conversion row only.
+          clicks: i === 0 && g.clicks ? String(g.clicks) : null,
+          applications: i === 0 && g.apps ? String(g.apps) : null,
+          approvals: "1",
+          total_earnings: a.earn || null,
+        }));
+      });
+    }
+  }
+
   let saved = 0;
   for (let i = 0; i < rows.length; i += 500) {
     const chunk = rows.slice(i, i + 500);
-    const { error } = await sb.from("quinstreet_records").upsert(chunk, { onConflict: "click_id,click_key" });
+    const { error } = await sb.from("quinstreet_records").upsert(chunk, { onConflict: "click_id,click_key,conv_key" });
     if (error) throw new Error("pg upsert: " + error.message);
     saved += chunk.length;
   }
