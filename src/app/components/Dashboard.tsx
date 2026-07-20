@@ -365,6 +365,13 @@ function inDateRange(
   return true;
 }
 
+/** Money without a ragged trailing digit: 216 → "216", 105.3 → "105.30". */
+function fmtMoney(n: number): string {
+  return n % 1 === 0
+    ? n.toLocaleString()
+    : n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function applySort<T>(items: T[], sort: SortState): T[] {
   return [...items].sort((a, b) => {
     const aVal = (a as Record<string, unknown>)[sort.field];
@@ -966,6 +973,11 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
       name:     decodeHtml(link.name),
       issuer:   cpa?.issuer || link.bank || '',
       cpa:      cpa?.amount ?? 0,
+      // Tiered cards (e.g. Amex Platinum Tier 1/2/3) pay a range, not one rate.
+      cpaMin:   cpa?.amountMin ?? cpa?.amount ?? 0,
+      cpaMax:   cpa?.amountMax ?? cpa?.amount ?? 0,
+      tiered:   !!cpa?.tiered,
+      tiers:    cpa?.tiers ?? [],
       rateDate: cpa?.date   ?? '',
       clicks:       link.clicks,
       conversions:  link.conversions,
@@ -1891,8 +1903,15 @@ export function Dashboard({ userEmail, accessToken, onLogout }: DashboardProps) 
                     </div>
                     <span className="hidden sm:block w-[120px] lg:w-[150px] flex-shrink-0 text-right text-[13px] font-medium text-subtle truncate">{card.issuer || '—'}</span>
                     <div className="flex items-baseline gap-3 sm:gap-4 flex-shrink-0">
-                      <span className="inline-block sm:min-w-[72px] text-right text-[13px] font-medium text-ink tracking-[-0.02em] tabular-nums whitespace-nowrap">
-                        {card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : '—'}
+                      <span
+                        title={card.tiered
+                          ? `Tiered payout — ${card.tiers.map((t: any) => `${t.tier}: $${t.amount.toLocaleString()}`).join(' · ')}`
+                          : undefined}
+                        className="inline-block sm:min-w-[72px] text-right text-[13px] font-medium text-ink tracking-[-0.02em] tabular-nums whitespace-nowrap"
+                      >
+                        {card.tiered && card.cpaMin !== card.cpaMax
+                          ? `$${fmtMoney(card.cpaMin)} – $${fmtMoney(card.cpaMax)}`
+                          : card.cpa > 0 ? `$${card.cpa.toLocaleString()}` : '—'}
                       </span>
                     </div>
                     {card.cardId && (

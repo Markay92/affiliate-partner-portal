@@ -977,18 +977,26 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
     // ── Primary source: cpa_rates latest snapshot. net_cpa is GROSS, so
     // bankCpa = gross × 0.9. Tiered cards (same name, many tiers) → keep the
     // best (max) rate, matching the single-row-per-card payout list.
-    const dbByKey = new Map<string, { gross: number; card: string; issuer: string; date: string }>();
+    // A card can have several tiers (e.g. Amex Platinum Tier 1/2/3), each with its
+    // own rate — so collect ALL of them rather than collapsing to one number.
+    const dbByKey = new Map<string, { card: string; issuer: string; date: string; tiers: { tier: string; bankCpa: number }[] }>();
     try {
       const sb = sbAdmin();
       const { data: mrow } = await sb.from('cpa_rates').select('effective_month').order('effective_month', { ascending: false }).limit(1);
       const month = mrow?.[0]?.effective_month;
       if (month) {
-        const { data: rows } = await sb.from('cpa_rates').select('card_name, card_key, issuer, net_cpa, date_change').eq('effective_month', month);
+        const { data: rows } = await sb.from('cpa_rates').select('card_name, card_key, issuer, tier, net_cpa, date_change').eq('effective_month', month);
         for (const r of rows || []) {
           const key = r.card_key || norm(r.card_name);
           const gross = Number(r.net_cpa) || 0;
-          const cur = dbByKey.get(key);
-          if (!cur || gross > cur.gross) dbByKey.set(key, { gross, card: r.card_name, issuer: r.issuer || '', date: r.date_change || '' });
+          let cur = dbByKey.get(key);
+          if (!cur) {
+            cur = { card: r.card_name, issuer: r.issuer || '', date: r.date_change || '', tiers: [] };
+            dbByKey.set(key, cur);
+          }
+          if (!cur.issuer && r.issuer) cur.issuer = r.issuer;
+          if (!cur.date && r.date_change) cur.date = r.date_change;
+          cur.tiers.push({ tier: (r.tier || '').trim(), bankCpa: Math.round(gross * 0.9 * 100) / 100 });
         }
       }
     } catch (e: any) {
@@ -1022,13 +1030,28 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
     // ── Merge: DB is authoritative; Airtable fills only the cards it doesn't have.
     const payouts: any[] = [];
     let idx = 0;
-    const pushRow = (card: string, issuer: string, bankCpa: number, date: string) => {
+    // `entries` are the card's tiers (one entry for an untiered card), each with a
+    // bankCpa already net of the 10% platform cut. A tiered card reports the full
+    // range so nobody sees a single number that over- or under-states their payout.
+    const pushRow = (card: string, issuer: string, date: string, entries: { tier: string; bankCpa: number }[]) => {
       const enrichment = lookupCardRating(cardRatingIndex, card);
+      const tiers = entries
+        .map(e => ({ tier: e.tier, bankCpa: e.bankCpa, amount: affAmt(e.bankCpa) }))
+        .sort((a, b) => a.amount - b.amount);
+      const amountMin = tiers.length ? tiers[0].amount : 0;
+      const amountMax = tiers.length ? tiers[tiers.length - 1].amount : 0;
+      const tiered = tiers.length > 1;
       payouts.push({
         id: ++idx,
         card,
         issuer,
-        amount: affAmt(bankCpa),
+        // `amount` stays the single representative value (top of range) so existing
+        // sorting/filtering keeps working; the UI shows the range when `tiered`.
+        amount: amountMax,
+        amountMin,
+        amountMax,
+        tiered,
+        tiers: tiered ? tiers : [],
         date,
         status: 'current',
         cardId:   enrichment?.cardId   ?? '',
@@ -1043,11 +1066,11 @@ app.get("/make-server-8dc4138c/payouts", async (c) => {
       });
     };
     for (const v of dbByKey.values()) {
-      pushRow(v.card, v.issuer, Math.round(v.gross * 0.9 * 100) / 100, v.date);
+      pushRow(v.card, v.issuer, v.date, v.tiers);
     }
     for (const [key, v] of airByKey) {
       if (dbByKey.has(key)) continue; // DB wins
-      pushRow(v.card, v.issuer, v.bankCpa, v.date);
+      pushRow(v.card, v.issuer, v.date, [{ tier: '', bankCpa: v.bankCpa }]);
     }
 
     return c.json({ payouts, source: dbByKey.size ? 'cpa_rates' : 'airtable' });
