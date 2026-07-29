@@ -141,17 +141,34 @@ async function upsertPostgres(built: any[], source: string) {
 }
 
 async function upsertApiOutput(records: any[], token: string, base: string) {
+  // Keyed on Click ID + Click Key + Conversion ID — matching the Postgres
+  // (click_id, click_key, conv_key) unique index. A click can legitimately carry
+  // several conversion rows; keying on Click ID + Click Key alone collapses them
+  // into one, which is also what made the old dedupe delete real rows (see
+  // dedupeApiOutput below).
   let upserted = 0, failed = 0;
   const errors: string[] = [];
   const byKey = new Map<string, any>();
   const noKey: any[] = [];
   for (const r of records) {
-    const k = `${r.fields["Click ID"] ?? ""}|${r.fields["Click Key"] ?? ""}`;
-    if (k === "|") noKey.push(r); else byKey.set(k, r);
+    const ck = r.fields["Click ID"] ?? "", kk = r.fields["Click Key"] ?? "";
+    if (!ck && !kk) { noKey.push(r); continue; }
+    const convId = r.fields["Conversion ID"] != null ? String(r.fields["Conversion ID"]).trim() : "";
+    byKey.set(`${ck}|${kk}|${convId}`, r);
   }
   const merged = [...byKey.values()];
+  // Airtable rejects unknown field names, and performUpsert requires every
+  // merge-on field present on every record (funnel-only rows have no
+  // Conversion ID at all) — sanitize before sending, on top of the raw
+  // `fields` used for the Postgres write and the byKey identity above.
+  const forAirtable = (r: any) => {
+    const f = { ...r.fields };
+    delete f["Var2 Raw"];
+    f["Conversion ID"] = f["Conversion ID"] != null ? String(f["Conversion ID"]).trim() : "";
+    return { fields: f };
+  };
   const sendUpsert = (batch: any[]) => airtable("PATCH", API_OUTPUT_TABLE, token, base, {
-    performUpsert: { fieldsToMergeOn: ["Click ID", "Click Key"] }, typecast: true, records: batch,
+    performUpsert: { fieldsToMergeOn: ["Click ID", "Click Key", "Conversion ID"] }, typecast: true, records: batch.map(forAirtable),
   });
   for (let i = 0; i < merged.length; i += 10) {
     const batch = merged.slice(i, i + 10);
@@ -169,7 +186,7 @@ async function upsertApiOutput(records: any[], token: string, base: string) {
   }
   for (let i = 0; i < noKey.length; i += 10) {
     const batch = noKey.slice(i, i + 10);
-    const r = await airtable("POST", API_OUTPUT_TABLE, token, base, { typecast: true, records: batch });
+    const r = await airtable("POST", API_OUTPUT_TABLE, token, base, { typecast: true, records: batch.map(forAirtable) });
     if (r.ok) upserted += batch.length;
     else { failed += batch.length; if (errors.length < 10) errors.push(`create -> ${r.status} ${r.body.slice(0, 160)}`); }
     await sleep(220);
@@ -178,6 +195,10 @@ async function upsertApiOutput(records: any[], token: string, base: string) {
 }
 
 async function listAllKeys(token: string, base: string) {
+  // Identity matches upsertApiOutput / Postgres: Click ID + Click Key + Conversion
+  // ID. Grouping on Click ID + Click Key alone (the old behavior) treats every
+  // legitimate per-conversion row on the same click as a "duplicate" and deletes
+  // all but one — do not regress this.
   let offset: string | undefined;
   const out: { id: string; key: string; created: string }[] = [];
   do {
@@ -185,13 +206,16 @@ async function listAllKeys(token: string, base: string) {
     url.searchParams.set("pageSize", "100");
     url.searchParams.append("fields[]", "Click ID");
     url.searchParams.append("fields[]", "Click Key");
+    url.searchParams.append("fields[]", "Conversion ID");
     if (offset) url.searchParams.set("offset", offset);
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) throw new Error(`list (${res.status}): ${await res.text()}`);
     const j = await res.json();
     for (const rec of j.records ?? []) {
-      const k = `${rec.fields["Click ID"] ?? ""}|${rec.fields["Click Key"] ?? ""}`;
-      if (k !== "|") out.push({ id: rec.id, key: k, created: rec.createdTime });
+      const ck = rec.fields["Click ID"] ?? "", kk = rec.fields["Click Key"] ?? "";
+      if (!ck && !kk) continue;
+      const convId = rec.fields["Conversion ID"] != null ? String(rec.fields["Conversion ID"]).trim() : "";
+      out.push({ id: rec.id, key: `${ck}|${kk}|${convId}`, created: rec.createdTime });
     }
     offset = j.offset;
     await sleep(210);
